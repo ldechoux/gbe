@@ -1,0 +1,244 @@
+package ui
+
+import (
+	"fmt"
+	"image/color"
+	"math"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"golang.org/x/image/font/basicfont"
+
+	"gbe/internal/gb"
+)
+
+// The bundled bitmap font is ASCII only, hence the unaccented French.
+
+type menuPage int
+
+const (
+	pageMain menuPage = iota
+	pageControls
+)
+
+// Main page entries.
+const (
+	itemResume = iota
+	itemPalette
+	itemControls
+	itemVolume
+	itemScale
+	itemReset
+	itemQuit
+	mainItems
+)
+
+var buttonLabels = map[gb.Button]string{
+	gb.ButtonUp: "Haut", gb.ButtonDown: "Bas", gb.ButtonLeft: "Gauche", gb.ButtonRight: "Droite",
+	gb.ButtonA: "A", gb.ButtonB: "B", gb.ButtonStart: "Start", gb.ButtonSelect: "Select",
+}
+
+var (
+	menuFace = text.NewGoXFace(basicfont.Face7x13)
+	pixel    *ebiten.Image // 1x1 white, created on first use
+)
+
+type menu struct {
+	open      bool
+	page      menuPage
+	cursor    int
+	capturing bool // waiting for a key to bind to the selected button
+}
+
+func (m *menu) show() {
+	*m = menu{open: true}
+}
+
+func (m *menu) itemCount() int {
+	if m.page == pageControls {
+		return len(gb.Buttons) + 2 // buttons, defaults, back
+	}
+	return mainItems
+}
+
+func pressed(k ebiten.Key) bool { return inpututil.IsKeyJustPressed(k) }
+
+// repeated is true on press and then periodically while the key is held.
+func repeated(k ebiten.Key) bool {
+	d := inpututil.KeyPressDuration(k)
+	return d == 1 || (d > 20 && d%5 == 0)
+}
+
+func (m *menu) update(g *Game) {
+	if m.capturing {
+		keys := inpututil.AppendJustPressedKeys(nil)
+		if len(keys) == 0 {
+			return
+		}
+		if keys[0] != ebiten.KeyEscape {
+			g.cfg.Bind(gb.Buttons[m.cursor], keys[0])
+			g.saveConfig()
+		}
+		m.capturing = false
+		return
+	}
+
+	switch {
+	case pressed(ebiten.KeyEscape):
+		if m.page == pageControls {
+			m.page, m.cursor = pageMain, itemControls
+		} else {
+			m.open = false
+		}
+		return
+	case repeated(ebiten.KeyArrowUp):
+		m.cursor = (m.cursor + m.itemCount() - 1) % m.itemCount()
+	case repeated(ebiten.KeyArrowDown):
+		m.cursor = (m.cursor + 1) % m.itemCount()
+	case repeated(ebiten.KeyArrowLeft):
+		m.adjust(g, -1)
+	case repeated(ebiten.KeyArrowRight):
+		m.adjust(g, 1)
+	case pressed(ebiten.KeyEnter) || pressed(ebiten.KeyNumpadEnter) || pressed(ebiten.KeySpace):
+		m.activate(g)
+	}
+}
+
+func (m *menu) adjust(g *Game, delta int) {
+	if m.page != pageMain {
+		return
+	}
+	switch m.cursor {
+	case itemPalette:
+		g.cyclePalette(delta)
+	case itemVolume:
+		v := math.Round(g.cfg.Volume*10) + float64(delta)
+		g.cfg.Volume = max(0, min(10, v)) / 10
+		g.player.SetVolume(g.cfg.Volume)
+		g.saveConfig()
+	case itemScale:
+		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
+		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
+		g.saveConfig()
+	}
+}
+
+func (m *menu) activate(g *Game) {
+	if m.page == pageControls {
+		switch n := len(gb.Buttons); {
+		case m.cursor < n:
+			m.capturing = true
+		case m.cursor == n:
+			g.cfg.Keys = defaultKeys()
+			g.saveConfig()
+		default:
+			m.page, m.cursor = pageMain, itemControls
+		}
+		return
+	}
+	switch m.cursor {
+	case itemResume:
+		m.open = false
+	case itemPalette, itemVolume, itemScale:
+		m.adjust(g, 1)
+	case itemControls:
+		m.page, m.cursor = pageControls, 0
+	case itemReset:
+		g.saveBattery()
+		g.gb.Reset()
+		m.open = false
+	case itemQuit:
+		g.quit = true
+		m.open = false
+	}
+}
+
+func (m *menu) lines(g *Game) (title string, items []string, footer string) {
+	if m.page == pageControls {
+		for i, b := range gb.Buttons {
+			key := g.cfg.Key(b).String()
+			if m.capturing && i == m.cursor {
+				key = "appuyez sur une touche..."
+			}
+			items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], key))
+		}
+		items = append(items, "Retablir par defaut", "Retour")
+		footer = "Entree: changer   Echap: retour"
+		if m.capturing {
+			footer = "Echap: annuler"
+		}
+		return "CONTROLES", items, footer
+	}
+	items = []string{
+		"Reprendre",
+		fmt.Sprintf("Palette   < %s >", g.palette().Name),
+		"Controles...",
+		fmt.Sprintf("Volume    < %d%% >", int(math.Round(g.cfg.Volume*100))),
+		fmt.Sprintf("Echelle   < x%d >", g.cfg.Scale),
+		"Reinitialiser",
+		"Quitter",
+	}
+	return "PAUSE", items, "P: palette   F11: plein ecran"
+}
+
+func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {
+	if pixel == nil {
+		pixel = ebiten.NewImage(1, 1)
+		pixel.Fill(color.White)
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(w, h)
+	op.GeoM.Translate(x, y)
+	op.ColorScale.ScaleWithColor(c)
+	dst.DrawImage(pixel, op)
+}
+
+func drawText(dst *ebiten.Image, s string, x, y, scale float64, c color.Color) {
+	op := &text.DrawOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(x, y)
+	op.ColorScale.ScaleWithColor(c)
+	text.Draw(dst, s, menuFace, op)
+}
+
+// draw renders the menu with the colors of the current palette.
+func (m *menu) draw(dst *ebiten.Image, g *Game) {
+	pal := g.palette().Colors
+	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
+	scale := math.Max(1, math.Floor(sh/300))
+
+	title, items, footer := m.lines(g)
+	lineH := 16 * scale
+	pad := 10 * scale
+	width := text.Advance(footer, menuFace)
+	for _, s := range append([]string{title}, items...) {
+		width = math.Max(width, text.Advance("  "+s, menuFace))
+	}
+	w := width*scale + 2*pad
+	h := float64(len(items)+3)*lineH + 2*pad
+	x, y := math.Round((sw-w)/2), math.Round((sh-h)/2)
+
+	shadow := pal[3]
+	shadow.A = 0xB0
+	fillRect(dst, 0, 0, sw, sh, color.NRGBA{shadow.R, shadow.G, shadow.B, shadow.A})
+	fillRect(dst, x-scale*2, y-scale*2, w+scale*4, h+scale*4, pal[3])
+	fillRect(dst, x, y, w, h, pal[0])
+
+	ty := y + pad
+	drawText(dst, title, x+pad, ty, scale, pal[3])
+	ty += lineH * 1.5
+	for i, s := range items {
+		fg := pal[3]
+		if i == m.cursor {
+			fillRect(dst, x+pad/2, ty-2*scale, w-pad, lineH, pal[2])
+			fg = pal[0]
+			s = "> " + s
+		} else {
+			s = "  " + s
+		}
+		drawText(dst, s, x+pad, ty, scale, fg)
+		ty += lineH
+	}
+	drawText(dst, footer, x+pad, ty+lineH*0.5, scale, pal[2])
+}

@@ -1,0 +1,7 @@
+/bin/
+/testroms/
+*.sav
+.DS_Store
+# Copyrighted boot ROMs and games: keep them local.
+/bios/
+/roms/

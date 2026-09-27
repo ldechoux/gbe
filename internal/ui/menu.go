@@ -20,6 +20,14 @@ type menuPage int
 const (
 	pageMain menuPage = iota
 	pageControls
+	pageStart // shown at launch when a save state exists
+)
+
+// Start page entries.
+const (
+	startResume = iota
+	startFresh
+	startItems
 )
 
 // Main page entries.
@@ -29,6 +37,8 @@ const (
 	itemControls
 	itemVolume
 	itemScale
+	itemSaveState
+	itemLoadState
 	itemReset
 	itemQuit
 	mainItems
@@ -61,9 +71,17 @@ func (m *menu) show() {
 	*m = menu{open: true}
 }
 
+// showStart opens the resume-or-restart prompt.
+func (m *menu) showStart() {
+	*m = menu{open: true, page: pageStart}
+}
+
 func (m *menu) itemCount() int {
-	if m.page == pageControls {
+	switch m.page {
+	case pageControls:
 		return controlsBack() + 1
+	case pageStart:
+		return startItems
 	}
 	return mainItems
 }
@@ -84,6 +102,9 @@ func (m *menu) update(g *Game) {
 
 	switch {
 	case pressed(ebiten.KeyEscape):
+		if m.page == pageStart {
+			return // a choice is required
+		}
 		if m.page == pageControls {
 			m.page, m.cursor = pageMain, itemControls
 		} else {
@@ -159,6 +180,14 @@ func (m *menu) adjust(g *Game, delta int) {
 }
 
 func (m *menu) activate(g *Game) {
+	if m.page == pageStart {
+		m.open = false
+		if m.cursor == startResume {
+			g.loadState()
+		}
+		g.started = true
+		return
+	}
 	if m.page == pageControls {
 		switch {
 		case m.cursor <= controlsScreenshot():
@@ -179,6 +208,12 @@ func (m *menu) activate(g *Game) {
 		m.adjust(g, 1)
 	case itemControls:
 		m.page, m.cursor = pageControls, 0
+	case itemSaveState:
+		g.saveState()
+		m.open = false
+	case itemLoadState:
+		g.loadState()
+		m.open = false
 	case itemReset:
 		g.saveBattery()
 		g.gb.Reset()
@@ -212,12 +247,21 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return "CONTROLES", items, footer
 	}
+	if m.page == pageStart {
+		footer = "Entree: valider"
+		if !g.stateTime.IsZero() {
+			footer = "Sauvegarde du " + g.stateTime.Format("02/01/2006 a 15:04")
+		}
+		return "PARTIE EN COURS", []string{"Reprendre la partie", "Recommencer depuis le debut"}, footer
+	}
 	items = []string{
 		"Reprendre",
 		fmt.Sprintf("Palette   < %s >", g.palette().Name),
 		"Controles...",
 		fmt.Sprintf("Volume    < %d%% >", int(math.Round(g.cfg.Volume*100))),
 		fmt.Sprintf("Echelle   < x%d >", g.cfg.Scale),
+		"Sauvegarder l'etat",
+		"Charger l'etat",
 		"Reinitialiser",
 		"Quitter",
 	}

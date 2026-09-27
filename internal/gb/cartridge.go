@@ -14,6 +14,7 @@ type mbc interface {
 	writeROM(addr uint16, v byte)
 	readRAM(addr uint16) byte
 	writeRAM(addr uint16, v byte)
+	sync(c *codec) // save state
 }
 
 // Cartridge holds the ROM, the external RAM and the memory bank controller.

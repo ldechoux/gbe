@@ -44,6 +44,16 @@ puis appuyer sur la combinaison voulue (modificateurs compris). Les captures son
 enregistrées à la taille de la fenêtre (échelle choisie), avec la palette courante, sous la
 forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatement.
 
+## Save states
+
+- **À la fermeture** : quand on quitte (menu « Quitter » ou fermeture de la fenêtre), l'état
+  complet de la console est enregistré dans `<rom>.state`, à côté de la ROM.
+- **Au lancement suivant** : l'émulateur propose de reprendre la partie ou de recommencer
+  depuis le début.
+- **Pendant le jeu** : le menu permet aussi de sauvegarder ou de recharger l'état à tout
+  moment.
+- **Sécurité** : un état fait avec une autre ROM (ou une autre version) est refusé.
+
 ## Compatibilité
 
 - Cartouches : ROM seule, MBC1, MBC2, MBC3 (avec RTC), MBC5.

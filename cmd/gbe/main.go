@@ -78,6 +78,7 @@ func main() {
 		GameBoy:    console,
 		Title:      cart.Title,
 		SavePath:   savePath,
+		StatePath:  strings.TrimSuffix(*romPath, ".gb") + ".state",
 		ConfigPath: *cfgPath,
 		Scale:      *scale,
 

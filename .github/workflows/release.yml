@@ -1,0 +1,78 @@
+name: Release binaries
+
+# Builds gbe for macOS, Linux and Windows (amd64 + arm64) and attaches the
+# archives to the GitHub release that triggered the run.
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # manual run: binaries are kept as workflow artifacts only
+
+permissions:
+  contents: write # needed to upload release assets
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      # ROM-based tests are skipped: ROMs are not in the repository.
+      - run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: darwin, goarch: amd64, os: macos }
+          - { goos: darwin, goarch: arm64, os: macos }
+          - { goos: linux, goarch: amd64, os: linux }
+          - { goos: linux, goarch: arm64, os: linux }
+          - { goos: windows, goarch: amd64, os: windows }
+          - { goos: windows, goarch: arm64, os: windows }
+    env:
+      # Pure Go on every platform: Ebitengine loads the system libraries
+      # (Cocoa, X11/GL, ALSA, Win32) at runtime through purego.
+      CGO_ENABLED: "0"
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      VERSION: ${{ github.event.release.tag_name || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          ext=""
+          if [ "$GOOS" = windows ]; then ext=".exe"; fi
+          name="gbe-${VERSION}-${{ matrix.os }}-${GOARCH}"
+          mkdir -p "dist/$name"
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "dist/$name/gbe$ext" ./cmd/gbe
+          cp README.md "dist/$name/"
+          cd dist
+          if [ "$GOOS" = windows ]; then
+            zip -qr "$name.zip" "$name"
+            echo "ASSET=dist/$name.zip" >> "$GITHUB_ENV"
+          else
+            tar -czf "$name.tar.gz" "$name"
+            echo "ASSET=dist/$name.tar.gz" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gbe-${{ matrix.os }}-${{ matrix.goarch }}
+          path: ${{ env.ASSET }}
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"

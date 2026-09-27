@@ -2,8 +2,11 @@ package ui
 
 import (
 	"encoding/binary"
+	"image/png"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -63,5 +66,78 @@ func TestEmulatedRateTracksFill(t *testing.T) {
 	low, high := emulatedRate(0), emulatedRate(maxFill)
 	if !(low > emulatedRate(targetFill) && emulatedRate(targetFill) > high) {
 		t.Fatalf("rate should decrease as the buffer fills: %v %v", low, high)
+	}
+}
+
+func TestScreenshotHotkeyPersistence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := DefaultConfig()
+	cfg.Screenshot = Hotkey{Key: ebiten.KeyS, Control: true, Shift: true}
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Screenshot != cfg.Screenshot {
+		t.Fatalf("loaded %+v, want %+v", got.Screenshot, cfg.Screenshot)
+	}
+	if s := got.Screenshot.String(); s != "Ctrl+Shift+S" {
+		t.Fatalf("String() = %q", s)
+	}
+
+	// A config written before the feature existed gets the default hotkey.
+	if err := os.WriteFile(path, []byte(`{"palette":"dmg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = LoadConfig(path)
+	if got.Screenshot != defaultScreenshotHotkey() {
+		t.Fatalf("missing hotkey loaded as %+v", got.Screenshot)
+	}
+}
+
+func TestScreenshotConflicts(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.conflicts(ebiten.KeyF2) {
+		t.Fatal("a hotkey with a modifier never conflicts with a button")
+	}
+	cfg.Screenshot = Hotkey{Key: ebiten.KeyF2}
+	if !cfg.conflicts(ebiten.KeyF2) {
+		t.Fatal("a bare F2 hotkey conflicts with a button on F2")
+	}
+}
+
+func TestSaveScreenshot(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shots")
+	var fb [gb.ScreenWidth * gb.ScreenHeight]byte
+	fb[0] = 3
+	img := ScreenshotImage(&fb, &Palettes[0], 2)
+	if b := img.Bounds(); b.Dx() != 320 || b.Dy() != 288 {
+		t.Fatalf("image size %v", b)
+	}
+	if img.RGBAAt(1, 1) != Palettes[0].Colors[3] || img.RGBAAt(2, 0) != Palettes[0].Colors[0] {
+		t.Fatal("pixels not scaled with the palette")
+	}
+	now := time.Date(2026, 9, 27, 14, 3, 5, 0, time.Local)
+	p1, err := saveScreenshot(dir, "SUPER MARIOLAND", img, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := saveScreenshot(dir, "SUPER MARIOLAND", img, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(p1) != "super-marioland-20260927-140305.png" ||
+		filepath.Base(p2) != "super-marioland-20260927-140305-2.png" {
+		t.Fatalf("names %s, %s", p1, p2)
+	}
+	f, err := os.Open(p1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, err := png.Decode(f); err != nil {
+		t.Fatal(err)
 	}
 }

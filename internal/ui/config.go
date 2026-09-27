@@ -18,6 +18,8 @@ type Config struct {
 	Scale   int                   `json:"scale"`
 	Volume  float64               `json:"volume"`
 	Keys    map[string]ebiten.Key `json:"keys"` // Game Boy button name -> key
+	// Screenshot is the key combination that saves a PNG of the screen.
+	Screenshot Hotkey `json:"screenshot"`
 }
 
 func defaultKeys() map[string]ebiten.Key {
@@ -35,7 +37,13 @@ func defaultKeys() map[string]ebiten.Key {
 
 // DefaultConfig returns the out-of-the-box settings.
 func DefaultConfig() *Config {
-	return &Config{Palette: Palettes[0].ID, Scale: 4, Volume: 0.8, Keys: defaultKeys()}
+	return &Config{
+		Palette:    Palettes[0].ID,
+		Scale:      4,
+		Volume:     0.8,
+		Keys:       defaultKeys(),
+		Screenshot: defaultScreenshotHotkey(),
+	}
 }
 
 // DefaultConfigPath is <user config dir>/gbe/config.json.
@@ -58,9 +66,15 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	var loaded Config
+	var loaded struct {
+		Config
+		Screenshot *Hotkey `json:"screenshot"` // nil when absent
+	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
+	}
+	if loaded.Screenshot != nil && loaded.Screenshot.valid() {
+		cfg.Screenshot = *loaded.Screenshot
 	}
 	if loaded.Palette != "" {
 		cfg.Palette = Palettes[paletteIndex(loaded.Palette)].ID
@@ -104,6 +118,12 @@ func (c *Config) Bind(b gb.Button, key ebiten.Key) {
 		}
 	}
 	c.Keys[b.String()] = key
+}
+
+// conflicts reports whether a game button bound to key would also fire the
+// screenshot hotkey (only possible when the hotkey has no modifier).
+func (c *Config) conflicts(key ebiten.Key) bool {
+	return !c.Screenshot.hasModifiers() && c.Screenshot.Key == key
 }
 
 // bound reports whether key is assigned to a button.

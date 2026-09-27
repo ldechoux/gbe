@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"image"
 	"image/png"
 	"io/fs"
 	"log"
@@ -23,6 +22,7 @@ func main() {
 	biosPath := flag.String("bios", "bios/gb_bios.bin", `boot ROM to run first ("none" to skip it; ignored if missing)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
+	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
 	frames := flag.Int("frames", 0, "headless mode: run this many frames without a window, then exit")
 	shot := flag.String("screenshot", "", "headless mode: write the last frame to this PNG file")
 	inputs := flag.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
@@ -80,6 +80,8 @@ func main() {
 		SavePath:   savePath,
 		ConfigPath: *cfgPath,
 		Scale:      *scale,
+
+		ScreenshotDir: *shotDir,
 	}); err != nil {
 		log.Fatal(err)
 	}
@@ -147,11 +149,7 @@ func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string) erro
 	if shot == "" {
 		return nil
 	}
-	pal := ui.Palettes[0]
-	img := image.NewRGBA(image.Rect(0, 0, gb.ScreenWidth, gb.ScreenHeight))
-	for i, s := range console.Framebuffer() {
-		img.Set(i%gb.ScreenWidth, i/gb.ScreenWidth, pal.Colors[s])
-	}
+	img := ui.ScreenshotImage(console.Framebuffer(), &ui.Palettes[0], 1)
 	f, err := os.Create(shot)
 	if err != nil {
 		return err

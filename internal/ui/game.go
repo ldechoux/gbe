@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,6 +28,8 @@ type Options struct {
 	SavePath   string // battery save file
 	ConfigPath string // "" for DefaultConfigPath()
 	Scale      int    // 0 to use the configured scale
+	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
+	ScreenshotDir string
 }
 
 // Game implements ebiten.Game.
@@ -35,6 +38,8 @@ type Game struct {
 	cfg      *Config
 	cfgPath  string
 	savePath string
+	title    string
+	shotDir  string
 
 	lcd  *ebiten.Image
 	pix  []byte
@@ -46,6 +51,9 @@ type Game struct {
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	frame       int
 	quit        bool
+
+	toast      string // short on-screen notification
+	toastUntil int64  // tick at which the toast disappears
 }
 
 // Run opens the window and runs the emulator until it is closed.
@@ -62,11 +70,16 @@ func Run(opts Options) error {
 		cfg.Scale = min(opts.Scale, maxScale)
 	}
 
+	if opts.ScreenshotDir == "" {
+		opts.ScreenshotDir = DefaultScreenshotDir()
+	}
 	g := &Game{
 		gb:          opts.GameBoy,
 		cfg:         cfg,
 		cfgPath:     cfgPath,
 		savePath:    opts.SavePath,
+		title:       opts.Title,
+		shotDir:     opts.ScreenshotDir,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		pix:         make([]byte, gb.ScreenWidth*gb.ScreenHeight*4),
 		stream:      &audioStream{},
@@ -119,9 +132,30 @@ func (g *Game) cyclePalette(delta int) {
 	g.saveConfig()
 }
 
+// screenshot saves the current frame, scaled like the window, as a PNG.
+func (g *Game) screenshot() {
+	img := ScreenshotImage(g.gb.Framebuffer(), g.palette(), g.cfg.Scale)
+	path, err := saveScreenshot(g.shotDir, g.title, img, time.Now())
+	if err != nil {
+		log.Printf("screenshot: %v", err)
+		g.notify("Capture impossible: " + err.Error())
+		return
+	}
+	log.Printf("screenshot saved to %s", path)
+	g.notify("Capture: " + filepath.Base(path))
+}
+
+func (g *Game) notify(msg string) {
+	g.toast = msg
+	g.toastUntil = ebiten.Tick() + 2*60
+}
+
 func (g *Game) Update() error {
 	if g.quit {
 		return ebiten.Termination
+	}
+	if g.cfg.Screenshot.justPressed() {
+		g.screenshot()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
@@ -186,6 +220,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.menu.open {
 		g.menu.draw(screen, g)
+	}
+	if g.toast != "" && ebiten.Tick() < g.toastUntil {
+		drawToast(screen, g.toast, g.palette())
 	}
 }
 

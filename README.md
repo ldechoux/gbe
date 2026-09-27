@@ -19,6 +19,7 @@ Options utiles :
 |---|---|
 | `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ignorée si absente ; `none` pour démarrer directement le jeu) |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
+| `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
 
 ## Commandes
@@ -30,12 +31,18 @@ Options utiles :
 | Entrée / Maj droite | Start / Select |
 | Échap | Menu (pause) |
 | P | Palette suivante (si P n'est pas assigné à un bouton) |
+| Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
 | F11 | Plein écran |
 
 Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct), de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
 de conflit, les deux touches sont échangées), de régler le volume et l'échelle, de
-réinitialiser la console ou de quitter. Chaque réglage est enregistré immédiatement.
+réinitialiser la console ou de quitter.
+
+Le raccourci de capture se change dans la même page Contrôles : sélectionner « Capture »,
+puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
+enregistrées à la taille de la fenêtre (échelle choisie), avec la palette courante, sous la
+forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatement.
 
 ## Compatibilité
 

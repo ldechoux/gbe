@@ -48,8 +48,14 @@ type menu struct {
 	open      bool
 	page      menuPage
 	cursor    int
-	capturing bool // waiting for a key to bind to the selected button
+	capturing bool   // waiting for a key to bind to the selected entry
+	notice    string // why the last captured key was refused
 }
+
+// Controls page layout: one entry per button, then these.
+func controlsScreenshot() int { return len(gb.Buttons) }
+func controlsDefaults() int   { return len(gb.Buttons) + 1 }
+func controlsBack() int       { return len(gb.Buttons) + 2 }
 
 func (m *menu) show() {
 	*m = menu{open: true}
@@ -57,7 +63,7 @@ func (m *menu) show() {
 
 func (m *menu) itemCount() int {
 	if m.page == pageControls {
-		return len(gb.Buttons) + 2 // buttons, defaults, back
+		return controlsBack() + 1
 	}
 	return mainItems
 }
@@ -72,15 +78,7 @@ func repeated(k ebiten.Key) bool {
 
 func (m *menu) update(g *Game) {
 	if m.capturing {
-		keys := inpututil.AppendJustPressedKeys(nil)
-		if len(keys) == 0 {
-			return
-		}
-		if keys[0] != ebiten.KeyEscape {
-			g.cfg.Bind(gb.Buttons[m.cursor], keys[0])
-			g.saveConfig()
-		}
-		m.capturing = false
+		m.capture(g)
 		return
 	}
 
@@ -105,6 +103,42 @@ func (m *menu) update(g *Game) {
 	}
 }
 
+// capture waits for the key to assign to the selected controls entry.
+func (m *menu) capture(g *Game) {
+	var key ebiten.Key
+	found := false
+	for _, k := range inpututil.AppendJustPressedKeys(nil) {
+		if !isModifier(k) { // modifiers only count as part of a combination
+			key, found = k, true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+	combo := currentHotkey(key)
+	switch {
+	case key == ebiten.KeyEscape && !combo.hasModifiers():
+		m.capturing, m.notice = false, ""
+	case m.cursor == controlsScreenshot():
+		if !combo.hasModifiers() && g.cfg.bound(key) {
+			m.notice = key.String() + " sert deja a un bouton"
+			return
+		}
+		g.cfg.Screenshot = combo
+		g.saveConfig()
+		m.capturing, m.notice = false, ""
+	default:
+		if g.cfg.conflicts(key) {
+			m.notice = key.String() + " sert deja a la capture"
+			return
+		}
+		g.cfg.Bind(gb.Buttons[m.cursor], key)
+		g.saveConfig()
+		m.capturing, m.notice = false, ""
+	}
+}
+
 func (m *menu) adjust(g *Game, delta int) {
 	if m.page != pageMain {
 		return
@@ -126,11 +160,12 @@ func (m *menu) adjust(g *Game, delta int) {
 
 func (m *menu) activate(g *Game) {
 	if m.page == pageControls {
-		switch n := len(gb.Buttons); {
-		case m.cursor < n:
+		switch {
+		case m.cursor <= controlsScreenshot():
 			m.capturing = true
-		case m.cursor == n:
+		case m.cursor == controlsDefaults():
 			g.cfg.Keys = defaultKeys()
+			g.cfg.Screenshot = defaultScreenshotHotkey()
 			g.saveConfig()
 		default:
 			m.page, m.cursor = pageMain, itemControls
@@ -163,9 +198,16 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 			}
 			items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], key))
 		}
-		items = append(items, "Retablir par defaut", "Retour")
+		shot := g.cfg.Screenshot.String()
+		if m.capturing && m.cursor == controlsScreenshot() {
+			shot = "appuyez sur la combinaison..."
+		}
+		items = append(items, fmt.Sprintf("%-8s %s", "Capture", shot), "Retablir par defaut", "Retour")
 		footer = "Entree: changer   Echap: retour"
-		if m.capturing {
+		switch {
+		case m.notice != "":
+			footer = m.notice
+		case m.capturing:
 			footer = "Echap: annuler"
 		}
 		return "CONTROLES", items, footer
@@ -180,6 +222,18 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		"Quitter",
 	}
 	return "PAUSE", items, "P: palette   F11: plein ecran"
+}
+
+// drawToast shows msg in a small box at the bottom-left of the screen.
+func drawToast(dst *ebiten.Image, msg string, p *Palette) {
+	sh := float64(dst.Bounds().Dy())
+	scale := math.Max(1, math.Floor(sh/300))
+	pad := 4 * scale
+	w := text.Advance(msg, menuFace)*scale + 2*pad
+	h := 13*scale + 2*pad
+	x, y := pad, sh-h-pad
+	fillRect(dst, x, y, w, h, p.Colors[3])
+	drawText(dst, msg, x+pad, y+pad, scale, p.Colors[0])
 }
 
 func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {

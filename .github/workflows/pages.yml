@@ -1,0 +1,64 @@
+name: GitHub Pages
+
+# Rebuilds the project site (site/ + tools/sitegen) with the current release
+# notes and download links, then deploys it to GitHub Pages.
+on:
+  # After each release, once "Release binaries" has attached the archives.
+  workflow_run:
+    workflows: [Release binaries]
+    types: [completed]
+  # Release notes edited or a release removed.
+  release:
+    types: [edited, deleted]
+  # Changes to the site itself.
+  push:
+    branches: [main]
+    paths: [site/**, tools/sitegen/**, screenshots/**, internal/ui/palettes.go, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Skip when the release build failed: its binaries would be missing.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Fetch releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The HTML media type makes the API return each body rendered as HTML.
+        run: |
+          gh api --paginate --slurp -H "Accept: application/vnd.github.html+json" \
+            "repos/$GITHUB_REPOSITORY/releases" | jq 'add // []' > releases.json
+
+      - name: Generate site
+        run: go run ./tools/sitegen -repo "$GITHUB_REPOSITORY" -releases releases.json -out _site
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

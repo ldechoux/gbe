@@ -3,6 +3,24 @@
 Émulateur Game Boy (DMG) écrit en Go, sans cgo. Fenêtre, clavier et son reposent sur
 [Ebitengine](https://ebitengine.org), qui passe par purego sur macOS et Windows.
 
+Site du projet : https://ldechoux.github.io/gbe/
+
+## Site du projet
+
+Le site est généré par `tools/sitegen`, à partir de `site/`, des captures de `screenshots/` et des
+releases GitHub. Le workflow [`pages.yml`](.github/workflows/pages.yml) le redéploie :
+
+- après chaque release, une fois les binaires attachés ;
+- quand une note de version est modifiée ou une release supprimée ;
+- à chaque modification du site sur `main`.
+
+Aperçu en local :
+
+```sh
+gh api -H "Accept: application/vnd.github.html+json" repos/ldechoux/gbe/releases > /tmp/releases.json
+go run ./tools/sitegen -releases /tmp/releases.json -out /tmp/site && open /tmp/site/index.html
+```
+
 ## Téléchargement
 
 À chaque release GitHub publiée, le workflow [`release.yml`](.github/workflows/release.yml)

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gbe — émulateur Game Boy en Go</title>
+<meta name="description" content="gbe, un émulateur Game Boy (DMG) écrit en Go pur pour macOS, Linux et Windows : palettes, touches configurables, save states, captures d'écran.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top">gbe</a>
+    <nav>
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#captures">Captures</a>
+      <a href="#telecharger">Télécharger</a>
+      <a href="#notes">Notes de version</a>
+      <a href="https://github.com/{{.Repo}}">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero wrap">
+  <div class="hero-text">
+    <p class="kicker">Émulateur Game Boy</p>
+    <h1>gbe</h1>
+    <p class="lead">Un émulateur Game Boy (DMG) écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM pour jouer, sous macOS, Linux ou Windows.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
+      <a class="btn" href="https://github.com/{{.Repo}}">Code source</a>
+    </div>
+  </div>
+  <figure class="console" aria-label="Écran titre affiché par gbe">
+    <div class="bezel">
+      <span class="led" aria-hidden="true"></span>
+      <img class="screen pixelated" src="img/super-marioland-20260927-113008.png" width="640" height="576" alt="Écran titre de Super Mario Land avec la palette Ambre">
+    </div>
+    <figcaption>DOT MATRIX · 160×144 · 4 TEINTES</figcaption>
+  </figure>
+</section>
+
+<section id="fonctionnalites" class="wrap">
+  <h2>Fonctionnalités</h2>
+  <div class="grid features">
+    <article class="card">
+      <h3>Émulation fidèle</h3>
+      <p>Processeur SM83, écran, timer et manette. Les ROMs de test blargg (<code>cpu_instrs</code>, <code>instr_timing</code>, <code>mem_timing</code>) passent, et <code>dmg-acid2</code> est rendu au pixel près.</p>
+    </article>
+    <article class="card">
+      <h3>Son stéréo</h3>
+      <p>Les quatre canaux du Game Boy (deux carrés, onde, bruit), mixés en stéréo 48 kHz avec un filtre passe-haut comme sur la console.</p>
+    </article>
+    <article class="card">
+      <h3>Cartouches</h3>
+      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
+    </article>
+    <article class="card">
+      <h3>Save states</h3>
+      <p>La partie est enregistrée en quittant. Au lancement suivant, gbe propose de reprendre là où vous en étiez ou de recommencer.</p>
+    </article>
+    <article class="card">
+      <h3>Touches configurables</h3>
+      <p>Chaque bouton se redéfinit depuis le menu. En cas de conflit, les deux touches sont échangées. Tout est enregistré automatiquement.</p>
+    </article>
+    <article class="card">
+      <h3>Captures d'écran</h3>
+      <p>Cmd+F2 (Ctrl+F2 hors macOS) enregistre un PNG à la taille de la fenêtre. Le raccourci se change lui aussi dans le menu.</p>
+    </article>
+  </div>
+</section>
+
+<section id="palettes" class="wrap">
+  <h2>{{len .Palettes}} palettes</h2>
+  <p class="section-lead">Des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P).</p>
+  <ul class="palettes">
+    {{range .Palettes}}
+    <li>
+      <span class="swatches" aria-hidden="true">{{range .Colors}}<span style="background:{{hex .}}"></span>{{end}}</span>
+      <span class="palette-name">{{.Name}}</span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+
+<section id="captures" class="wrap">
+  <h2>Captures</h2>
+  <div class="grid shots">
+    <figure>
+      <img src="img/screenshot1.webp" width="1000" height="958" loading="lazy" alt="Niveau 1-1 de Super Mario Land dans la palette DMG verte">
+      <figcaption>En jeu, palette DMG verte</figcaption>
+    </figure>
+    <figure>
+      <img src="img/screenshot2.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe au-dessus de l'écran titre">
+      <figcaption>Menu de pause (Échap)</figcaption>
+    </figure>
+    <figure>
+      <img src="img/screenshot3.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe avec la palette Ambre">
+      <figcaption>Le menu suit la palette choisie</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="telecharger" class="wrap">
+  <h2>Télécharger</h2>
+  {{with .Latest}}
+  <p class="section-lead">Dernière version : <a href="{{.HTMLURL}}"><strong>{{.TagName}}</strong></a>, publiée le {{date .PublishedAt}}.</p>
+  {{end}}
+  {{if .Platforms}}
+  <div class="grid downloads">
+    {{range .Platforms}}
+    <article class="card download" data-os="{{.ID}}">
+      <h3>{{.Name}}</h3>
+      <ul>
+        {{range .Downloads}}
+        <li><a class="btn btn-block" href="{{.URL}}"><span>{{.ArchLabel}}</span><span class="size">{{.Size}}</span></a></li>
+        {{end}}
+      </ul>
+      <p class="note">{{.Note}}</p>
+    </article>
+    {{end}}
+  </div>
+  {{else}}
+  <p class="section-lead">Aucun binaire publié pour le moment. Voir les <a href="https://github.com/{{.Repo}}/releases">releases GitHub</a>.</p>
+  {{end}}
+
+  <h3 class="subhead">Démarrage rapide</h3>
+  <pre class="terminal"><code>./gbe mon-jeu.gb</code></pre>
+  <table class="keys">
+    <thead><tr><th>Touche</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>Flèches</td><td>Croix directionnelle</td></tr>
+      <tr><td>X / Z</td><td>A / B</td></tr>
+      <tr><td>Entrée / Maj droite</td><td>Start / Select</td></tr>
+      <tr><td>Échap</td><td>Menu : palette, contrôles, volume, save states</td></tr>
+      <tr><td>F11</td><td>Plein écran</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Aucune ROM ni boot ROM n'est fournie : utilisez vos propres copies.</p>
+</section>
+
+<section id="notes" class="wrap">
+  <h2>Notes de version</h2>
+  {{range .Releases}}
+  <article class="card release">
+    <header class="release-head">
+      <h3><a href="{{.HTMLURL}}">{{.TagName}}</a></h3>
+      <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time>
+      {{if .Prerelease}}<span class="tag">pré-version</span>{{end}}
+    </header>
+    {{if and .Name (ne .Name .TagName)}}<p class="release-title">{{.Name}}</p>{{end}}
+    <div class="release-body">{{trusted .BodyHTML}}</div>
+  </article>
+  {{else}}
+  <p class="section-lead">Pas encore de version publiée.</p>
+  {{end}}
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>gbe · <a href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · page mise à jour le {{.Built}}</p>
+    <p class="note">Game Boy est une marque de Nintendo. gbe est un projet indépendant, sans lien avec Nintendo.</p>
+  </div>
+</footer>
+
+<script>
+  // Highlight the visitor's platform in the download section.
+  (function () {
+    var ua = navigator.userAgent;
+    var os = /Mac/.test(ua) ? "macos" : /Win/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "";
+    var card = os && document.querySelector('.download[data-os="' + os + '"]');
+    if (card) card.classList.add("current");
+  })();
+</script>
+</body>
+</html>

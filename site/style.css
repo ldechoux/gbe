@@ -1,0 +1,200 @@
+/* gbe site: sober pixel-art look based on the DMG console and screen. */
+
+:root {
+  --bg: #e6e4dc;        /* console shell */
+  --surface: #f4f3ee;
+  --ink: #1f2a1f;
+  --muted: #5a6356;
+  --line: #1f2a1f;
+  --shadow: #b9b6a8;
+  --accent: #306230;    /* DMG screen shades */
+  --accent-ink: #e6f0c8;
+  --screen-0: #9bbc0f;
+  --screen-3: #0f380f;
+  --bezel: #5b5d6b;
+  --led: #c8102e;
+  --pixel: "Press Start 2P", monospace;
+  --text: "IBM Plex Mono", ui-monospace, monospace;
+  --px: 4px;            /* border / shadow step */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141814;
+    --surface: #1c221c;
+    --ink: #dfe8d2;
+    --muted: #97a38e;
+    --line: #dfe8d2;
+    --shadow: #0a0d0a;
+    --accent: #8bac0f;
+    --accent-ink: #0f380f;
+    --bezel: #3d3f4a;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+
+code { font-family: var(--text); font-size: 0.92em; }
+
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; }
+
+section { padding-block: 64px 8px; }
+
+h1, h2, h3 { font-family: var(--pixel); font-weight: 400; line-height: 1.4; margin: 0; }
+h2 { font-size: 18px; margin-bottom: 24px; }
+h2::before { content: "▶ "; color: var(--accent); }
+h3 { font-size: 12px; margin-bottom: 12px; }
+
+.section-lead { color: var(--muted); margin: -8px 0 24px; }
+
+/* Top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg);
+  border-bottom: var(--px) solid var(--line);
+}
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; flex-wrap: wrap; }
+.brand { font-family: var(--pixel); font-size: 16px; color: var(--ink); text-decoration: none; }
+nav { display: flex; gap: 20px; flex-wrap: wrap; }
+nav a { color: var(--ink); text-decoration: none; font-size: 14px; }
+nav a:hover { color: var(--accent); }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; padding-top: 64px; }
+.kicker { font-family: var(--pixel); font-size: 10px; color: var(--muted); margin: 0 0 16px; letter-spacing: 1px; text-transform: uppercase; }
+.hero h1 { font-size: 56px; margin-bottom: 20px; }
+.lead { font-size: 17px; margin: 0 0 28px; max-width: 34em; }
+.actions { display: flex; gap: 16px; flex-wrap: wrap; }
+
+.console { margin: 0; }
+.bezel {
+  position: relative;
+  background: var(--bezel);
+  padding: 28px 40px 32px;
+  border-radius: 10px 10px 48px 10px; /* the DMG's rounded bottom-right corner */
+  box-shadow: var(--px) var(--px) 0 var(--shadow);
+}
+.led { position: absolute; left: 14px; top: 50%; width: 8px; height: 8px; background: var(--led); }
+.screen { display: block; width: 100%; height: auto; border: var(--px) solid var(--screen-3); background: var(--screen-0); }
+.pixelated { image-rendering: pixelated; }
+.console figcaption { font-family: var(--pixel); font-size: 8px; color: var(--muted); text-align: center; margin-top: 12px; letter-spacing: 1px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 18px;
+  font: 600 14px var(--text);
+  color: var(--ink); background: var(--surface);
+  border: var(--px) solid var(--line);
+  box-shadow: var(--px) var(--px) 0 var(--line);
+  text-decoration: none;
+  transition: transform 60ms steps(1), box-shadow 60ms steps(1);
+}
+.btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--line); }
+.btn:active { transform: translate(var(--px), var(--px)); box-shadow: none; }
+.btn:focus-visible, nav a:focus-visible { outline: var(--px) dashed var(--accent); outline-offset: 3px; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-block { display: flex; width: 100%; }
+.size { font-weight: 400; opacity: 0.75; }
+
+/* Cards */
+.grid { display: grid; gap: 24px; }
+.features { grid-template-columns: repeat(3, 1fr); }
+.card {
+  background: var(--surface);
+  border: var(--px) solid var(--line);
+  box-shadow: var(--px) var(--px) 0 var(--shadow);
+  padding: 20px;
+}
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* Palettes */
+.palettes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.palettes li { display: flex; flex-direction: column; gap: 8px; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); height: 40px; border: var(--px) solid var(--line); }
+.palette-name { font-size: 13px; color: var(--muted); }
+
+/* Screenshots */
+.shots { grid-template-columns: repeat(3, 1fr); }
+.shots figure { margin: 0; }
+/* The screenshots are macOS window captures with their own transparent
+   shadow margin, so they get no frame of their own. */
+.shots img { display: block; width: 100%; height: auto; }
+.shots figcaption { font-size: 13px; color: var(--muted); margin-top: -5%; text-align: center; } /* pull it into the shadow margin */
+
+/* Downloads */
+.downloads { grid-template-columns: repeat(3, 1fr); }
+.download ul { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
+.download.current { border-color: var(--accent); }
+.download.current h3::after { content: " · votre système"; color: var(--accent); font-size: 8px; }
+.note { font-size: 13px; color: var(--muted); }
+.subhead { margin-top: 40px; }
+.terminal {
+  background: var(--screen-3); color: var(--screen-0);
+  padding: 16px 20px; margin: 0 0 24px;
+  border: var(--px) solid var(--line);
+  overflow-x: auto;
+}
+.terminal code::before { content: "$ "; opacity: 0.6; }
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--shadow); }
+th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom: var(--px) solid var(--line); }
+.keys { max-width: 640px; margin-bottom: 12px; }
+
+/* Release notes (HTML rendered by GitHub) */
+.release { margin-bottom: 24px; }
+.release-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.release-head h3 { margin: 0; font-size: 14px; }
+.release-head h3 a { color: var(--ink); text-decoration: none; }
+.release-head time { color: var(--muted); font-size: 14px; }
+.tag { font-size: 12px; border: 2px solid var(--muted); padding: 0 6px; color: var(--muted); }
+.release-title { font-weight: 600; margin: 8px 0 0; }
+.release-body { font-size: 15px; }
+.release-body h1, .release-body h2, .release-body h3 { font-family: var(--text); font-weight: 600; font-size: 16px; margin: 24px 0 8px; }
+.release-body h2::before { content: none; }
+.release-body ul { padding-left: 22px; }
+.release-body li { margin: 4px 0; }
+.release-body p { color: var(--ink); margin: 12px 0; }
+.release-body pre { background: var(--bg); padding: 12px 16px; overflow-x: auto; border: 2px solid var(--shadow); }
+.release-body table { margin: 12px 0; }
+.release-body .markdown-heading { display: block; }
+.release-body .anchor { display: none; }
+
+/* Footer */
+.footer { margin-top: 72px; padding: 24px 0 40px; border-top: var(--px) solid var(--line); font-size: 14px; }
+.footer p { margin: 4px 0; }
+
+/* Responsive */
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 40px; }
+  .hero h1 { font-size: 40px; }
+  .features, .shots, .downloads { grid-template-columns: 1fr 1fr; }
+  .palettes { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .topbar { position: static; } /* the wrapped nav would eat the small screen */
+  html { scroll-padding-top: 0; }
+  nav { gap: 12px; }
+  nav a { font-size: 13px; }
+  .features, .shots, .downloads { grid-template-columns: 1fr; }
+  .palettes { grid-template-columns: repeat(2, 1fr); }
+  .bezel { padding: 20px 24px 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn { transition: none; }
+}

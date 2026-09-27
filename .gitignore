@@ -5,3 +5,5 @@
 # Copyrighted boot ROMs and games: keep them local.
 /bios/
 /roms/
+*.state
+*.state.tmp

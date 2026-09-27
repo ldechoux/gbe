@@ -2,7 +2,9 @@
 package ui
 
 import (
+	"errors"
 	"image/color"
+	"io/fs"
 	"log"
 	"math"
 	"os"
@@ -26,6 +28,7 @@ type Options struct {
 	GameBoy    *gb.GameBoy
 	Title      string
 	SavePath   string // battery save file
+	StatePath  string // save state, written on exit and offered on launch
 	ConfigPath string // "" for DefaultConfigPath()
 	Scale      int    // 0 to use the configured scale
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
@@ -34,12 +37,15 @@ type Options struct {
 
 // Game implements ebiten.Game.
 type Game struct {
-	gb       *gb.GameBoy
-	cfg      *Config
-	cfgPath  string
-	savePath string
-	title    string
-	shotDir  string
+	gb        *gb.GameBoy
+	cfg       *Config
+	cfgPath   string
+	savePath  string
+	statePath string
+	stateTime time.Time // modification time of the save state, if any
+	started   bool      // false while the resume prompt is shown
+	title     string
+	shotDir   string
 
 	lcd  *ebiten.Image
 	pix  []byte
@@ -78,6 +84,7 @@ func Run(opts Options) error {
 		cfg:         cfg,
 		cfgPath:     cfgPath,
 		savePath:    opts.SavePath,
+		statePath:   opts.StatePath,
 		title:       opts.Title,
 		shotDir:     opts.ScreenshotDir,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
@@ -95,6 +102,13 @@ func Run(opts Options) error {
 	g.player.SetVolume(cfg.Volume)
 	g.player.Play()
 
+	if fi, err := os.Stat(g.statePath); g.statePath != "" && err == nil {
+		g.stateTime = fi.ModTime()
+		g.menu.showStart()
+	} else {
+		g.started = true
+	}
+
 	title := "gbe"
 	if opts.Title != "" {
 		title += " - " + opts.Title
@@ -105,6 +119,9 @@ func Run(opts Options) error {
 	ebiten.SetTPS(60)
 
 	err = ebiten.RunGame(g)
+	if g.started {
+		g.saveState() // so the next launch can resume
+	}
 	g.saveBattery()
 	return err
 }
@@ -130,6 +147,42 @@ func (g *Game) cyclePalette(delta int) {
 	i := (paletteIndex(g.cfg.Palette) + delta + len(Palettes)) % len(Palettes)
 	g.cfg.Palette = Palettes[i].ID
 	g.saveConfig()
+}
+
+// saveState writes the save state atomically (temp file + rename).
+func (g *Game) saveState() {
+	if g.statePath == "" {
+		return
+	}
+	tmp := g.statePath + ".tmp"
+	err := os.WriteFile(tmp, g.gb.SaveState(), 0o644)
+	if err == nil {
+		err = os.Rename(tmp, g.statePath)
+	}
+	if err != nil {
+		log.Printf("saving state: %v", err)
+		g.notify("Sauvegarde impossible: " + err.Error())
+		return
+	}
+	g.stateTime = time.Now()
+	g.notify("Etat sauvegarde")
+}
+
+// loadState restores the save state; on failure the game keeps running.
+func (g *Game) loadState() {
+	data, err := os.ReadFile(g.statePath)
+	if err == nil {
+		err = g.gb.LoadState(data)
+	}
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		g.notify("Aucun etat sauvegarde")
+	case err != nil:
+		log.Printf("loading state: %v", err)
+		g.notify("Etat illisible: " + err.Error())
+	default:
+		g.notify("Partie restauree")
+	}
 }
 
 // screenshot saves the current frame, scaled like the window, as a PNG.

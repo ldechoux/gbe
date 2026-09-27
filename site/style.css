@@ -130,13 +130,10 @@ nav a:hover { color: var(--accent); }
 /* Screenshots */
 .shots { grid-template-columns: repeat(3, 1fr); }
 .shots figure { margin: 0; }
-.shots img {
-  display: block; width: 100%; height: auto;
-  border: var(--px) solid var(--line);
-  box-shadow: var(--px) var(--px) 0 var(--shadow);
-  background: var(--surface);
-}
-.shots figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+/* The screenshots are macOS window captures with their own transparent
+   shadow margin, so they get no frame of their own. */
+.shots img { display: block; width: 100%; height: auto; }
+.shots figcaption { font-size: 13px; color: var(--muted); margin-top: -5%; text-align: center; } /* pull it into the shadow margin */
 
 /* Downloads */
 .downloads { grid-template-columns: repeat(3, 1fr); }

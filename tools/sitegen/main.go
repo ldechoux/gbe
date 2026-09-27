@@ -153,7 +153,7 @@ func main() {
 	releasesPath := flag.String("releases", "", "JSON array from the GitHub releases API (empty: no releases)")
 	repo := flag.String("repo", "ldechoux/gbe", "owner/name of the GitHub repository")
 	siteDir := flag.String("site", "site", "directory with index.html.tmpl and static files")
-	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots")
+	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP)")
 	outDir := flag.String("out", "_site", "output directory")
 	flag.Parse()
 
@@ -206,7 +206,11 @@ func main() {
 			copies[filepath.Join(*outDir, e.Name())] = filepath.Join(*siteDir, e.Name())
 		}
 	}
-	shots, _ := filepath.Glob(filepath.Join(*shotsDir, "*.png"))
+	var shots []string
+	for _, pattern := range []string{"*.png", "*.webp"} {
+		m, _ := filepath.Glob(filepath.Join(*shotsDir, pattern))
+		shots = append(shots, m...)
+	}
 	for _, s := range shots {
 		copies[filepath.Join(*outDir, "img", filepath.Base(s))] = s
 	}

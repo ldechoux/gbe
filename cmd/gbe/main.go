@@ -17,6 +17,9 @@ import (
 	"gbe/internal/ui"
 )
 
+// version is set at build time by the release workflow (-ldflags -X).
+var version = "dev"
+
 func main() {
 	romPath := flag.String("rom", "", "path to the .gb ROM (may also be given as the first argument)")
 	biosPath := flag.String("bios", "bios/gb_bios.bin", `boot ROM to run first ("none" to skip it; ignored if missing)`)
@@ -27,7 +30,13 @@ func main() {
 	shot := flag.String("screenshot", "", "headless mode: write the last frame to this PNG file")
 	inputs := flag.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
 	wav := flag.String("wav", "", "headless mode: record the audio to this WAV file")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("gbe", version)
+		return
+	}
 
 	if *romPath == "" && flag.NArg() > 0 {
 		*romPath = flag.Arg(0)

@@ -3,6 +3,25 @@
 Émulateur Game Boy (DMG) écrit en Go, sans cgo. Fenêtre, clavier et son reposent sur
 [Ebitengine](https://ebitengine.org), qui passe par purego sur macOS et Windows.
 
+## Téléchargement
+
+À chaque release GitHub publiée, le workflow [`release.yml`](.github/workflows/release.yml)
+compile gbe et joint six archives à la release, sous la forme `gbe-<tag>-<os>-<arch>` :
+
+| OS | Architectures |
+|---|---|
+| macOS | amd64, arm64 |
+| Linux | amd64, arm64 |
+| Windows | amd64, arm64 |
+
+Remarques par plateforme :
+
+- **macOS** : les binaires ne sont pas signés. Au premier lancement, faire clic droit >
+  Ouvrir, ou lancer `xattr -d com.apple.quarantine gbe`.
+- **Linux** : il faut `libX11`, `libGL` et `libasound`, présents sur tout bureau standard.
+
+`gbe -version` affiche la version.
+
 ## Lancer
 
 ```sh

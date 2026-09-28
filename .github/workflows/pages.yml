@@ -7,7 +7,9 @@ on:
   workflow_run:
     workflows: [Release binaries]
     types: [completed]
-  # Release notes edited or a release removed.
+  # Release notes edited or a release removed. A run triggered by a release
+  # executes on its tag, which the github-pages environment refuses (only
+  # main may deploy), so these runs just re-dispatch the workflow on main.
   release:
     types: [edited, deleted]
   # Changes to the site itself.
@@ -22,13 +24,32 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # Release-triggered runs only dispatch: keep them out of the deploy group
+  # so they never cancel a deployment in progress.
+  group: ${{ github.event_name == 'release' && 'pages-dispatch' || 'pages' }}
   cancel-in-progress: true
 
 jobs:
+  redispatch:
+    # Skipped for drafts, and when a draft is being published: its binaries
+    # are not attached yet, and the workflow_run trigger deploys once they are.
+    if: >-
+      github.event_name == 'release' && !github.event.release.draft &&
+      (github.event.action == 'deleted' || toJSON(github.event.release.assets) != '[]')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Rebuild the site from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+
   build:
     # Skip when the release build failed: its binaries would be missing.
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name != 'release' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

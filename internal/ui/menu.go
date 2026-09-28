@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"image/color"
 	"math"
@@ -9,11 +10,14 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/gofont/gomono"
 
 	"gbe/internal/gb"
 )
 
-// The bundled bitmap font is ASCII only, hence the unaccented French.
+// The bitmap font is ASCII only, hence the unaccented French. Key names of
+// the active layout may contain other characters (e.g. "é" on AZERTY): they
+// fall back to Go Mono.
 
 type menuPage int
 
@@ -50,9 +54,23 @@ var buttonLabels = map[gb.Button]string{
 }
 
 var (
-	menuFace = text.NewGoXFace(basicfont.Face7x13)
+	menuFace = newMenuFace()
 	pixel    *ebiten.Image // 1x1 white, created on first use
 )
+
+func newMenuFace() text.Face {
+	pixel := text.NewGoXFace(basicfont.Face7x13)
+	src, err := text.NewGoTextFaceSource(bytes.NewReader(gomono.TTF))
+	if err != nil {
+		return pixel
+	}
+	// 12px Go Mono has about the 7px advance of the bitmap font.
+	face, err := text.NewMultiFace(pixel, &text.GoTextFace{Source: src, Size: 12})
+	if err != nil {
+		return pixel
+	}
+	return face
+}
 
 type menu struct {
 	open      bool
@@ -143,7 +161,7 @@ func (m *menu) capture(g *Game) {
 		m.capturing, m.notice = false, ""
 	case m.cursor == controlsScreenshot():
 		if !combo.hasModifiers() && g.cfg.bound(key) {
-			m.notice = key.String() + " sert deja a un bouton"
+			m.notice = keyLabel(key) + " sert deja a un bouton"
 			return
 		}
 		g.cfg.Screenshot = combo
@@ -151,7 +169,7 @@ func (m *menu) capture(g *Game) {
 		m.capturing, m.notice = false, ""
 	default:
 		if g.cfg.conflicts(key) {
-			m.notice = key.String() + " sert deja a la capture"
+			m.notice = keyLabel(key) + " sert deja a la capture"
 			return
 		}
 		g.cfg.Bind(gb.Buttons[m.cursor], key)
@@ -227,7 +245,7 @@ func (m *menu) activate(g *Game) {
 func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	if m.page == pageControls {
 		for i, b := range gb.Buttons {
-			key := g.cfg.Key(b).String()
+			key := keyLabel(g.cfg.Key(b))
 			if m.capturing && i == m.cursor {
 				key = "appuyez sur une touche..."
 			}

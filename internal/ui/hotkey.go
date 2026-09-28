@@ -69,11 +69,7 @@ func (h Hotkey) String() string {
 		parts = append(parts, "Shift")
 	}
 	if h.Meta {
-		if runtime.GOOS == "darwin" {
-			parts = append(parts, "Cmd")
-		} else {
-			parts = append(parts, "Meta")
-		}
+		parts = append(parts, metaName())
 	}
-	return strings.Join(append(parts, h.Key.String()), "+")
+	return strings.Join(append(parts, keyLabel(h.Key)), "+")
 }

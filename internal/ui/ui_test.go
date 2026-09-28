@@ -141,3 +141,28 @@ func TestSaveScreenshot(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Without a running game loop ebiten.KeyName is empty, which exercises the
+// fallbacks (the layout-aware path needs a window).
+func TestKeyLabelFallbacks(t *testing.T) {
+	cases := map[ebiten.Key]string{
+		ebiten.KeyQ:          "Q",
+		ebiten.KeyArrowUp:    "Fleche haut",
+		ebiten.KeyShiftRight: "Maj droite",
+		ebiten.KeyNumpad1:    "Pave 1",
+		ebiten.KeyF2:         "F2",
+	}
+	for k, want := range cases {
+		if got := keyLabel(k); got != want {
+			t.Errorf("keyLabel(%s) = %q, want %q", k, got, want)
+		}
+	}
+}
+
+func TestPrintable(t *testing.T) {
+	for s, want := range map[string]bool{"a": true, "é": true, "^": true, "": false, " ": false, "\t": false} {
+		if printable(s) != want {
+			t.Errorf("printable(%q) = %v", s, !want)
+		}
+	}
+}

@@ -64,7 +64,7 @@ Options utiles :
 | Touche | Action |
 |---|---|
 | Flèches | Croix directionnelle |
-| X / Z | A / B |
+| X / Z (X / W en AZERTY) | A / B |
 | Entrée / Maj droite | Start / Select |
 | Échap | Menu (pause) |
 | P | Palette suivante (si P n'est pas assigné à un bouton) |
@@ -80,6 +80,9 @@ Le raccourci de capture se change dans la même page Contrôles : sélectionner 
 puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
 enregistrées à la taille de la fenêtre (échelle choisie), avec la palette courante, sous la
 forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatement.
+
+Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
+disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).
 
 ## Save states
 

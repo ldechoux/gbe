@@ -18,6 +18,8 @@ type Config struct {
 	Scale   int                   `json:"scale"`
 	Volume  float64               `json:"volume"`
 	Keys    map[string]ebiten.Key `json:"keys"` // Game Boy button name -> key
+	// Gamepad maps Game Boy button names to standard layout gamepad buttons.
+	Gamepad map[string]padButton `json:"gamepad"`
 	// Screenshot is the key combination that saves a PNG of the screen.
 	Screenshot Hotkey `json:"screenshot"`
 }
@@ -42,6 +44,7 @@ func DefaultConfig() *Config {
 		Scale:      4,
 		Volume:     0.8,
 		Keys:       defaultKeys(),
+		Gamepad:    defaultPad(),
 		Screenshot: defaultScreenshotHotkey(),
 	}
 }
@@ -85,6 +88,11 @@ func LoadConfig(path string) (*Config, error) {
 	if loaded.Volume >= 0 && loaded.Volume <= 1 {
 		cfg.Volume = loaded.Volume
 	}
+	for name, btn := range loaded.Gamepad {
+		if _, ok := cfg.Gamepad[name]; ok && btn != padNone {
+			cfg.Gamepad[name] = btn
+		}
+	}
 	for name, key := range loaded.Keys {
 		if _, ok := cfg.Keys[name]; ok {
 			cfg.Keys[name] = key
@@ -119,6 +127,21 @@ func (c *Config) Bind(b gb.Button, key ebiten.Key) {
 	}
 	c.Keys[b.String()] = key
 }
+
+// BindPad assigns a gamepad button to a Game Boy button, swapping with the
+// Game Boy button that used it, like Bind.
+func (c *Config) BindPad(b gb.Button, btn padButton) {
+	old := c.Gamepad[b.String()]
+	for name, pb := range c.Gamepad {
+		if pb == btn {
+			c.Gamepad[name] = old
+		}
+	}
+	c.Gamepad[b.String()] = btn
+}
+
+// PadButton returns the gamepad button bound to a Game Boy button.
+func (c *Config) PadButton(b gb.Button) padButton { return c.Gamepad[b.String()] }
 
 // conflicts reports whether a game button bound to key would also fire the
 // screenshot hotkey (only possible when the hotkey has no modifier).

@@ -95,6 +95,22 @@ forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatem
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
 disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).
 
+## Manettes
+
+Les manettes reconnues par la base SDL intégrée à Ebitengine (Xbox, PlayStation, Switch Pro et
+la plupart des manettes USB/Bluetooth) fonctionnent dès qu'elles sont branchées. Par défaut :
+
+| Manette | Game Boy |
+|---|---|
+| Croix ou stick gauche | Croix directionnelle |
+| Bouton de droite / du bas (B / A sur Xbox, Rond / Croix sur PlayStation) | A / B |
+| Start / Select (Menu / Vue, Options / Share, + / −) | Start / Select |
+| Start + Select ensemble | Menu (croix pour naviguer, A pour valider, B pour revenir) |
+
+Les boutons se redéfinissent dans l'onglet **Manette** de la page Contrôles (←/→ pour changer
+d'onglet). Il est grisé tant qu'aucune manette n'est connectée. Les libellés affichés suivent la
+famille de la manette détectée : Xbox, PlayStation ou Nintendo.
+
 ## Save states
 
 - **À la fermeture** : quand on quitte (menu « Quitter » ou fermeture de la fenêtre), l'état

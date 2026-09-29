@@ -10,7 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/gb"
 )
 
 func TestConfigRoundTrip(t *testing.T) {

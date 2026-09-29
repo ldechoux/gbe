@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gbe/internal/gb"
-	"gbe/internal/ui"
+	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/ui"
 )
 
 // version is set at build time by the release workflow (-ldflags -X).

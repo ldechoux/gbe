@@ -15,7 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
-	"gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/gb"
 )
 
 const (

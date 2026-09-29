@@ -42,6 +42,17 @@ Remarques par plateforme :
 
 ## Lancer
 
+Avec Go 1.27 ou plus récent, gbe s'installe directement (sans cgo) :
+
+```sh
+go install github.com/ldechoux/gbe/cmd/gbe@latest
+gbe mon-jeu.gb
+```
+
+Le binaire est installé dans `$(go env GOPATH)/bin`.
+
+Depuis les sources :
+
 ```sh
 CGO_ENABLED=0 go build -o bin/gbe ./cmd/gbe
 ./bin/gbe roms/Super_Mario_Land_World_Rev1.gb

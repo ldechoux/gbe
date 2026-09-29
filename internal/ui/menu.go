@@ -12,7 +12,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/gomono"
 
-	"gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/gb"
 )
 
 // The bitmap font is ASCII only, hence the unaccented French. Key names of

@@ -1,4 +1,4 @@
-module gbe
+module github.com/ldechoux/gbe
 
 go 1.27.1
 

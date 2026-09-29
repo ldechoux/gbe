@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/gb"
 )
 
 // DefaultScreenshotDir is ~/Pictures/gbe.

@@ -9,7 +9,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/gb"
 )
 
 // Config holds the user preferences persisted between runs.

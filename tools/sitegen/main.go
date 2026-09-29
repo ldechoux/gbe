@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"gbe/internal/ui"
+	"github.com/ldechoux/gbe/internal/ui"
 )
 
 // Release is the subset of the GitHub release object used by the site.

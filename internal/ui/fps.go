@@ -7,7 +7,7 @@ import (
 
 // fpsRefreshInterval is how often the frame rate is measured and the window
 // title updated.
-const fpsRefreshInterval = 500 * time.Millisecond
+const fpsRefreshInterval = 250 * time.Millisecond
 
 // fpsCounter measures emulated frames per second over fixed intervals.
 type fpsCounter struct {

@@ -87,6 +87,9 @@ type menu struct {
 	cursor    int
 	capturing bool   // waiting for a key or button to bind to the selected entry
 	notice    string // why the last capture was refused, or a status message
+	// width is the widest content drawn since the page was opened: the
+	// panel never shrinks while its text changes (tabs, notices, captures).
+	width float64
 }
 
 // Controls page layout: one entry per button, then these.
@@ -122,7 +125,7 @@ func (m *menu) itemCount() int {
 
 // backToMain leaves the controls page.
 func (m *menu) backToMain() {
-	m.page, m.tab, m.cursor, m.notice = pageMain, tabKeyboard, itemControls, ""
+	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, itemControls, "", 0
 }
 
 // update reacts to this tick's actions (see menuActions); captures read the
@@ -240,13 +243,13 @@ func (m *menu) adjust(g *Game, delta int) {
 	}
 }
 
-// switchTab moves between the Keyboard and Gamepad tabs; the latter is only
-// reachable while a gamepad is connected.
+// switchTab moves between the Keyboard and Gamepad tabs. The latter is only
+// reachable while a gamepad is connected; otherwise it is drawn greyed out,
+// which is enough feedback.
 func (m *menu) switchTab(g *Game, delta int) {
 	switch {
 	case delta > 0 && m.tab == tabKeyboard:
 		if len(g.pads.ids()) == 0 {
-			m.notice = "Aucune manette connectee"
 			return
 		}
 		m.tab, m.cursor, m.notice = tabPad, 0, ""
@@ -295,7 +298,7 @@ func (m *menu) activate(g *Game) {
 	case itemPalette, itemVolume, itemScale:
 		m.adjust(g, 1)
 	case itemControls:
-		m.page, m.cursor = pageControls, 0
+		m.page, m.cursor, m.width = pageControls, 0, 0
 	case itemSaveState:
 		g.saveState()
 		m.open = false
@@ -467,6 +470,8 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 		tabsW += text.Advance(" "+t.label+" ", menuFace) + tabGap
 	}
 	width = math.Max(width, tabsW)
+	width = math.Max(width, m.width)
+	m.width = width
 	w := width*scale + 2*pad
 	h := float64(len(items)+3)*lineH + 2*pad
 	if len(v.tabs) > 0 {

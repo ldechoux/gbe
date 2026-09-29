@@ -212,8 +212,8 @@ func TestControlsTabs(t *testing.T) {
 
 	g.actions = menuActions{right: true}
 	g.menu.update(g)
-	if g.menu.tab != tabKeyboard || g.menu.notice == "" {
-		t.Fatalf("without a gamepad the tab must stay disabled: %+v", g.menu)
+	if g.menu.tab != tabKeyboard || g.menu.notice != "" {
+		t.Fatalf("without a gamepad, Right must do nothing: %+v", g.menu)
 	}
 	if v := g.menu.view(g); !v.tabs[1].disabled {
 		t.Fatal("the Gamepad tab must be shown disabled")

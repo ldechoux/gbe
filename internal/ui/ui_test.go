@@ -166,3 +166,46 @@ func TestPrintable(t *testing.T) {
 		}
 	}
 }
+
+func TestFPSCounter(t *testing.T) {
+	var c fpsCounter
+	start := time.Unix(1000, 0)
+	if c.update(start) {
+		t.Fatal("the first call only starts the interval")
+	}
+	for range 30 {
+		c.frame()
+	}
+	if c.update(start.Add(fpsRefreshInterval / 2)) {
+		t.Fatal("measured before the interval elapsed")
+	}
+	if !c.update(start.Add(fpsRefreshInterval)) {
+		t.Fatal("no measure once the interval elapsed")
+	}
+	want := 30 / fpsRefreshInterval.Seconds()
+	if c.fps != want {
+		t.Fatalf("fps = %v, want %v", c.fps, want)
+	}
+	// A new interval starts from zero.
+	if !c.update(start.Add(2*fpsRefreshInterval)) || c.fps != 0 {
+		t.Fatalf("fps = %v after an interval without frames, want 0", c.fps)
+	}
+}
+
+func TestWindowTitle(t *testing.T) {
+	cases := []struct {
+		rom    string
+		fps    float64
+		paused bool
+		want   string
+	}{
+		{"SUPER MARIOLAND", 59.73, false, "gbe - SUPER MARIOLAND - 60 FPS"},
+		{"SUPER MARIOLAND", 0, true, "gbe - SUPER MARIOLAND - Pause"},
+		{"", 30, false, "gbe - 30 FPS"},
+	}
+	for _, c := range cases {
+		if got := windowTitle(c.rom, c.fps, c.paused); got != c.want {
+			t.Errorf("windowTitle(%q, %v, %v) = %q, want %q", c.rom, c.fps, c.paused, got, c.want)
+		}
+	}
+}

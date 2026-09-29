@@ -56,6 +56,7 @@ type Game struct {
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	frame       int
+	fps         fpsCounter
 	quit        bool
 
 	toast      string // short on-screen notification
@@ -109,11 +110,8 @@ func Run(opts Options) error {
 		g.started = true
 	}
 
-	title := "gbe"
-	if opts.Title != "" {
-		title += " - " + opts.Title
-	}
-	ebiten.SetWindowTitle(title)
+	// Updated with the frame rate every fpsRefreshInterval (see Update).
+	ebiten.SetWindowTitle(windowTitle(opts.Title, 0, !g.started))
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
@@ -207,6 +205,9 @@ func (g *Game) Update() error {
 	if g.quit {
 		return ebiten.Termination
 	}
+	if g.fps.update(time.Now()) {
+		ebiten.SetWindowTitle(windowTitle(g.title, g.fps.fps, g.menu.open))
+	}
 	if g.cfg.Screenshot.justPressed() {
 		g.screenshot()
 	}
@@ -243,6 +244,7 @@ func (g *Game) Update() error {
 
 	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()))
 	g.gb.RunFrame()
+	g.fps.frame()
 	g.stream.push(g.gb.APU.DrainSamples())
 
 	g.frame++

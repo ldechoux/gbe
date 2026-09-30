@@ -55,9 +55,14 @@ type Game struct {
 	player *audio.Player
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
-	frame       int
-	fps         fpsCounter
-	quit        bool
+	ignoredPad  map[padButton]bool  // same for gamepad buttons
+
+	pads    padReader
+	stick   stickNav
+	actions menuActions // this tick's menu actions (keyboard + gamepad)
+	frame   int
+	fps     fpsCounter
+	quit    bool
 
 	toast      string // short on-screen notification
 	toastUntil int64  // tick at which the toast disappears
@@ -92,6 +97,8 @@ func Run(opts Options) error {
 		pix:         make([]byte, gb.ScreenWidth*gb.ScreenHeight*4),
 		stream:      &audioStream{},
 		ignoredKeys: map[ebiten.Key]bool{},
+		ignoredPad:  map[padButton]bool{},
+		pads:        &ebitenPads{},
 	}
 
 	ctx := audio.NewContext(sampleRate)
@@ -201,6 +208,19 @@ func (g *Game) notify(msg string) {
 	g.toastUntil = ebiten.Tick() + 2*60
 }
 
+// ignoreHeldInputs keeps the keys and buttons used to leave the menu (Enter,
+// A, Start+Select...) from reaching the game until they are released.
+func (g *Game) ignoreHeldInputs() {
+	for _, k := range inpututil.AppendPressedKeys(nil) {
+		g.ignoredKeys[k] = true
+	}
+	for b := range padButtonNames {
+		if padHeld(g.pads, b) {
+			g.ignoredPad[b] = true
+		}
+	}
+}
+
 func (g *Game) Update() error {
 	if g.quit {
 		return ebiten.Termination
@@ -214,17 +234,15 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
 	}
+	g.actions = keyboardActions().or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
 	if g.menu.open {
 		g.menu.update(g)
 		if !g.menu.open {
-			// Keys used to leave the menu (e.g. Enter) must not reach the game.
-			for _, k := range inpututil.AppendPressedKeys(nil) {
-				g.ignoredKeys[k] = true
-			}
+			g.ignoreHeldInputs()
 		}
 		return nil
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) || g.actions.toggle {
 		g.menu.show()
 		return nil
 	}
@@ -237,9 +255,15 @@ func (g *Game) Update() error {
 			delete(g.ignoredKeys, k)
 		}
 	}
+	for b := range g.ignoredPad {
+		if !padHeld(g.pads, b) {
+			delete(g.ignoredPad, b)
+		}
+	}
+	pad := padGameButtons(g.pads, g.cfg.Gamepad, g.ignoredPad)
 	for _, b := range gb.Buttons {
 		k := g.cfg.Key(b)
-		g.gb.SetButton(b, ebiten.IsKeyPressed(k) && !g.ignoredKeys[k])
+		g.gb.SetButton(b, (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b])
 	}
 
 	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()))

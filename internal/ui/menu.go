@@ -72,18 +72,34 @@ func newMenuFace() text.Face {
 	return face
 }
 
+// controlsTab is the device shown on the controls page.
+type controlsTab int
+
+const (
+	tabKeyboard controlsTab = iota
+	tabPad
+)
+
 type menu struct {
 	open      bool
 	page      menuPage
+	tab       controlsTab
 	cursor    int
-	capturing bool   // waiting for a key to bind to the selected entry
-	notice    string // why the last captured key was refused
+	capturing bool   // waiting for a key or button to bind to the selected entry
+	notice    string // why the last capture was refused, or a status message
+	// width is the widest content drawn since the page was opened: the
+	// panel never shrinks while its text changes (tabs, notices, captures).
+	width float64
 }
 
 // Controls page layout: one entry per button, then these.
 func controlsScreenshot() int { return len(gb.Buttons) }
 func controlsDefaults() int   { return len(gb.Buttons) + 1 }
 func controlsBack() int       { return len(gb.Buttons) + 2 }
+
+// Gamepad tab layout: one entry per button, then these.
+func padDefaults() int { return len(gb.Buttons) }
+func padBack() int     { return len(gb.Buttons) + 1 }
 
 func (m *menu) show() {
 	*m = menu{open: true}
@@ -97,6 +113,9 @@ func (m *menu) showStart() {
 func (m *menu) itemCount() int {
 	switch m.page {
 	case pageControls:
+		if m.tab == tabPad {
+			return padBack() + 1
+		}
 		return controlsBack() + 1
 	case pageStart:
 		return startItems
@@ -104,41 +123,64 @@ func (m *menu) itemCount() int {
 	return mainItems
 }
 
-func pressed(k ebiten.Key) bool { return inpututil.IsKeyJustPressed(k) }
-
-// repeated is true on press and then periodically while the key is held.
-func repeated(k ebiten.Key) bool {
-	d := inpututil.KeyPressDuration(k)
-	return d == 1 || (d > 20 && d%5 == 0)
+// backToMain leaves the controls page.
+func (m *menu) backToMain() {
+	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, itemControls, "", 0
 }
 
+// update reacts to this tick's actions (see menuActions); captures read the
+// raw keys and buttons instead.
 func (m *menu) update(g *Game) {
+	if m.page == pageControls && m.tab == tabPad && len(g.pads.ids()) == 0 {
+		m.tab, m.cursor, m.capturing, m.notice = tabKeyboard, 0, false, "Manette deconnectee"
+	}
 	if m.capturing {
-		m.capture(g)
+		if m.tab == tabPad {
+			m.capturePad(g)
+		} else {
+			m.capture(g)
+		}
 		return
 	}
 
+	a := g.actions
 	switch {
-	case pressed(ebiten.KeyEscape):
-		if m.page == pageStart {
-			return // a choice is required
-		}
-		if m.page == pageControls {
-			m.page, m.cursor = pageMain, itemControls
-		} else {
+	case a.toggle:
+		if m.page != pageStart {
 			m.open = false
 		}
-		return
-	case repeated(ebiten.KeyArrowUp):
+	case a.back:
+		switch m.page {
+		case pageStart: // a choice is required
+		case pageControls:
+			m.backToMain()
+		default:
+			m.open = false
+		}
+	case a.up:
 		m.cursor = (m.cursor + m.itemCount() - 1) % m.itemCount()
-	case repeated(ebiten.KeyArrowDown):
+	case a.down:
 		m.cursor = (m.cursor + 1) % m.itemCount()
-	case repeated(ebiten.KeyArrowLeft):
+	case a.left:
 		m.adjust(g, -1)
-	case repeated(ebiten.KeyArrowRight):
+	case a.right:
 		m.adjust(g, 1)
-	case pressed(ebiten.KeyEnter) || pressed(ebiten.KeyNumpadEnter) || pressed(ebiten.KeySpace):
+	case a.ok:
 		m.activate(g)
+	}
+}
+
+// capturePad waits for the gamepad button to bind to the selected entry.
+// Only Escape cancels: every gamepad button can be bound.
+func (m *menu) capturePad(g *Game) {
+	if pressed(ebiten.KeyEscape) {
+		m.capturing, m.notice = false, ""
+		return
+	}
+	if b, ok := padJustPressed(g.pads); ok {
+		g.cfg.BindPad(gb.Buttons[m.cursor], b)
+		g.saveConfig()
+		m.capturing, m.notice = false, ""
 	}
 }
 
@@ -179,6 +221,10 @@ func (m *menu) capture(g *Game) {
 }
 
 func (m *menu) adjust(g *Game, delta int) {
+	if m.page == pageControls {
+		m.switchTab(g, delta)
+		return
+	}
 	if m.page != pageMain {
 		return
 	}
@@ -197,6 +243,21 @@ func (m *menu) adjust(g *Game, delta int) {
 	}
 }
 
+// switchTab moves between the Keyboard and Gamepad tabs. The latter is only
+// reachable while a gamepad is connected; otherwise it is drawn greyed out,
+// which is enough feedback.
+func (m *menu) switchTab(g *Game, delta int) {
+	switch {
+	case delta > 0 && m.tab == tabKeyboard:
+		if len(g.pads.ids()) == 0 {
+			return
+		}
+		m.tab, m.cursor, m.notice = tabPad, 0, ""
+	case delta < 0 && m.tab == tabPad:
+		m.tab, m.cursor, m.notice = tabKeyboard, 0, ""
+	}
+}
+
 func (m *menu) activate(g *Game) {
 	if m.page == pageStart {
 		m.open = false
@@ -204,6 +265,18 @@ func (m *menu) activate(g *Game) {
 			g.loadState()
 		}
 		g.started = true
+		return
+	}
+	if m.page == pageControls && m.tab == tabPad {
+		switch {
+		case m.cursor < len(gb.Buttons):
+			m.capturing = true
+		case m.cursor == padDefaults():
+			g.cfg.Gamepad = defaultPad()
+			g.saveConfig()
+		default:
+			m.backToMain()
+		}
 		return
 	}
 	if m.page == pageControls {
@@ -215,7 +288,7 @@ func (m *menu) activate(g *Game) {
 			g.cfg.Screenshot = defaultScreenshotHotkey()
 			g.saveConfig()
 		default:
-			m.page, m.cursor = pageMain, itemControls
+			m.backToMain()
 		}
 		return
 	}
@@ -225,7 +298,7 @@ func (m *menu) activate(g *Game) {
 	case itemPalette, itemVolume, itemScale:
 		m.adjust(g, 1)
 	case itemControls:
-		m.page, m.cursor = pageControls, 0
+		m.page, m.cursor, m.width = pageControls, 0, 0
 	case itemSaveState:
 		g.saveState()
 		m.open = false
@@ -242,29 +315,84 @@ func (m *menu) activate(g *Game) {
 	}
 }
 
-func (m *menu) lines(g *Game) (title string, items []string, footer string) {
+// menuTab is one entry of the controls page tab bar.
+type menuTab struct {
+	label            string
+	active, disabled bool
+}
+
+// menuView is what draw renders.
+type menuView struct {
+	title  string
+	tabs   []menuTab
+	items  []string
+	footer string
+}
+
+func (m *menu) view(g *Game) menuView {
 	if m.page == pageControls {
-		for i, b := range gb.Buttons {
-			key := keyLabel(g.cfg.Key(b))
-			if m.capturing && i == m.cursor {
-				key = "appuyez sur une touche..."
-			}
-			items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], key))
+		name, family, connected := padName(g.pads)
+		v := menuView{title: "CONTROLES", tabs: []menuTab{
+			{label: "Clavier", active: m.tab == tabKeyboard},
+			{label: "Manette", active: m.tab == tabPad, disabled: !connected},
+		}}
+		if m.tab == tabPad {
+			v.items, v.footer = m.padLines(g, name, family)
+		} else {
+			v.items, v.footer = m.keyboardLines(g)
 		}
-		shot := g.cfg.Screenshot.String()
-		if m.capturing && m.cursor == controlsScreenshot() {
-			shot = "appuyez sur la combinaison..."
-		}
-		items = append(items, fmt.Sprintf("%-8s %s", "Capture", shot), "Retablir par defaut", "Retour")
-		footer = "Entree: changer   Echap: retour"
-		switch {
-		case m.notice != "":
-			footer = m.notice
-		case m.capturing:
-			footer = "Echap: annuler"
-		}
-		return "CONTROLES", items, footer
+		return v
 	}
+	title, items, footer := m.lines(g)
+	return menuView{title: title, items: items, footer: footer}
+}
+
+func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, footer string) {
+	for i, b := range gb.Buttons {
+		btn := padLabel(family, g.cfg.PadButton(b))
+		if m.capturing && i == m.cursor {
+			btn = "appuyez sur un bouton..."
+		}
+		items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], btn))
+	}
+	items = append(items, "Retablir par defaut", "Retour")
+	if len(name) > 32 {
+		name = name[:31] + "."
+	}
+	footer = "Manette: " + name
+	switch {
+	case m.notice != "":
+		footer = m.notice
+	case m.capturing:
+		footer = "Echap: annuler"
+	}
+	return items, footer
+}
+
+func (m *menu) keyboardLines(g *Game) (items []string, footer string) {
+	for i, b := range gb.Buttons {
+		key := keyLabel(g.cfg.Key(b))
+		if m.capturing && i == m.cursor {
+			key = "appuyez sur une touche..."
+		}
+		items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], key))
+	}
+	shot := g.cfg.Screenshot.String()
+	if m.capturing && m.cursor == controlsScreenshot() {
+		shot = "appuyez sur la combinaison..."
+	}
+	items = append(items, fmt.Sprintf("%-8s %s", "Capture", shot), "Retablir par defaut", "Retour")
+	footer = "Entree: changer   <- ->: onglet"
+	switch {
+	case m.notice != "":
+		footer = m.notice
+	case m.capturing:
+		footer = "Echap: annuler"
+	}
+	return items, footer
+}
+
+func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	if m.page == pageStart {
 		footer = "Entree: valider"
 		if !g.stateTime.IsZero() {
@@ -283,7 +411,11 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		"Reinitialiser",
 		"Quitter",
 	}
-	return "PAUSE", items, "P: palette   F11: plein ecran"
+	footer = "P: palette   F11: plein ecran"
+	if len(g.pads.ids()) > 0 {
+		footer = "P: palette  F11: plein ecran  Start+Select: menu"
+	}
+	return "PAUSE", items, footer
 }
 
 // drawToast shows msg in a small box at the bottom-left of the screen.
@@ -324,15 +456,27 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	scale := math.Max(1, math.Floor(sh/300))
 
-	title, items, footer := m.lines(g)
+	v := m.view(g)
+	title, items, footer := v.title, v.items, v.footer
 	lineH := 16 * scale
 	pad := 10 * scale
+	tabGap := 2 * text.Advance(" ", menuFace) // space between tabs, before scaling
 	width := text.Advance(footer, menuFace)
 	for _, s := range append([]string{title}, items...) {
 		width = math.Max(width, text.Advance("  "+s, menuFace))
 	}
+	tabsW := 0.0
+	for _, t := range v.tabs {
+		tabsW += text.Advance(" "+t.label+" ", menuFace) + tabGap
+	}
+	width = math.Max(width, tabsW)
+	width = math.Max(width, m.width)
+	m.width = width
 	w := width*scale + 2*pad
 	h := float64(len(items)+3)*lineH + 2*pad
+	if len(v.tabs) > 0 {
+		h += lineH * 1.5
+	}
 	x, y := math.Round((sw-w)/2), math.Round((sh-h)/2)
 
 	shadow := pal[3]
@@ -344,6 +488,25 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	ty := y + pad
 	drawText(dst, title, x+pad, ty, scale, pal[3])
 	ty += lineH * 1.5
+	if len(v.tabs) > 0 {
+		tx := x + pad
+		for _, t := range v.tabs {
+			label := " " + t.label + " "
+			tw := text.Advance(label, menuFace) * scale
+			fg := pal[3]
+			switch {
+			case t.active:
+				fillRect(dst, tx, ty-2*scale, tw, lineH, pal[3])
+				fg = pal[0]
+			case t.disabled:
+				fg = pal[1] // faded: no gamepad connected
+			}
+			drawText(dst, label, tx, ty, scale, fg)
+			tx += tw + tabGap*scale
+		}
+		fillRect(dst, x+pad/2, ty+lineH-scale, w-pad, scale, pal[3]) // underline the tab bar
+		ty += lineH * 1.5
+	}
 	for i, s := range items {
 		fg := pal[3]
 		if i == m.cursor {

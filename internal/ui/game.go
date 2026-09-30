@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 const (
@@ -118,7 +120,7 @@ func Run(opts Options) error {
 	}
 
 	// Updated with the frame rate every fpsRefreshInterval (see Update).
-	ebiten.SetWindowTitle(windowTitle(opts.Title, 0, !g.started))
+	ebiten.SetWindowTitle(windowTitle(g.tr(), opts.Title, 0, !g.started))
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(60)
@@ -132,6 +134,16 @@ func Run(opts Options) error {
 }
 
 func (g *Game) palette() *Palette { return &Palettes[paletteIndex(g.cfg.Palette)] }
+
+// tr returns the language of the user interface.
+func (g *Game) tr() *i18n.Locale { return i18n.Get(g.cfg.Language) }
+
+func (g *Game) cycleLanguage(delta int) {
+	langs := i18n.Languages()
+	i := slices.IndexFunc(langs, func(l *i18n.Locale) bool { return l.Code == g.tr().Code })
+	g.cfg.Language = langs[(i+delta+len(langs))%len(langs)].Code
+	g.saveConfig()
+}
 
 func (g *Game) saveConfig() {
 	if err := g.cfg.Save(g.cfgPath); err != nil {
@@ -166,11 +178,11 @@ func (g *Game) saveState() {
 	}
 	if err != nil {
 		log.Printf("saving state: %v", err)
-		g.notify("Sauvegarde impossible: " + err.Error())
+		g.notify(g.tr().T("toast.save_failed", err))
 		return
 	}
 	g.stateTime = time.Now()
-	g.notify("Etat sauvegarde")
+	g.notify(g.tr().T("toast.state_saved"))
 }
 
 // loadState restores the save state; on failure the game keeps running.
@@ -181,12 +193,12 @@ func (g *Game) loadState() {
 	}
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		g.notify("Aucun etat sauvegarde")
+		g.notify(g.tr().T("toast.no_state"))
 	case err != nil:
 		log.Printf("loading state: %v", err)
-		g.notify("Etat illisible: " + err.Error())
+		g.notify(g.tr().T("toast.state_unreadable", err))
 	default:
-		g.notify("Partie restauree")
+		g.notify(g.tr().T("toast.state_restored"))
 	}
 }
 
@@ -196,11 +208,11 @@ func (g *Game) screenshot() {
 	path, err := saveScreenshot(g.shotDir, g.title, img, time.Now())
 	if err != nil {
 		log.Printf("screenshot: %v", err)
-		g.notify("Capture impossible: " + err.Error())
+		g.notify(g.tr().T("toast.screenshot_failed", err))
 		return
 	}
 	log.Printf("screenshot saved to %s", path)
-	g.notify("Capture: " + filepath.Base(path))
+	g.notify(g.tr().T("toast.screenshot", filepath.Base(path)))
 }
 
 func (g *Game) notify(msg string) {
@@ -226,7 +238,7 @@ func (g *Game) Update() error {
 		return ebiten.Termination
 	}
 	if g.fps.update(time.Now()) {
-		ebiten.SetWindowTitle(windowTitle(g.title, g.fps.fps, g.menu.open))
+		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}
 	if g.cfg.Screenshot.justPressed() {
 		g.screenshot()

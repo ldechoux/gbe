@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -145,16 +146,31 @@ func TestSaveScreenshot(t *testing.T) {
 // Without a running game loop ebiten.KeyName is empty, which exercises the
 // fallbacks (the layout-aware path needs a window).
 func TestKeyLabelFallbacks(t *testing.T) {
-	cases := map[ebiten.Key]string{
-		ebiten.KeyQ:          "Q",
-		ebiten.KeyArrowUp:    "Fleche haut",
-		ebiten.KeyShiftRight: "Maj droite",
-		ebiten.KeyNumpad1:    "Pave 1",
-		ebiten.KeyF2:         "F2",
+	cases := map[string]map[ebiten.Key]string{
+		"fr": {
+			ebiten.KeyQ:          "Q",
+			ebiten.KeyArrowUp:    "Fleche haut",
+			ebiten.KeyShiftRight: "Maj droite",
+			ebiten.KeyNumpad1:    "Pave 1",
+			ebiten.KeyF2:         "F2",
+		},
+		"en": {
+			ebiten.KeyArrowUp:   "Up arrow",
+			ebiten.KeyMetaLeft:  "Left " + metaName(),
+			ebiten.KeyNumpad1:   "Keypad 1",
+			ebiten.KeyBackspace: "Backspace",
+		},
 	}
-	for k, want := range cases {
-		if got := keyLabel(k); got != want {
-			t.Errorf("keyLabel(%s) = %q, want %q", k, got, want)
+	for lang, labels := range cases {
+		for k, want := range labels {
+			if got := keyLabel(i18n.Get(lang), k); got != want {
+				t.Errorf("%s: keyLabel(%s) = %q, want %q", lang, k, got, want)
+			}
+		}
+	}
+	for k, key := range specialKeyLabels {
+		if !i18n.Get(i18n.Default).Has(key) {
+			t.Errorf("%s: no message %q", k, key)
 		}
 	}
 }
@@ -200,12 +216,53 @@ func TestWindowTitle(t *testing.T) {
 		want   string
 	}{
 		{"SUPER MARIOLAND", 59.73, false, "gbe - SUPER MARIOLAND - 60 FPS"},
-		{"SUPER MARIOLAND", 0, true, "gbe - SUPER MARIOLAND - Pause"},
+		{"SUPER MARIOLAND", 0, true, "gbe - SUPER MARIOLAND - Paused"},
 		{"", 30, false, "gbe - 30 FPS"},
 	}
 	for _, c := range cases {
-		if got := windowTitle(c.rom, c.fps, c.paused); got != c.want {
+		if got := windowTitle(i18n.Get("en"), c.rom, c.fps, c.paused); got != c.want {
 			t.Errorf("windowTitle(%q, %v, %v) = %q, want %q", c.rom, c.fps, c.paused, got, c.want)
 		}
+	}
+}
+
+func TestConfigLanguage(t *testing.T) {
+	dir := t.TempDir()
+	for content, want := range map[string]string{
+		`{}`:                "en", // English when no language was chosen
+		`{"language":"fr"}`: "fr",
+		`{"language":"xx"}`: "en", // unknown language
+	} {
+		path := filepath.Join(dir, "c.json")
+		os.WriteFile(path, []byte(content), 0o644)
+		cfg, err := LoadConfig(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Language != want {
+			t.Errorf("%s: language %q, want %q", content, cfg.Language, want)
+		}
+	}
+}
+
+func TestMenuLanguage(t *testing.T) {
+	g := newTestGame(t, newFakePads())
+	g.menu = menu{open: true, cursor: itemLanguage}
+	if title, items, _ := g.menu.lines(g); title != "PAUSE" || items[itemQuit] != "Quit" {
+		t.Fatalf("default menu: %q %q", title, items)
+	}
+	g.actions = menuActions{right: true}
+	g.menu.update(g)
+	if _, items, _ := g.menu.lines(g); items[itemLanguage] != "Langue    < Francais >" || items[itemQuit] != "Quitter" {
+		t.Fatalf("French menu: %q", items)
+	}
+	cfg, err := LoadConfig(g.cfgPath)
+	if err != nil || cfg.Language != "fr" {
+		t.Fatalf("saved language %q (%v)", cfg.Language, err)
+	}
+	g.actions = menuActions{left: true}
+	g.menu.update(g)
+	if g.cfg.Language != "en" {
+		t.Fatalf("language %q after Left", g.cfg.Language)
 	}
 }

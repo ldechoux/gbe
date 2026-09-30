@@ -84,8 +84,8 @@ Options utiles :
 
 Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct), de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
-de conflit, les deux touches sont échangées), de régler le volume et l'échelle, de
-réinitialiser la console ou de quitter.
+de conflit, les deux touches sont échangées), de régler le volume, l'échelle et la langue,
+de réinitialiser la console ou de quitter.
 
 Le raccourci de capture se change dans la même page Contrôles : sélectionner « Capture »,
 puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
@@ -94,6 +94,17 @@ forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatem
 
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
 disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).
+
+## Langues
+
+L'interface est disponible en anglais (par défaut) et en français. La langue se choisit dans
+le menu (« Language » / « Langue ») et est enregistrée dans la config (clé `language`).
+
+Pour ajouter une langue, copier `internal/i18n/locales/en.json` en `<code>.json` (par exemple
+`es.json`), renseigner `name` (nom de la langue dans cette langue) et traduire les messages,
+puis recompiler : la langue apparaît automatiquement dans le menu. Les traductions doivent
+rester en ASCII (la police du menu n'a pas d'accents) ; `go test ./internal/i18n` vérifie
+qu'aucun message ne manque.
 
 ## Manettes
 
@@ -158,4 +169,5 @@ Un mode sans fenêtre sert au débogage :
   - Audio : tampon dont le taux d'échantillonnage s'ajuste légèrement pour compenser l'écart
     entre 60 Hz et 59,73 Hz.
   - Menu, configuration JSON.
+- `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.

@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"time"
+
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 // fpsRefreshInterval is how often the frame rate is measured and the window
@@ -36,14 +38,14 @@ func (c *fpsCounter) update(now time.Time) bool {
 }
 
 // windowTitle builds "gbe - <rom title> - <fps>". While paused no frame is
-// emulated, so the title says so instead of showing 0 FPS.
-func windowTitle(romTitle string, fps float64, paused bool) string {
+// emulated, so the title says so (in language l) instead of showing 0 FPS.
+func windowTitle(l *i18n.Locale, romTitle string, fps float64, paused bool) string {
 	t := "gbe"
 	if romTitle != "" {
 		t += " - " + romTitle
 	}
 	if paused {
-		return t + " - Pause"
+		return t + " - " + l.T("title.paused")
 	}
 	return fmt.Sprintf("%s - %.0f FPS", t, fps)
 }

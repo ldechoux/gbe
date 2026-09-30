@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 // Gamepads are read through Ebitengine's standard layout (mapped with the
@@ -107,7 +108,8 @@ func containsAny(s string, subs ...string) bool {
 }
 
 // padLabels: face buttons in the order bottom, right, left, top, then
-// shoulders and center buttons, per family.
+// shoulders and center buttons, per family. Labels starting with "pad." are
+// message keys, translated; the others are printed as is.
 var padLabels = map[padFamily]map[padButton]string{
 	padXbox: {
 		padButton(ebiten.StandardGamepadButtonRightBottom):      "A",
@@ -118,15 +120,15 @@ var padLabels = map[padFamily]map[padButton]string{
 		padButton(ebiten.StandardGamepadButtonFrontTopRight):    "RB",
 		padButton(ebiten.StandardGamepadButtonFrontBottomLeft):  "LT",
 		padButton(ebiten.StandardGamepadButtonFrontBottomRight): "RT",
-		padButton(ebiten.StandardGamepadButtonCenterLeft):       "Vue",
+		padButton(ebiten.StandardGamepadButtonCenterLeft):       "pad.view",
 		padButton(ebiten.StandardGamepadButtonCenterRight):      "Menu",
 		padButton(ebiten.StandardGamepadButtonCenterCenter):     "Xbox",
 	},
 	padPlayStation: {
-		padButton(ebiten.StandardGamepadButtonRightBottom):      "Croix",
-		padButton(ebiten.StandardGamepadButtonRightRight):       "Rond",
-		padButton(ebiten.StandardGamepadButtonRightLeft):        "Carre",
-		padButton(ebiten.StandardGamepadButtonRightTop):         "Triangle",
+		padButton(ebiten.StandardGamepadButtonRightBottom):      "pad.cross",
+		padButton(ebiten.StandardGamepadButtonRightRight):       "pad.circle",
+		padButton(ebiten.StandardGamepadButtonRightLeft):        "pad.square",
+		padButton(ebiten.StandardGamepadButtonRightTop):         "pad.triangle",
 		padButton(ebiten.StandardGamepadButtonFrontTopLeft):     "L1",
 		padButton(ebiten.StandardGamepadButtonFrontTopRight):    "R1",
 		padButton(ebiten.StandardGamepadButtonFrontBottomLeft):  "L2",
@@ -152,22 +154,26 @@ var padLabels = map[padFamily]map[padButton]string{
 
 // Buttons labeled the same on every family.
 var padCommonLabels = map[padButton]string{
-	padButton(ebiten.StandardGamepadButtonLeftTop):    "Croix haut",
-	padButton(ebiten.StandardGamepadButtonLeftBottom): "Croix bas",
-	padButton(ebiten.StandardGamepadButtonLeftLeft):   "Croix gauche",
-	padButton(ebiten.StandardGamepadButtonLeftRight):  "Croix droite",
-	padButton(ebiten.StandardGamepadButtonLeftStick):  "Stick gauche",
-	padButton(ebiten.StandardGamepadButtonRightStick): "Stick droit",
+	padButton(ebiten.StandardGamepadButtonLeftTop):    "pad.dpad_up",
+	padButton(ebiten.StandardGamepadButtonLeftBottom): "pad.dpad_down",
+	padButton(ebiten.StandardGamepadButtonLeftLeft):   "pad.dpad_left",
+	padButton(ebiten.StandardGamepadButtonLeftRight):  "pad.dpad_right",
+	padButton(ebiten.StandardGamepadButtonLeftStick):  "pad.left_stick",
+	padButton(ebiten.StandardGamepadButtonRightStick): "pad.right_stick",
 }
 
-func padLabel(f padFamily, b padButton) string {
-	if l, ok := padLabels[f][b]; ok {
-		return l
+// padLabel names the gamepad button b of family f in language l.
+func padLabel(l *i18n.Locale, f padFamily, b padButton) string {
+	s, ok := padLabels[f][b]
+	if !ok {
+		if s, ok = padCommonLabels[b]; !ok {
+			return "?"
+		}
 	}
-	if l, ok := padCommonLabels[b]; ok {
-		return l
+	if strings.HasPrefix(s, "pad.") {
+		return l.T(s)
 	}
-	return "?"
+	return s
 }
 
 // padReader abstracts gamepad polling so the logic can be tested without

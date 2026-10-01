@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -45,5 +48,26 @@ func TestBuildPage(t *testing.T) {
 func TestFrenchDate(t *testing.T) {
 	if got := frenchDate(time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)); got != "1 août 2026" {
 		t.Fatal(got)
+	}
+}
+
+func TestScreenshots(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a.png", "gb/b.webp", "gbc/c.WEBP", "gbc/notes.txt"} {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := screenshots(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"a.png", filepath.Join("gb", "b.webp"), filepath.Join("gbc", "c.WEBP")}
+	if !slices.Equal(got, want) {
+		t.Fatalf("screenshots %v, want %v", got, want)
 	}
 }

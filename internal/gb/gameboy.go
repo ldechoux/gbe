@@ -5,7 +5,23 @@ import "errors"
 // CyclesPerFrame is the number of T-cycles in one LCD frame (~59.73 Hz).
 const CyclesPerFrame = 70224
 
-// GameBoy wires all the components of a DMG together.
+// Model selects the emulated hardware.
+type Model int
+
+const (
+	ModelAuto Model = iota // CGB for games that support it, DMG otherwise
+	ModelDMG
+	ModelCGB
+)
+
+// Boot ROM sizes. The CGB one is mapped over 0x0000-0x00FF and
+// 0x0200-0x08FF, leaving the cartridge header visible.
+const (
+	dmgBootSize = 0x100
+	cgbBootSize = 0x900
+)
+
+// GameBoy wires all the components of a DMG or a CGB together.
 type GameBoy struct {
 	CPU    *CPU
 	Bus    *Bus
@@ -16,23 +32,62 @@ type GameBoy struct {
 	Serial *Serial
 	Cart   *Cartridge
 
-	boot []byte
+	model Model // ModelDMG or ModelCGB
+	boot  []byte
 }
 
-// New creates a Game Boy running the given cartridge. bootROM may be nil,
-// in which case the machine starts in the state the DMG boot ROM leaves.
+// New creates a Game Boy running the given cartridge, on a CGB if the game
+// supports it. See NewModel.
 func New(cart *Cartridge, bootROM []byte) (*GameBoy, error) {
-	if bootROM != nil && len(bootROM) != 0x100 {
-		return nil, errors.New("boot ROM must be exactly 256 bytes")
+	return NewModel(cart, bootROM, ModelAuto)
+}
+
+// NewModel creates a Game Boy of the given model running the cartridge.
+// bootROM may be nil, in which case the machine starts in the state the boot
+// ROM leaves. Otherwise its size must match the model (256 bytes for a DMG,
+// 2304 for a CGB).
+func NewModel(cart *Cartridge, bootROM []byte, model Model) (*GameBoy, error) {
+	model = ResolveModel(cart, model)
+	if model == ModelCGB && !cart.ColorSupported() {
+		return nil, errors.New("this game is for the DMG only, it cannot run in Game Boy Color mode")
 	}
-	g := &GameBoy{Cart: cart, boot: bootROM}
+	switch {
+	case bootROM == nil:
+	case model == ModelDMG && len(bootROM) != dmgBootSize:
+		return nil, errors.New("the DMG boot ROM must be exactly 256 bytes")
+	case model == ModelCGB && len(bootROM) != cgbBootSize:
+		return nil, errors.New("the Game Boy Color boot ROM must be exactly 2304 bytes")
+	}
+	g := &GameBoy{Cart: cart, model: model, boot: bootROM}
 	g.Reset()
 	return g, nil
 }
 
+// BootROMSize returns the size the boot ROM of a model must have.
+func BootROMSize(model Model) int {
+	if model == ModelCGB {
+		return cgbBootSize
+	}
+	return dmgBootSize
+}
+
+// ResolveModel returns the model New would pick for the cartridge.
+func ResolveModel(cart *Cartridge, model Model) Model {
+	if model != ModelAuto {
+		return model
+	}
+	if cart.ColorSupported() {
+		return ModelCGB
+	}
+	return ModelDMG
+}
+
+// IsCGB reports whether the console runs in Game Boy Color mode.
+func (g *GameBoy) IsCGB() bool { return g.model == ModelCGB }
+
 // Reset power-cycles the console, keeping the cartridge RAM.
 func (g *GameBoy) Reset() {
-	bus := &Bus{cart: g.Cart}
+	bus := &Bus{cart: g.Cart, cgb: g.model == ModelCGB, hdmaLen: 0xFF}
 	g.Bus = bus
 	g.CPU = &CPU{bus: bus}
 	g.PPU = &PPU{bus: bus}
@@ -50,16 +105,30 @@ func (g *GameBoy) Reset() {
 	g.skipBoot()
 }
 
-// skipBoot sets the registers to the values the DMG boot ROM leaves behind.
+// skipBoot sets the registers to the values the boot ROM leaves behind.
 func (g *GameBoy) skipBoot() {
 	c := g.CPU
-	c.setAF(0x01B0)
-	c.setBC(0x0013)
-	c.setDE(0x00D8)
-	c.setHL(0x014D)
+	if g.IsCGB() {
+		// A=0x11 is how games detect a Game Boy Color.
+		c.setAF(0x1180)
+		c.setBC(0x0000)
+		c.setDE(0xFF56)
+		c.setHL(0x000D)
+		g.Timer.counter = 0x1EA0
+		// The boot ROM leaves every color palette white.
+		for i := 0; i < len(g.PPU.bgPal); i += 2 {
+			g.PPU.bgPal[i], g.PPU.bgPal[i+1] = 0xFF, 0x7F
+			g.PPU.objPal[i], g.PPU.objPal[i+1] = 0xFF, 0x7F
+		}
+	} else {
+		c.setAF(0x01B0)
+		c.setBC(0x0013)
+		c.setDE(0x00D8)
+		c.setHL(0x014D)
+		g.Timer.counter = 0xABCC
+	}
 	c.sp = 0xFFFE
 	c.pc = 0x0100
-	g.Timer.counter = 0xABCC
 	io := []struct {
 		addr uint16
 		v    byte
@@ -88,8 +157,13 @@ func (g *GameBoy) RunFrame() {
 	}
 }
 
-// Framebuffer returns the last complete frame, one shade (0-3) per pixel.
+// Framebuffer returns the last complete frame in DMG mode, one shade (0-3)
+// per pixel.
 func (g *GameBoy) Framebuffer() *[ScreenWidth * ScreenHeight]byte { return &g.PPU.front }
+
+// ColorFramebuffer returns the last complete frame in CGB mode, one RGB555
+// color per pixel (red in the low bits, as stored in the palette RAM).
+func (g *GameBoy) ColorFramebuffer() *[ScreenWidth * ScreenHeight]uint16 { return &g.PPU.cfront }
 
 // SetButton updates the state of one button.
 func (g *GameBoy) SetButton(b Button, pressed bool) { g.Joypad.set(b, pressed) }

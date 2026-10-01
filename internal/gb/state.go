@@ -14,7 +14,7 @@ import (
 // version and the identity of the ROM, followed by every component's state.
 const (
 	stateMagic   = "GBESTATE"
-	stateVersion = 1
+	stateVersion = 2 // 2 added the Game Boy Color; version 1 states still load
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -23,9 +23,10 @@ var ErrStateMismatch = errors.New("save state was made with a different ROM")
 // codec serializes state in both directions with the same code: each
 // component lists its fields once in sync(), whether saving or loading.
 type codec struct {
-	w   *bytes.Buffer // saving
-	r   io.Reader     // loading
-	err error
+	w       *bytes.Buffer // saving
+	r       io.Reader     // loading
+	version uint16        // format of the data being read or written
+	err     error
 }
 
 func (c *codec) loading() bool { return c.r != nil }
@@ -92,12 +93,19 @@ func (c *codec) f64(p *float64) {
 func (c *Cartridge) romID() []byte { return append([]byte(nil), c.rom[0x134:0x150]...) }
 
 // SaveState captures the whole machine state.
-func (g *GameBoy) SaveState() []byte {
-	c := &codec{w: &bytes.Buffer{}}
+func (g *GameBoy) SaveState() []byte { return g.encodeState(stateVersion) }
+
+// encodeState writes a save state in the given format version (older ones
+// are only written by tests).
+func (g *GameBoy) encodeState(version uint16) []byte {
+	c := &codec{w: &bytes.Buffer{}, version: version}
 	c.raw([]byte(stateMagic))
-	version := uint16(stateVersion)
 	c.u16(&version)
 	c.raw(g.Cart.romID())
+	if version >= 2 {
+		model := byte(g.model)
+		c.u8(&model)
+	}
 	g.sync(c)
 
 	var out bytes.Buffer
@@ -124,10 +132,20 @@ func (g *GameBoy) LoadState(data []byte) error {
 	switch {
 	case c.err != nil || string(magic) != stateMagic:
 		return errors.New("invalid save state")
-	case version != stateVersion:
+	case version == 0 || version > stateVersion:
 		return fmt.Errorf("unsupported save state version %d", version)
 	case !bytes.Equal(id, g.Cart.romID()):
 		return ErrStateMismatch
+	}
+	c.version = version
+	model := ModelDMG
+	if version >= 2 {
+		var m byte
+		c.u8(&m)
+		model = Model(m)
+	}
+	if c.err == nil && model != g.model {
+		return errors.New("save state was made in another hardware mode (DMG / Game Boy Color)")
 	}
 
 	backup := g.SaveState()
@@ -166,12 +184,27 @@ func (cpu *CPU) sync(c *codec) {
 }
 
 func (b *Bus) sync(c *codec) {
-	c.raw(b.wram[:])
+	if c.version < 2 {
+		c.raw(b.wram[:0x2000])
+	} else {
+		c.raw(b.wram[:])
+	}
 	c.raw(b.hram[:])
 	c.u8(&b.ie)
 	c.u8(&b.ifl)
 	c.bool(&b.bootEnabled)
 	c.u64(&b.cycles)
+	if c.version < 2 {
+		return
+	}
+	c.u8(&b.svbk)
+	c.bool(&b.doubleSpeed)
+	c.bool(&b.speedArmed)
+	c.u16(&b.hdmaSrc)
+	c.u16(&b.hdmaDst)
+	c.u8(&b.hdmaLen)
+	c.bool(&b.hdmaActive)
+	c.int(&b.stall)
 }
 
 func (t *Timer) sync(c *codec) {
@@ -189,7 +222,11 @@ func (s *Serial) sync(c *codec) {
 }
 
 func (p *PPU) sync(c *codec) {
-	c.raw(p.vram[:])
+	if c.version < 2 {
+		c.raw(p.vram[:0x2000])
+	} else {
+		c.raw(p.vram[:])
+	}
 	c.raw(p.oam[:])
 	for _, r := range []*byte{&p.lcdc, &p.stat, &p.scy, &p.scx, &p.ly, &p.lyc,
 		&p.bgp, &p.obp0, &p.obp1, &p.wy, &p.wx, &p.dmaReg, &p.mode} {
@@ -201,6 +238,19 @@ func (p *PPU) sync(c *codec) {
 	c.bool(&p.wyReached)
 	c.raw(p.back[:])
 	c.raw(p.front[:])
+	if c.version < 2 {
+		return
+	}
+	for _, r := range []*byte{&p.vbk, &p.bcps, &p.ocps, &p.opri} {
+		c.u8(r)
+	}
+	c.raw(p.bgPal[:])
+	c.raw(p.objPal[:])
+	for _, fb := range []*[ScreenWidth * ScreenHeight]uint16{&p.cback, &p.cfront} {
+		for i := range fb {
+			c.u16(&fb[i])
+		}
+	}
 }
 
 func (a *APU) sync(c *codec) {

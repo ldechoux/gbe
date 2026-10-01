@@ -22,6 +22,9 @@ type Cartridge struct {
 	Title   string
 	Type    byte
 	Battery bool
+	// CGB is the header flag at 0x0143: 0x80 for games that also run on a
+	// DMG, 0xC0 for Game Boy Color only games, anything else for DMG games.
+	CGB byte
 
 	rom []byte
 	ram []byte
@@ -39,9 +42,15 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 		return nil, errors.New("rom too small")
 	}
 	c := &Cartridge{
-		Title: strings.TrimRight(string(bytes.TrimRight(rom[0x134:0x144], "\x00")), " "),
-		Type:  rom[0x147],
+		Type: rom[0x147],
+		CGB:  rom[0x143],
 	}
+	// The title is 16 bytes long on DMG games, 15 when 0x0143 is a CGB flag.
+	title := rom[0x134:0x144]
+	if c.ColorSupported() {
+		title = rom[0x134:0x143]
+	}
+	c.Title = strings.TrimRight(string(bytes.TrimRight(title, "\x00")), " ")
 	// Pad the ROM to a power of two so bank offsets can simply wrap.
 	size := 0x8000
 	for size < len(rom) {
@@ -80,6 +89,12 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 	c.ram = make([]byte, ramSize)
 	return c, nil
 }
+
+// ColorSupported reports whether the game uses the Game Boy Color features.
+func (c *Cartridge) ColorSupported() bool { return c.CGB&0x80 != 0 }
+
+// ColorOnly reports whether the game refuses to run on a DMG.
+func (c *Cartridge) ColorOnly() bool { return c.CGB == 0xC0 }
 
 func (c *Cartridge) readROM(addr uint16) byte     { return c.mbc.readROM(addr) }
 func (c *Cartridge) writeROM(addr uint16, v byte) { c.mbc.writeROM(addr, v) }
@@ -326,7 +341,10 @@ func (m *mbc5) writeROM(addr uint16, v byte) {
 	case addr < 0x4000:
 		m.bank = m.bank&0xFF | int(v&1)<<8
 	case addr < 0x6000:
-		m.ramBank = int(v & 0x0F)
+		m.ramBank = int(v & 0x0F) // bit 3 drives the motor on rumble carts
+		if m.c.Type == 0x1C || m.c.Type == 0x1D || m.c.Type == 0x1E {
+			m.ramBank &= 0x07
+		}
 	}
 }
 

@@ -355,16 +355,18 @@ func (a *APU) lengthSteps() {
 }
 
 // tick advances the APU by one M-cycle and produces output samples.
-func (a *APU) tick() {
+// tick advances the APU by the given number of T-cycles at the normal speed
+// (4 per M-cycle, 2 in CGB double speed mode).
+func (a *APU) tick(cycles int) {
 	if a.on {
-		a.seqTimer += 4
+		a.seqTimer += cycles
 		if a.seqTimer >= 8192 {
 			a.seqTimer -= 8192
 			a.sequencerStep()
 		}
-		a.clockChannels(4)
+		a.clockChannels(cycles)
 	}
-	a.mix()
+	a.mix(cycles)
 }
 
 func (a *APU) clockChannels(cycles int) {
@@ -417,7 +419,7 @@ func (a *APU) output(i int) byte {
 	return byte(^c.lfsr&1) * c.env.volume
 }
 
-func (a *APU) mix() {
+func (a *APU) mix(cycles int) {
 	var l, r float64
 	if a.on {
 		nr51 := a.regs[0x15]
@@ -442,7 +444,7 @@ func (a *APU) mix() {
 	a.accR += r
 	a.accN++
 
-	a.sampleClock += 4
+	a.sampleClock += float64(cycles)
 	period := ClockRate / a.sampleRate
 	if a.sampleClock < period {
 		return

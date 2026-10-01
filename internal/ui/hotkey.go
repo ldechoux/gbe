@@ -6,6 +6,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 // Hotkey is a key combined with an exact set of modifiers, e.g. Cmd+F2.
@@ -57,7 +59,11 @@ func (h Hotkey) justPressed() bool {
 	return inpututil.IsKeyJustPressed(h.Key) && currentHotkey(h.Key) == h
 }
 
-func (h Hotkey) String() string {
+// String names the combination in English.
+func (h Hotkey) String() string { return h.label(i18n.Get(i18n.Default)) }
+
+// label names the combination in language l.
+func (h Hotkey) label(l *i18n.Locale) string {
 	var parts []string
 	if h.Control {
 		parts = append(parts, "Ctrl")
@@ -71,5 +77,5 @@ func (h Hotkey) String() string {
 	if h.Meta {
 		parts = append(parts, metaName())
 	}
-	return strings.Join(append(parts, keyLabel(h.Key)), "+")
+	return strings.Join(append(parts, keyLabel(l, h.Key)), "+")
 }

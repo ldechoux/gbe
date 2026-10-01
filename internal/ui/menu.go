@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -13,11 +14,12 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
-// The bitmap font is ASCII only, hence the unaccented French. Key names of
-// the active layout may contain other characters (e.g. "é" on AZERTY): they
-// fall back to Go Mono.
+// The bitmap font is ASCII only, hence unaccented translations (see
+// internal/i18n). Key names of the active layout may contain other
+// characters (e.g. "é" on AZERTY): they fall back to Go Mono.
 
 type menuPage int
 
@@ -41,6 +43,7 @@ const (
 	itemControls
 	itemVolume
 	itemScale
+	itemLanguage
 	itemSaveState
 	itemLoadState
 	itemReset
@@ -48,9 +51,9 @@ const (
 	mainItems
 )
 
-var buttonLabels = map[gb.Button]string{
-	gb.ButtonUp: "Haut", gb.ButtonDown: "Bas", gb.ButtonLeft: "Gauche", gb.ButtonRight: "Droite",
-	gb.ButtonA: "A", gb.ButtonB: "B", gb.ButtonStart: "Start", gb.ButtonSelect: "Select",
+// buttonLabel names a Game Boy button in language l.
+func buttonLabel(l *i18n.Locale, b gb.Button) string {
+	return l.T("button." + strings.ToLower(b.String()))
 }
 
 var (
@@ -132,7 +135,7 @@ func (m *menu) backToMain() {
 // raw keys and buttons instead.
 func (m *menu) update(g *Game) {
 	if m.page == pageControls && m.tab == tabPad && len(g.pads.ids()) == 0 {
-		m.tab, m.cursor, m.capturing, m.notice = tabKeyboard, 0, false, "Manette deconnectee"
+		m.tab, m.cursor, m.capturing, m.notice = tabKeyboard, 0, false, g.tr().T("controls.pad_disconnected")
 	}
 	if m.capturing {
 		if m.tab == tabPad {
@@ -203,7 +206,7 @@ func (m *menu) capture(g *Game) {
 		m.capturing, m.notice = false, ""
 	case m.cursor == controlsScreenshot():
 		if !combo.hasModifiers() && g.cfg.bound(key) {
-			m.notice = keyLabel(key) + " sert deja a un bouton"
+			m.notice = g.tr().T("controls.key_used_by_button", keyLabel(g.tr(), key))
 			return
 		}
 		g.cfg.Screenshot = combo
@@ -211,7 +214,7 @@ func (m *menu) capture(g *Game) {
 		m.capturing, m.notice = false, ""
 	default:
 		if g.cfg.conflicts(key) {
-			m.notice = keyLabel(key) + " sert deja a la capture"
+			m.notice = g.tr().T("controls.key_used_by_screenshot", keyLabel(g.tr(), key))
 			return
 		}
 		g.cfg.Bind(gb.Buttons[m.cursor], key)
@@ -240,6 +243,9 @@ func (m *menu) adjust(g *Game, delta int) {
 		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
 		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
 		g.saveConfig()
+	case itemLanguage:
+		g.cycleLanguage(delta)
+		m.width = 0 // the labels change length
 	}
 }
 
@@ -295,7 +301,7 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemPalette, itemVolume, itemScale:
+	case itemPalette, itemVolume, itemScale, itemLanguage:
 		m.adjust(g, 1)
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
@@ -332,9 +338,10 @@ type menuView struct {
 func (m *menu) view(g *Game) menuView {
 	if m.page == pageControls {
 		name, family, connected := padName(g.pads)
-		v := menuView{title: "CONTROLES", tabs: []menuTab{
-			{label: "Clavier", active: m.tab == tabKeyboard},
-			{label: "Manette", active: m.tab == tabPad, disabled: !connected},
+		l := g.tr()
+		v := menuView{title: l.T("controls.title"), tabs: []menuTab{
+			{label: l.T("controls.keyboard"), active: m.tab == tabKeyboard},
+			{label: l.T("controls.gamepad"), active: m.tab == tabPad, disabled: !connected},
 		}}
 		if m.tab == tabPad {
 			v.items, v.footer = m.padLines(g, name, family)
@@ -348,74 +355,79 @@ func (m *menu) view(g *Game) menuView {
 }
 
 func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, footer string) {
+	l := g.tr()
 	for i, b := range gb.Buttons {
-		btn := padLabel(family, g.cfg.PadButton(b))
+		btn := padLabel(l, family, g.cfg.PadButton(b))
 		if m.capturing && i == m.cursor {
-			btn = "appuyez sur un bouton..."
+			btn = l.T("controls.press_button")
 		}
-		items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], btn))
+		items = append(items, fmt.Sprintf("%-8s %s", buttonLabel(l, b), btn))
 	}
-	items = append(items, "Retablir par defaut", "Retour")
+	items = append(items, l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
 		name = name[:31] + "."
 	}
-	footer = "Manette: " + name
+	footer = l.T("controls.pad_name", name)
 	switch {
 	case m.notice != "":
 		footer = m.notice
 	case m.capturing:
-		footer = "Echap: annuler"
+		footer = l.T("controls.cancel")
 	}
 	return items, footer
 }
 
 func (m *menu) keyboardLines(g *Game) (items []string, footer string) {
+	l := g.tr()
 	for i, b := range gb.Buttons {
-		key := keyLabel(g.cfg.Key(b))
+		key := keyLabel(l, g.cfg.Key(b))
 		if m.capturing && i == m.cursor {
-			key = "appuyez sur une touche..."
+			key = l.T("controls.press_key")
 		}
-		items = append(items, fmt.Sprintf("%-8s %s", buttonLabels[b], key))
+		items = append(items, fmt.Sprintf("%-8s %s", buttonLabel(l, b), key))
 	}
-	shot := g.cfg.Screenshot.String()
+	shot := g.cfg.Screenshot.label(l)
 	if m.capturing && m.cursor == controlsScreenshot() {
-		shot = "appuyez sur la combinaison..."
+		shot = l.T("controls.press_combo")
 	}
-	items = append(items, fmt.Sprintf("%-8s %s", "Capture", shot), "Retablir par defaut", "Retour")
-	footer = "Entree: changer   <- ->: onglet"
+	items = append(items, fmt.Sprintf("%-8s %s", l.T("controls.screenshot"), shot),
+		l.T("controls.defaults"), l.T("controls.back"))
+	footer = l.T("controls.footer")
 	switch {
 	case m.notice != "":
 		footer = m.notice
 	case m.capturing:
-		footer = "Echap: annuler"
+		footer = l.T("controls.cancel")
 	}
 	return items, footer
 }
 
 func (m *menu) lines(g *Game) (title string, items []string, footer string) {
+	l := g.tr()
 	if m.page == pageStart {
-		footer = "Entree: valider"
+		footer = l.T("start.footer")
 		if !g.stateTime.IsZero() {
-			footer = "Sauvegarde du " + g.stateTime.Format("02/01/2006 a 15:04")
+			footer = l.T("start.saved_at", g.stateTime.Format(l.T("start.date_format")))
 		}
-		return "PARTIE EN COURS", []string{"Reprendre la partie", "Recommencer depuis le debut"}, footer
+		return l.T("start.title"), []string{l.T("start.resume"), l.T("start.fresh")}, footer
 	}
 	items = []string{
-		"Reprendre",
-		fmt.Sprintf("Palette   < %s >", g.palette().Name),
-		"Controles...",
-		fmt.Sprintf("Volume    < %d%% >", int(math.Round(g.cfg.Volume*100))),
-		fmt.Sprintf("Echelle   < x%d >", g.cfg.Scale),
-		"Sauvegarder l'etat",
-		"Charger l'etat",
-		"Reinitialiser",
-		"Quitter",
+		l.T("menu.resume"),
+		l.T("menu.palette", g.palette().Name),
+		l.T("menu.controls"),
+		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
+		l.T("menu.scale", g.cfg.Scale),
+		l.T("menu.language", l.Name),
+		l.T("menu.save_state"),
+		l.T("menu.load_state"),
+		l.T("menu.reset"),
+		l.T("menu.quit"),
 	}
-	footer = "P: palette   F11: plein ecran"
+	footer = l.T("menu.footer")
 	if len(g.pads.ids()) > 0 {
-		footer = "P: palette  F11: plein ecran  Start+Select: menu"
+		footer = l.T("menu.footer_pad")
 	}
-	return "PAUSE", items, footer
+	return l.T("menu.title"), items, footer
 }
 
 // drawToast shows msg in a small box at the bottom-left of the screen.

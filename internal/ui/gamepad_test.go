@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 // fakePads is a scriptable padReader.
@@ -134,13 +138,25 @@ func TestPadFamilyLabels(t *testing.T) {
 	}
 	// The default A (right face button) as printed on each family.
 	a := defaultPad()["A"]
+	en, fr := i18n.Get("en"), i18n.Get("fr")
 	for f, want := range map[padFamily]string{padXbox: "B", padPlayStation: "Rond", padNintendo: "A"} {
-		if got := padLabel(f, a); got != want {
+		if got := padLabel(fr, f, a); got != want {
 			t.Errorf("%s: %q, want %q", f, got, want)
 		}
 	}
-	if got := padLabel(padXbox, std(ebiten.StandardGamepadButtonLeftTop)); got != "Croix haut" {
+	if got := padLabel(en, padPlayStation, a); got != "Circle" {
+		t.Errorf("English PlayStation label %q", got)
+	}
+	if got := padLabel(fr, padXbox, std(ebiten.StandardGamepadButtonLeftTop)); got != "Croix haut" {
 		t.Errorf("D-pad label %q", got)
+	}
+	// Every translated label must exist.
+	for _, labels := range append(slices.Collect(maps.Values(padLabels)), padCommonLabels) {
+		for _, s := range labels {
+			if strings.HasPrefix(s, "pad.") && !en.Has(s) {
+				t.Errorf("no message %q", s)
+			}
+		}
 	}
 }
 
@@ -241,7 +257,7 @@ func TestControlsTabs(t *testing.T) {
 	delete(pads.pads, 0)
 	g.actions = menuActions{}
 	g.menu.update(g)
-	if g.menu.tab != tabKeyboard || g.menu.notice != "Manette deconnectee" {
+	if g.menu.tab != tabKeyboard || g.menu.notice != "Gamepad disconnected" {
 		t.Fatalf("after unplugging: %+v", g.menu)
 	}
 }

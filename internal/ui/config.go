@@ -10,14 +10,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/i18n"
 )
 
 // Config holds the user preferences persisted between runs.
 type Config struct {
-	Palette string                `json:"palette"`
-	Scale   int                   `json:"scale"`
-	Volume  float64               `json:"volume"`
-	Keys    map[string]ebiten.Key `json:"keys"` // Game Boy button name -> key
+	Palette string `json:"palette"`
+	// Language is the code of the user interface language (see i18n).
+	Language string                `json:"language"`
+	Scale    int                   `json:"scale"`
+	Volume   float64               `json:"volume"`
+	Keys     map[string]ebiten.Key `json:"keys"` // Game Boy button name -> key
 	// Gamepad maps Game Boy button names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Screenshot is the key combination that saves a PNG of the screen.
@@ -41,6 +44,7 @@ func defaultKeys() map[string]ebiten.Key {
 func DefaultConfig() *Config {
 	return &Config{
 		Palette:    Palettes[0].ID,
+		Language:   i18n.Default,
 		Scale:      4,
 		Volume:     0.8,
 		Keys:       defaultKeys(),
@@ -81,6 +85,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if loaded.Palette != "" {
 		cfg.Palette = Palettes[paletteIndex(loaded.Palette)].ID
+	}
+	if i18n.Has(loaded.Language) {
+		cfg.Language = loaded.Language
 	}
 	if loaded.Scale >= 1 && loaded.Scale <= maxScale {
 		cfg.Scale = loaded.Scale

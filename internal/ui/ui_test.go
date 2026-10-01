@@ -319,3 +319,18 @@ func TestColorCorrectionToggle(t *testing.T) {
 		t.Errorf("menu entry %q", got)
 	}
 }
+
+func TestMenuPalette(t *testing.T) {
+	g := withGameBoy(t, newTestGame(t, newFakePads()))
+	g.cfg.Palette = "amber"
+	if got := g.menuPalette().ID; got != "amber" {
+		t.Errorf("DMG menu palette %q, want the selected one (amber)", got)
+	}
+	g = withColorGameBoy(t, g)
+	if got := g.menuPalette().ID; got != "grey" {
+		t.Errorf("CGB menu palette %q, want grey", got)
+	}
+	if g.cfg.Palette != "amber" {
+		t.Error("the saved palette changed")
+	}
+}

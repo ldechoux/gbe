@@ -85,7 +85,7 @@ Options utiles :
 
 Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; en mode
 Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
-d'origine, plus pâle), de
+d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc), de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
 de conflit, les deux touches sont échangées), de régler le volume, l'échelle et la langue,
 de réinitialiser la console ou de quitter.

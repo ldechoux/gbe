@@ -135,6 +135,16 @@ func Run(opts Options) error {
 
 func (g *Game) palette() *Palette { return &Palettes[paletteIndex(g.cfg.Palette)] }
 
+// menuPalette colors the menu and the notifications: the selected palette
+// in DMG mode, black and white for Game Boy Color games, whose screen has
+// no palette to match.
+func (g *Game) menuPalette() *Palette {
+	if g.colorMode() {
+		return &Palettes[paletteIndex("grey")]
+	}
+	return g.palette()
+}
+
 // tr returns the language of the user interface.
 func (g *Game) tr() *i18n.Locale { return i18n.Get(g.cfg.Language) }
 
@@ -318,7 +328,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.menu.draw(screen, g)
 	}
 	if g.toast != "" && ebiten.Tick() < g.toastUntil {
-		drawToast(screen, g.toast, g.palette())
+		drawToast(screen, g.toast, g.menuPalette())
 	}
 }
 

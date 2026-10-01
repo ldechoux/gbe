@@ -478,9 +478,9 @@ func drawText(dst *ebiten.Image, s string, x, y, scale float64, c color.Color) {
 	text.Draw(dst, s, menuFace, op)
 }
 
-// draw renders the menu with the colors of the current palette.
+// draw renders the menu with the colors of menuPalette.
 func (m *menu) draw(dst *ebiten.Image, g *Game) {
-	pal := g.palette().Colors
+	pal := g.menuPalette().Colors
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	scale := math.Max(1, math.Floor(sh/300))
 

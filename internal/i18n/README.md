@@ -83,6 +83,8 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.quit` | | Entrée qui quitte l'émulateur |
 | `menu.footer` | | Aide en bas du menu (raccourcis clavier) |
 | `menu.footer_pad` | | Aide en bas du menu quand une manette est branchée |
+| `menu.footer_color` | | `menu.footer` en mode Game Boy Color, où P règle la correction des couleurs |
+| `menu.footer_color_pad` | | `menu.footer_pad` en mode Game Boy Color |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 

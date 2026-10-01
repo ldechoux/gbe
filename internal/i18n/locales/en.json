@@ -17,6 +17,8 @@
     "menu.quit": "Quit",
     "menu.footer": "P: palette   F11: full screen",
     "menu.footer_pad": "P: palette  F11: full screen  Start+Select: menu",
+    "menu.footer_color": "P: colors   F11: full screen",
+    "menu.footer_color_pad": "P: colors  F11: full screen  Start+Select: menu",
 
     "start.title": "GAME IN PROGRESS",
     "start.resume": "Resume the game",

@@ -334,3 +334,16 @@ func TestMenuPalette(t *testing.T) {
 		t.Error("the saved palette changed")
 	}
 }
+
+func TestMenuFooter(t *testing.T) {
+	pads := newFakePads()
+	g := withGameBoy(t, newTestGame(t, pads))
+	l := g.tr()
+	if _, _, footer := g.menu.lines(g); footer != l.T("menu.footer") {
+		t.Errorf("DMG footer %q", footer)
+	}
+	g = withColorGameBoy(t, g)
+	if _, _, footer := g.menu.lines(g); footer != l.T("menu.footer_color") {
+		t.Errorf("CGB footer %q", footer)
+	}
+}

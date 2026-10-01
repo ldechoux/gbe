@@ -17,6 +17,8 @@
     "menu.quit": "Quitter",
     "menu.footer": "P: palette   F11: plein ecran",
     "menu.footer_pad": "P: palette  F11: plein ecran  Start+Select: menu",
+    "menu.footer_color": "P: couleurs   F11: plein ecran",
+    "menu.footer_color_pad": "P: couleurs  F11: plein ecran  Start+Select: menu",
 
     "start.title": "PARTIE EN COURS",
     "start.resume": "Reprendre la partie",

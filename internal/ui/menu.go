@@ -439,10 +439,14 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.reset"),
 		l.T("menu.quit"),
 	}
-	footer = l.T("menu.footer")
-	if len(g.pads.ids()) > 0 {
-		footer = l.T("menu.footer_pad")
+	key := "menu.footer"
+	if g.colorMode() {
+		key = "menu.footer_color" // P toggles the color correction
 	}
+	if len(g.pads.ids()) > 0 {
+		key += "_pad"
+	}
+	footer = l.T(key)
 	return l.T("menu.title"), items, footer
 }
 

@@ -1,0 +1,44 @@
+name: CI
+
+# Checks that every pull request builds and passes the tests. Nothing is
+# kept: binaries are only published by "Release binaries".
+on:
+  pull_request: # opened, new commits pushed, reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to the pull request cancels the run on the previous commit.
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      # ROM-based tests are skipped: ROMs are not in the repository.
+      - run: go test ./...
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Same settings as the release: pure Go, cross-compiled from Linux.
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build for every release platform
+        run: |
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            echo "::group::$target"
+            GOOS=${target%/*} GOARCH=${target#*/} go build ./...
+            echo "::endgroup::"
+          done

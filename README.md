@@ -1,6 +1,6 @@
 # gbe — émulateur Game Boy en Go pur
 
-Émulateur Game Boy (DMG) écrit en Go, sans cgo. Fenêtre, clavier et son reposent sur
+Émulateur Game Boy (DMG) et Game Boy Color (CGB) écrit en Go, sans cgo. Fenêtre, clavier et son reposent sur
 [Ebitengine](https://ebitengine.org), qui passe par purego sur macOS et Windows.
 
 Site du projet : https://ldechoux.github.io/gbe/
@@ -65,7 +65,8 @@ Options utiles :
 
 | Option | Rôle |
 |---|---|
-| `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ignorée si absente ; `none` pour démarrer directement le jeu) |
+| `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ou `bios/gbc_bios.bin` en mode Game Boy Color ; ignorée si absente ; `none` pour démarrer directement le jeu) |
+| `-model auto\|dmg\|cgb` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color pour les jeux qui la gèrent (octet 0x0143 de l'en-tête), la DMG sinon. `dmg` force la DMG pour un jeu compatible avec les deux |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
@@ -78,11 +79,13 @@ Options utiles :
 | X / Z (X / W en AZERTY) | A / B |
 | Entrée / Maj droite | Start / Select |
 | Échap | Menu (pause) |
-| P | Palette suivante (si P n'est pas assigné à un bouton) |
+| P | Palette suivante, ou correction des couleurs en mode Game Boy Color (si P n'est pas assigné à un bouton) |
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
 | F11 | Plein écran |
 
-Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct), de
+Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; en mode
+Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
+d'origine, plus pâle), de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
 de conflit, les deux touches sont échangées), de régler le volume, l'échelle et la langue,
 de réinitialiser la console ou de quitter.
@@ -130,15 +133,19 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
   depuis le début.
 - **Pendant le jeu** : le menu permet aussi de sauvegarder ou de recharger l'état à tout
   moment.
-- **Sécurité** : un état fait avec une autre ROM (ou une autre version) est refusé.
+- **Sécurité** : un état fait avec une autre ROM (ou une autre version), ou dans l'autre mode
+  (DMG / Game Boy Color), est refusé. Les états des versions précédentes restent lisibles.
 
 ## Compatibilité
 
 - Cartouches : ROM seule, MBC1, MBC2, MBC3 (avec RTC), MBC5.
 - Les cartouches à pile sont sauvegardées dans `<rom>.sav`, à la fermeture et toutes les 5 s.
   L'horloge MBC3 est enregistrée au format BGB/VBA-M.
-- Tests réussis : blargg `cpu_instrs`, `instr_timing`, `mem_timing`, `halt_bug`, et
-  `dmg-acid2` au pixel près.
+- Game Boy Color : RAM et VRAM en banques, palettes couleur, attributs des tiles, priorités
+  CGB, DMA VRAM (général et HBlank), double vitesse, boot ROM CGB. Les jeux DMG tournent
+  toujours sur une DMG : le mode de compatibilité colorisé de la CGB n'est pas émulé.
+- Tests réussis : blargg `cpu_instrs`, `instr_timing`, `mem_timing` (en DMG et en CGB),
+  `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près.
 
 ## Tests
 
@@ -149,6 +156,8 @@ for f in cpu_instrs/cpu_instrs.gb instr_timing/instr_timing.gb mem_timing/mem_ti
 done
 curl -sfLO https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb
 curl -sfL -o dmg-acid2-ref.png https://raw.githubusercontent.com/mattcurrie/dmg-acid2/master/img/reference-dmg.png
+curl -sfLO https://github.com/mattcurrie/cgb-acid2/releases/download/v1.1/cgb-acid2.gbc
+curl -sfL -o cgb-acid2-ref.png https://raw.githubusercontent.com/mattcurrie/cgb-acid2/master/img/reference.png
 cd .. && go test ./...
 ```
 
@@ -161,11 +170,11 @@ Un mode sans fenêtre sert au débogage :
 
 - `internal/gb` : le cœur, sans dépendance graphique.
   - CPU SM83 : chaque accès mémoire fait avancer le reste de la machine d'un M-cycle.
-  - PPU : rendu ligne par ligne.
+  - PPU : rendu ligne par ligne, en teintes (DMG) ou en couleurs RGB555 (CGB).
   - APU : 4 canaux, filtre passe-haut.
   - Timer, joypad, port série, MBC.
 - `internal/ui` : le frontend Ebitengine.
-  - Rendu avec la palette choisie.
+  - Rendu avec la palette choisie, ou en couleurs (corrigées ou non) en mode Game Boy Color.
   - Audio : tampon dont le taux d'échantillonnage s'ajuste légèrement pour compenser l'écart
     entre 60 Hz et 59,73 Hz.
   - Menu, configuration JSON.

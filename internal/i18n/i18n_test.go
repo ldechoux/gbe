@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"os"
 	"regexp"
 	"slices"
 	"testing"
@@ -38,6 +39,27 @@ func TestLocalesMatchDefault(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// README.md lists every message key, so translators know what each is for.
+func TestKeysDocumented(t *testing.T) {
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	documented := map[string]bool{}
+	for _, m := range regexp.MustCompile("(?m)^\\| `([a-z_.]+)` \\|").FindAllSubmatch(readme, -1) {
+		documented[string(m[1])] = true
+	}
+	for _, k := range Get(Default).Keys() {
+		if !documented[k] {
+			t.Errorf("%q is not documented in README.md", k)
+		}
+		delete(documented, k)
+	}
+	for k := range documented {
+		t.Errorf("README.md documents %q, which does not exist", k)
 	}
 }
 

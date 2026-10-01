@@ -16,6 +16,9 @@ import (
 // Config holds the user preferences persisted between runs.
 type Config struct {
 	Palette string `json:"palette"`
+	// ColorCorrection makes Game Boy Color games look like on the real
+	// screen instead of showing their raw, oversaturated colors.
+	ColorCorrection bool `json:"color_correction"`
 	// Language is the code of the user interface language (see i18n).
 	Language string                `json:"language"`
 	Scale    int                   `json:"scale"`
@@ -43,13 +46,14 @@ func defaultKeys() map[string]ebiten.Key {
 // DefaultConfig returns the out-of-the-box settings.
 func DefaultConfig() *Config {
 	return &Config{
-		Palette:    Palettes[0].ID,
-		Language:   i18n.Default,
-		Scale:      4,
-		Volume:     0.8,
-		Keys:       defaultKeys(),
-		Gamepad:    defaultPad(),
-		Screenshot: defaultScreenshotHotkey(),
+		Palette:         Palettes[0].ID,
+		ColorCorrection: true,
+		Language:        i18n.Default,
+		Scale:           4,
+		Volume:          0.8,
+		Keys:            defaultKeys(),
+		Gamepad:         defaultPad(),
+		Screenshot:      defaultScreenshotHotkey(),
 	}
 }
 
@@ -75,13 +79,17 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	var loaded struct {
 		Config
-		Screenshot *Hotkey `json:"screenshot"` // nil when absent
+		Screenshot      *Hotkey `json:"screenshot"`       // nil when absent
+		ColorCorrection *bool   `json:"color_correction"` // same
 	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
 	}
 	if loaded.Screenshot != nil && loaded.Screenshot.valid() {
 		cfg.Screenshot = *loaded.Screenshot
+	}
+	if loaded.ColorCorrection != nil {
+		cfg.ColorCorrection = *loaded.ColorCorrection
 	}
 	if loaded.Palette != "" {
 		cfg.Palette = Palettes[paletteIndex(loaded.Palette)].ID

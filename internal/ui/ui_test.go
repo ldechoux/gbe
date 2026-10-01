@@ -2,9 +2,11 @@ package ui
 
 import (
 	"encoding/binary"
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,9 +113,9 @@ func TestScreenshotConflicts(t *testing.T) {
 
 func TestSaveScreenshot(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "shots")
-	var fb [gb.ScreenWidth * gb.ScreenHeight]byte
-	fb[0] = 3
-	img := ScreenshotImage(&fb, &Palettes[0], 2)
+	g := withGameBoy(t, &Game{})
+	g.gb.Framebuffer()[0] = 3
+	img := Screenshot(g.gb, &Palettes[0], true, 2)
 	if b := img.Bounds(); b.Dx() != 320 || b.Dy() != 288 {
 		t.Fatalf("image size %v", b)
 	}
@@ -264,5 +266,84 @@ func TestMenuLanguage(t *testing.T) {
 	g.menu.update(g)
 	if g.cfg.Language != "en" {
 		t.Fatalf("language %q after Left", g.cfg.Language)
+	}
+}
+
+// withColorGameBoy is withGameBoy with a Game Boy Color game.
+func withColorGameBoy(t *testing.T, g *Game) *Game {
+	t.Helper()
+	rom := make([]byte, 0x8000)
+	rom[0x143] = 0xC0
+	cart, err := gb.NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.gb, err = gb.New(cart, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return g
+}
+
+func TestColorFrame(t *testing.T) {
+	g := withColorGameBoy(t, &Game{})
+	fb := g.gb.ColorFramebuffer()
+	fb[0], fb[1], fb[2] = 0x001F, 0x7FFF, 0x0000
+	raw := Screenshot(g.gb, &Palettes[0], false, 1)
+	if c := raw.RGBAAt(0, 0); c != (color.RGBA{0xFF, 0, 0, 0xFF}) {
+		t.Errorf("raw red is %v", c)
+	}
+	if c := raw.RGBAAt(1, 0); c != (color.RGBA{0xFF, 0xFF, 0xFF, 0xFF}) {
+		t.Errorf("raw white is %v", c)
+	}
+	fixed := Screenshot(g.gb, &Palettes[0], true, 1)
+	if c := fixed.RGBAAt(0, 0); c.R == 0xFF || c.R <= c.B || c.B == 0 {
+		t.Errorf("corrected red %v should be a paler red", c)
+	}
+	if c := fixed.RGBAAt(2, 0); c != (color.RGBA{0, 0, 0, 0xFF}) {
+		t.Errorf("corrected black is %v", c)
+	}
+}
+
+func TestColorCorrectionToggle(t *testing.T) {
+	g := withColorGameBoy(t, newTestGame(t, newFakePads()))
+	if !g.cfg.ColorCorrection {
+		t.Fatal("color correction off by default")
+	}
+	palette := g.cfg.Palette
+	g.cyclePalette(1)
+	if g.cfg.ColorCorrection || g.cfg.Palette != palette {
+		t.Error("P in CGB mode must toggle the color correction, not the palette")
+	}
+	if got := paletteLabel(g.tr(), g); !strings.Contains(got, g.tr().T("colors.raw")) {
+		t.Errorf("menu entry %q", got)
+	}
+}
+
+func TestMenuPalette(t *testing.T) {
+	g := withGameBoy(t, newTestGame(t, newFakePads()))
+	g.cfg.Palette = "amber"
+	if got := g.menuPalette().ID; got != "amber" {
+		t.Errorf("DMG menu palette %q, want the selected one (amber)", got)
+	}
+	g = withColorGameBoy(t, g)
+	if got := g.menuPalette().ID; got != "grey" {
+		t.Errorf("CGB menu palette %q, want grey", got)
+	}
+	if g.cfg.Palette != "amber" {
+		t.Error("the saved palette changed")
+	}
+}
+
+func TestMenuFooter(t *testing.T) {
+	pads := newFakePads()
+	g := withGameBoy(t, newTestGame(t, pads))
+	l := g.tr()
+	if _, _, footer := g.menu.lines(g); footer != l.T("menu.footer") {
+		t.Errorf("DMG footer %q", footer)
+	}
+	g = withColorGameBoy(t, g)
+	if _, _, footer := g.menu.lines(g); footer != l.T("menu.footer_color") {
+		t.Errorf("CGB footer %q", footer)
 	}
 }

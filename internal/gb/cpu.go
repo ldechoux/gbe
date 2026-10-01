@@ -98,6 +98,11 @@ func (c *CPU) pop() uint16 {
 // Step executes one instruction (or services an interrupt, or idles one
 // M-cycle while halted).
 func (c *CPU) Step() {
+	if c.bus.stall > 0 { // VRAM DMA in progress
+		c.bus.stall--
+		c.tick()
+		return
+	}
 	if c.locked {
 		c.tick()
 		return
@@ -308,6 +313,10 @@ func (c *CPU) execute(op byte) {
 			case 2: // STOP
 				c.fetch()
 				c.bus.timer.resetDiv()
+				if c.bus.switchSpeed() {
+					// The CPU is stopped while the clock settles.
+					c.bus.stall += 2050
+				}
 			case 3: // JR e
 				e := int8(c.fetch())
 				c.tick()

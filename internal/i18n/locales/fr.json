@@ -4,6 +4,9 @@
     "menu.title": "PAUSE",
     "menu.resume": "Reprendre",
     "menu.palette": "Palette   < %s >",
+    "menu.colors": "Couleurs  < %s >",
+    "colors.corrected": "corrigees",
+    "colors.raw": "brutes",
     "menu.controls": "Controles...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Echelle   < x%d >",
@@ -14,6 +17,8 @@
     "menu.quit": "Quitter",
     "menu.footer": "P: palette   F11: plein ecran",
     "menu.footer_pad": "P: palette  F11: plein ecran  Start+Select: menu",
+    "menu.footer_color": "P: couleurs   F11: plein ecran",
+    "menu.footer_color_pad": "P: couleurs  F11: plein ecran  Start+Select: menu",
 
     "start.title": "PARTIE EN COURS",
     "start.resume": "Reprendre la partie",

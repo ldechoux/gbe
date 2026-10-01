@@ -51,6 +51,18 @@ const (
 	mainItems
 )
 
+// paletteLabel is the palette entry of the main page. In Game Boy Color mode
+// it switches the color correction instead.
+func paletteLabel(l *i18n.Locale, g *Game) string {
+	if !g.colorMode() {
+		return l.T("menu.palette", g.palette().Name)
+	}
+	if g.cfg.ColorCorrection {
+		return l.T("menu.colors", l.T("colors.corrected"))
+	}
+	return l.T("menu.colors", l.T("colors.raw"))
+}
+
 // buttonLabel names a Game Boy button in language l.
 func buttonLabel(l *i18n.Locale, b gb.Button) string {
 	return l.T("button." + strings.ToLower(b.String()))
@@ -417,7 +429,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	}
 	items = []string{
 		l.T("menu.resume"),
-		l.T("menu.palette", g.palette().Name),
+		paletteLabel(l, g),
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 		l.T("menu.scale", g.cfg.Scale),
@@ -427,10 +439,14 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.reset"),
 		l.T("menu.quit"),
 	}
-	footer = l.T("menu.footer")
-	if len(g.pads.ids()) > 0 {
-		footer = l.T("menu.footer_pad")
+	key := "menu.footer"
+	if g.colorMode() {
+		key = "menu.footer_color" // P toggles the color correction
 	}
+	if len(g.pads.ids()) > 0 {
+		key += "_pad"
+	}
+	footer = l.T(key)
 	return l.T("menu.title"), items, footer
 }
 
@@ -466,9 +482,9 @@ func drawText(dst *ebiten.Image, s string, x, y, scale float64, c color.Color) {
 	text.Draw(dst, s, menuFace, op)
 }
 
-// draw renders the menu with the colors of the current palette.
+// draw renders the menu with the colors of menuPalette.
 func (m *menu) draw(dst *ebiten.Image, g *Game) {
-	pal := g.palette().Colors
+	pal := g.menuPalette().Colors
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	scale := math.Max(1, math.Floor(sh/300))
 

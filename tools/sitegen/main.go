@@ -149,11 +149,30 @@ func copyFile(dst, src string) error {
 	return out.Close()
 }
 
+// screenshots lists the PNG and WebP images under dir, subdirectories
+// included (one per hardware mode, e.g. gb/ and gbc/), relative to dir.
+func screenshots(dir string) ([]string, error) {
+	var out []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if d.IsDir() || ext != ".png" && ext != ".webp" {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		out = append(out, rel)
+		return err
+	})
+	return out, err
+}
+
 func main() {
 	releasesPath := flag.String("releases", "", "JSON array from the GitHub releases API (empty: no releases)")
 	repo := flag.String("repo", "ldechoux/gbe", "owner/name of the GitHub repository")
 	siteDir := flag.String("site", "site", "directory with index.html.tmpl and static files")
-	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP)")
+	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP, subdirectories included)")
 	outDir := flag.String("out", "_site", "output directory")
 	flag.Parse()
 
@@ -206,13 +225,12 @@ func main() {
 			copies[filepath.Join(*outDir, e.Name())] = filepath.Join(*siteDir, e.Name())
 		}
 	}
-	var shots []string
-	for _, pattern := range []string{"*.png", "*.webp"} {
-		m, _ := filepath.Glob(filepath.Join(*shotsDir, pattern))
-		shots = append(shots, m...)
+	shots, err := screenshots(*shotsDir)
+	if err != nil {
+		log.Fatal(err)
 	}
-	for _, s := range shots {
-		copies[filepath.Join(*outDir, "img", filepath.Base(s))] = s
+	for _, rel := range shots {
+		copies[filepath.Join(*outDir, "img", rel)] = filepath.Join(*shotsDir, rel)
 	}
 	for dst, src := range copies {
 		if err := copyFile(dst, src); err != nil {

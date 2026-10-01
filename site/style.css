@@ -12,6 +12,7 @@
   --screen-0: #9bbc0f;
   --screen-3: #0f380f;
   --bezel: #5b5d6b;
+  --bezel-color: #4b3a78; /* Game Boy Color, grape */
   --led: #c8102e;
   --pixel: "Press Start 2P", monospace;
   --text: "IBM Plex Mono", ui-monospace, monospace;
@@ -29,6 +30,7 @@
     --accent: #8bac0f;
     --accent-ink: #0f380f;
     --bezel: #3d3f4a;
+    --bezel-color: #3a2d5e;
   }
 }
 
@@ -79,15 +81,19 @@ nav a:hover { color: var(--accent); }
 .lead { font-size: 17px; margin: 0 0 28px; max-width: 34em; }
 .actions { display: flex; gap: 16px; flex-wrap: wrap; }
 
+.consoles { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .console { margin: 0; }
+.console-color { margin-top: 48px; } /* staggered, so both screens read as a pair */
+.console-color .bezel { background: var(--bezel-color); }
+.console-color .screen { border-color: #111; background: #111; }
 .bezel {
   position: relative;
   background: var(--bezel);
-  padding: 28px 40px 32px;
+  padding: 18px 22px 22px;
   border-radius: 10px 10px 48px 10px; /* the DMG's rounded bottom-right corner */
   box-shadow: var(--px) var(--px) 0 var(--shadow);
 }
-.led { position: absolute; left: 14px; top: 50%; width: 8px; height: 8px; background: var(--led); }
+.led { position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; background: var(--led); }
 .screen { display: block; width: 100%; height: auto; border: var(--px) solid var(--screen-3); background: var(--screen-0); }
 .pixelated { image-rendering: pixelated; }
 .console figcaption { font-family: var(--pixel); font-size: 8px; color: var(--muted); text-align: center; margin-top: 12px; letter-spacing: 1px; }
@@ -126,9 +132,14 @@ nav a:hover { color: var(--accent); }
 .palettes li { display: flex; flex-direction: column; gap: 8px; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); height: 40px; border: var(--px) solid var(--line); }
 .palette-name { font-size: 13px; color: var(--muted); }
+.palette-shots { grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 32px; }
+.palette-shots figure { margin: 0; }
+.palette-shots img { display: block; width: 100%; height: auto; border: var(--px) solid var(--line); }
+.palette-shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
 /* Screenshots */
-.shots { grid-template-columns: repeat(3, 1fr); }
+.shots { grid-template-columns: repeat(2, 1fr); }
+.shots-head { margin-top: 32px; }
 .shots figure { margin: 0; }
 /* The screenshots are macOS window captures with their own transparent
    shadow margin, so they get no frame of their own. */
@@ -148,6 +159,7 @@ nav a:hover { color: var(--accent); }
   border: var(--px) solid var(--line);
   overflow-x: auto;
 }
+.terminal code { display: block; }
 .terminal code::before { content: "$ "; opacity: 0.6; }
 
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
@@ -184,6 +196,7 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
   .hero h1 { font-size: 40px; }
   .features, .shots, .downloads { grid-template-columns: 1fr 1fr; }
   .palettes { grid-template-columns: repeat(3, 1fr); }
+  .palette-shots { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
   .topbar { position: static; } /* the wrapped nav would eat the small screen */
@@ -192,7 +205,8 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
   nav a { font-size: 13px; }
   .features, .shots, .downloads { grid-template-columns: 1fr; }
   .palettes { grid-template-columns: repeat(2, 1fr); }
-  .bezel { padding: 20px 24px 24px; }
+  .bezel { padding: 12px 14px 16px; }
+  .console-color { margin-top: 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

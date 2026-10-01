@@ -70,6 +70,9 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.title` | | Titre du menu Pause |
 | `menu.resume` | | Entrée qui ferme le menu et reprend le jeu |
 | `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette |
+| `menu.colors` | `%s` `colors.corrected` ou `colors.raw` | Remplace `menu.palette` en mode Game Boy Color : active la correction des couleurs |
+| `colors.corrected` | | Couleurs ajustées pour ressembler à l'écran de la Game Boy Color |
+| `colors.raw` | | Couleurs telles que le jeu les définit, sans correction |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
@@ -80,6 +83,8 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.quit` | | Entrée qui quitte l'émulateur |
 | `menu.footer` | | Aide en bas du menu (raccourcis clavier) |
 | `menu.footer_pad` | | Aide en bas du menu quand une manette est branchée |
+| `menu.footer_color` | | `menu.footer` en mode Game Boy Color, où P règle la correction des couleurs |
+| `menu.footer_color_pad` | | `menu.footer_pad` en mode Game Boy Color |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 

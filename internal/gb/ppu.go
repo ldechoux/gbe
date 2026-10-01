@@ -5,14 +5,21 @@ const (
 	ScreenHeight = 144
 )
 
-// PPU renders one scanline at a time, at the end of mode 3. The framebuffer
-// holds shades 0 (lightest) to 3 (darkest), already mapped through BGP/OBPx;
-// the actual colors are chosen by the frontend.
+// PPU renders one scanline at a time, at the end of mode 3. In DMG mode the
+// framebuffer holds shades 0 (lightest) to 3 (darkest), already mapped
+// through BGP/OBPx; the actual colors are chosen by the frontend. In CGB mode
+// a second framebuffer holds RGB555 colors from the palette RAM.
 type PPU struct {
 	bus *Bus
 
-	vram [0x2000]byte
+	vram [0x4000]byte // 2 banks of 8 KiB; a DMG only uses the first one
+	vbk  byte         // VRAM bank seen by the CPU (CGB)
 	oam  [0xA0]byte
+
+	// CGB palette RAM: 8 palettes of 4 colors, 2 bytes per color.
+	bgPal, objPal [64]byte
+	bcps, ocps    byte // palette index registers, bit 7 = auto-increment
+	opri          byte // bit 0 set: DMG-style sprite priority (by X)
 
 	lcdc, stat, scy, scx, ly, lyc byte
 	bgp, obp0, obp1, wy, wx       byte
@@ -24,8 +31,14 @@ type PPU struct {
 	windowLine int
 	wyReached  bool
 
-	back, front [ScreenWidth * ScreenHeight]byte
-	frameReady  bool
+	back, front   [ScreenWidth * ScreenHeight]byte
+	cback, cfront [ScreenWidth * ScreenHeight]uint16
+	frameReady    bool
+}
+
+// vramOffset maps a CPU address in 0x8000-0x9FFF to the VRAM array.
+func (p *PPU) vramOffset(addr uint16) int {
+	return int(p.vbk&1)*0x2000 + int(addr&0x1FFF)
 }
 
 func (p *PPU) read(addr uint16) byte {
@@ -58,8 +71,29 @@ func (p *PPU) read(addr uint16) byte {
 		return p.wy
 	case 0xFF4B:
 		return p.wx
+	case 0xFF4F:
+		return 0xFE | p.vbk
+	case 0xFF68:
+		return 0x40 | p.bcps
+	case 0xFF69:
+		return p.bgPal[p.bcps&0x3F]
+	case 0xFF6A:
+		return 0x40 | p.ocps
+	case 0xFF6B:
+		return p.objPal[p.ocps&0x3F]
+	case 0xFF6C:
+		return 0xFE | p.opri
 	}
 	return 0xFF
+}
+
+// writePalette stores a byte in the palette RAM at the index register and
+// increments it if asked to.
+func writePalette(pal *[64]byte, idx *byte, v byte) {
+	pal[*idx&0x3F] = v
+	if *idx&0x80 != 0 {
+		*idx = 0x80 | (*idx+1)&0x3F
+	}
 }
 
 func (p *PPU) write(addr uint16, v byte) {
@@ -71,6 +105,10 @@ func (p *PPU) write(addr uint16, v byte) {
 			p.ly, p.dot, p.mode = 0, 0, 0
 			p.back = [len(p.back)]byte{}
 			p.front = p.back
+			for i := range p.cback {
+				p.cback[i] = 0x7FFF // a CGB screen turns white
+			}
+			p.cfront = p.cback
 			p.frameReady = true
 		} else if !wasOn && v&0x80 != 0 {
 			p.ly, p.dot, p.mode = 0, 0, 2
@@ -94,6 +132,18 @@ func (p *PPU) write(addr uint16, v byte) {
 		p.wy = v
 	case 0xFF4B:
 		p.wx = v
+	case 0xFF4F:
+		p.vbk = v & 1
+	case 0xFF68:
+		p.bcps = v & 0xBF
+	case 0xFF69:
+		writePalette(&p.bgPal, &p.bcps, v)
+	case 0xFF6A:
+		p.ocps = v & 0xBF
+	case 0xFF6B:
+		writePalette(&p.objPal, &p.ocps, v)
+	case 0xFF6C:
+		p.opri = v & 1
 	}
 	p.updateStat()
 }
@@ -110,12 +160,13 @@ func (p *PPU) updateStat() {
 	p.statLine = line
 }
 
-// tick advances the PPU by one M-cycle.
-func (p *PPU) tick() {
+// tick advances the PPU by the given number of dots (4 per M-cycle, 2 in
+// CGB double speed mode).
+func (p *PPU) tick(dots int) {
 	if p.lcdc&0x80 == 0 {
 		return
 	}
-	p.dot += 4
+	p.dot += dots
 	switch p.mode {
 	case 2:
 		if p.dot >= 80 {
@@ -125,6 +176,7 @@ func (p *PPU) tick() {
 		if p.dot >= 80+172 {
 			p.renderLine()
 			p.mode = 0
+			p.bus.hblank()
 		}
 	case 0:
 		if p.dot >= 456 {
@@ -134,6 +186,7 @@ func (p *PPU) tick() {
 				p.mode = 1
 				p.bus.requestInterrupt(IntVBlank)
 				p.front = p.back
+				p.cfront = p.cback
 				p.frameReady = true
 			} else {
 				p.mode = 2
@@ -153,14 +206,14 @@ func (p *PPU) tick() {
 	p.updateStat()
 }
 
-func (p *PPU) tileRow(tile byte, row int, signed bool) (lo, hi byte) {
+func (p *PPU) tileRow(bank int, tile byte, row int, signed bool) (lo, hi byte) {
 	var addr int
 	if signed {
 		addr = 0x1000 + int(int8(tile))*16
 	} else {
 		addr = int(tile) * 16
 	}
-	addr += row * 2
+	addr += bank*0x2000 + row*2
 	return p.vram[addr], p.vram[addr+1]
 }
 
@@ -170,16 +223,44 @@ func colorIndex(lo, hi byte, bit int) byte {
 
 func shade(pal, idx byte) byte { return (pal >> (idx * 2)) & 3 }
 
+// color reads color idx of palette n in a CGB palette RAM.
+func color(pal *[64]byte, n, idx byte) uint16 {
+	i := int(n&7)*8 + int(idx)*2
+	return (uint16(pal[i]) | uint16(pal[i+1])<<8) & 0x7FFF
+}
+
+// mapPixel returns the color index of the pixel (px, py) of the tile map at
+// base, along with the CGB attributes of its tile (always 0 on a DMG):
+// palette (bits 0-2), VRAM bank (3), X flip (5), Y flip (6), priority (7).
+func (p *PPU) mapPixel(base, px, py int, signed bool) (idx, attr byte) {
+	off := base + (py/8)*32 + px/8
+	if p.bus.cgb {
+		attr = p.vram[0x2000+off]
+	}
+	row, bit := py&7, 7-px&7
+	if attr&0x40 != 0 {
+		row = 7 - row
+	}
+	if attr&0x20 != 0 {
+		bit = px & 7
+	}
+	lo, hi := p.tileRow(int(attr>>3&1), p.vram[off], row, signed)
+	return colorIndex(lo, hi, bit), attr
+}
+
 func (p *PPU) renderLine() {
 	ly := int(p.ly)
-	out := p.back[ly*ScreenWidth : (ly+1)*ScreenWidth]
-	var bgIdx [ScreenWidth]byte // raw color indices, used for sprite priority
+	cgb := p.bus.cgb
+	var bgIdx [ScreenWidth]byte  // raw color indices, used for sprite priority
+	var bgAttr [ScreenWidth]byte // CGB tile attributes
 
 	if p.ly == p.wy {
 		p.wyReached = true
 	}
 
-	if p.lcdc&0x01 != 0 {
+	// On a CGB, LCDC bit 0 does not hide the background, it only takes its
+	// priority over the sprites away.
+	if cgb || p.lcdc&0x01 != 0 {
 		signed := p.lcdc&0x10 == 0
 		bgMap := 0x1800
 		if p.lcdc&0x08 != 0 {
@@ -187,10 +268,7 @@ func (p *PPU) renderLine() {
 		}
 		y := (int(p.scy) + ly) & 0xFF
 		for x := range ScreenWidth {
-			px := (int(p.scx) + x) & 0xFF
-			tile := p.vram[bgMap+(y/8)*32+px/8]
-			lo, hi := p.tileRow(tile, y&7, signed)
-			bgIdx[x] = colorIndex(lo, hi, 7-px&7)
+			bgIdx[x], bgAttr[x] = p.mapPixel(bgMap, (int(p.scx)+x)&0xFF, y, signed)
 		}
 
 		wx := int(p.wx) - 7
@@ -199,26 +277,53 @@ func (p *PPU) renderLine() {
 			if p.lcdc&0x40 != 0 {
 				winMap = 0x1C00
 			}
-			wy := p.windowLine
 			for x := max(wx, 0); x < ScreenWidth; x++ {
-				px := x - wx
-				tile := p.vram[winMap+(wy/8)*32+px/8]
-				lo, hi := p.tileRow(tile, wy&7, signed)
-				bgIdx[x] = colorIndex(lo, hi, 7-px&7)
+				bgIdx[x], bgAttr[x] = p.mapPixel(winMap, x-wx, p.windowLine, signed)
 			}
 			p.windowLine++
 		}
 	}
-	for x := range ScreenWidth {
-		out[x] = shade(p.bgp, bgIdx[x])
+
+	var obj [ScreenWidth]objPixel
+	if p.lcdc&0x02 != 0 {
+		p.renderSprites(ly, &obj)
 	}
 
-	if p.lcdc&0x02 != 0 {
-		p.renderSprites(ly, out, &bgIdx)
+	if cgb {
+		out := p.cback[ly*ScreenWidth : (ly+1)*ScreenWidth]
+		master := p.lcdc&0x01 != 0
+		for x := range ScreenWidth {
+			o := obj[x]
+			bgWins := master && bgIdx[x] != 0 && (bgAttr[x]&0x80 != 0 || o.attr&0x80 != 0)
+			if o.idx != 0 && !bgWins {
+				out[x] = color(&p.objPal, o.attr&7, o.idx)
+			} else {
+				out[x] = color(&p.bgPal, bgAttr[x]&7, bgIdx[x])
+			}
+		}
+		return
+	}
+
+	out := p.back[ly*ScreenWidth : (ly+1)*ScreenWidth]
+	for x := range ScreenWidth {
+		o := obj[x]
+		if o.idx != 0 && (o.attr&0x80 == 0 || bgIdx[x] == 0) {
+			pal := p.obp0
+			if o.attr&0x10 != 0 {
+				pal = p.obp1
+			}
+			out[x] = shade(pal, o.idx)
+		} else {
+			out[x] = shade(p.bgp, bgIdx[x])
+		}
 	}
 }
 
-func (p *PPU) renderSprites(ly int, out []byte, bgIdx *[ScreenWidth]byte) {
+// objPixel is the frontmost opaque sprite pixel at some X: its color index
+// (0 when there is none) and the attributes of its sprite.
+type objPixel struct{ idx, attr byte }
+
+func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) {
 	height := 8
 	if p.lcdc&0x04 != 0 {
 		height = 16
@@ -234,13 +339,14 @@ func (p *PPU) renderSprites(ly int, out []byte, bgIdx *[ScreenWidth]byte) {
 		}
 	}
 	// DMG priority: lower X first, then lower OAM index (insertion sort keeps
-	// the OAM order stable).
-	for i := 1; i < n; i++ {
-		for j := i; j > 0 && p.oam[sel[j]*4+1] < p.oam[sel[j-1]*4+1]; j-- {
-			sel[j], sel[j-1] = sel[j-1], sel[j]
+	// the OAM order stable). A CGB only uses the OAM order.
+	if !p.bus.cgb || p.opri&1 != 0 {
+		for i := 1; i < n; i++ {
+			for j := i; j > 0 && p.oam[sel[j]*4+1] < p.oam[sel[j-1]*4+1]; j-- {
+				sel[j], sel[j-1] = sel[j-1], sel[j]
+			}
 		}
 	}
-	var drawn [ScreenWidth]bool
 	for k := range n {
 		o := p.oam[sel[k]*4 : sel[k]*4+4]
 		y, x, tile, attr := int(o[0])-16, int(o[1])-8, o[2], o[3]
@@ -251,29 +357,23 @@ func (p *PPU) renderSprites(ly int, out []byte, bgIdx *[ScreenWidth]byte) {
 		if height == 16 {
 			tile &^= 1
 		}
-		lo, hi := p.tileRow(tile, row, false)
-		pal := p.obp0
-		if attr&0x10 != 0 {
-			pal = p.obp1
+		bank := 0
+		if p.bus.cgb {
+			bank = int(attr >> 3 & 1)
 		}
+		lo, hi := p.tileRow(bank, tile, row, false)
 		for i := range 8 {
 			sx := x + i
-			if sx < 0 || sx >= ScreenWidth || drawn[sx] {
+			if sx < 0 || sx >= ScreenWidth || out[sx].idx != 0 {
 				continue
 			}
 			bit := 7 - i
 			if attr&0x20 != 0 {
 				bit = i
 			}
-			idx := colorIndex(lo, hi, bit)
-			if idx == 0 {
-				continue
+			if idx := colorIndex(lo, hi, bit); idx != 0 {
+				out[sx] = objPixel{idx, attr}
 			}
-			drawn[sx] = true
-			if attr&0x80 != 0 && bgIdx[sx] != 0 {
-				continue
-			}
-			out[sx] = shade(pal, idx)
 		}
 	}
 }

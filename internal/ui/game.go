@@ -135,6 +135,16 @@ func Run(opts Options) error {
 
 func (g *Game) palette() *Palette { return &Palettes[paletteIndex(g.cfg.Palette)] }
 
+// menuPalette colors the menu and the notifications: the selected palette
+// in DMG mode, black and white for Game Boy Color games, whose screen has
+// no palette to match.
+func (g *Game) menuPalette() *Palette {
+	if g.colorMode() {
+		return &Palettes[paletteIndex("grey")]
+	}
+	return g.palette()
+}
+
 // tr returns the language of the user interface.
 func (g *Game) tr() *i18n.Locale { return i18n.Get(g.cfg.Language) }
 
@@ -160,9 +170,18 @@ func (g *Game) saveBattery() {
 	}
 }
 
+// colorMode reports whether a Game Boy Color game is running.
+func (g *Game) colorMode() bool { return g.gb != nil && g.gb.IsCGB() }
+
+// cyclePalette changes the DMG palette, or toggles the color correction in
+// Game Boy Color mode, where palettes do not apply.
 func (g *Game) cyclePalette(delta int) {
-	i := (paletteIndex(g.cfg.Palette) + delta + len(Palettes)) % len(Palettes)
-	g.cfg.Palette = Palettes[i].ID
+	if g.colorMode() {
+		g.cfg.ColorCorrection = !g.cfg.ColorCorrection
+	} else {
+		i := (paletteIndex(g.cfg.Palette) + delta + len(Palettes)) % len(Palettes)
+		g.cfg.Palette = Palettes[i].ID
+	}
 	g.saveConfig()
 }
 
@@ -204,7 +223,7 @@ func (g *Game) loadState() {
 
 // screenshot saves the current frame, scaled like the window, as a PNG.
 func (g *Game) screenshot() {
-	img := ScreenshotImage(g.gb.Framebuffer(), g.palette(), g.cfg.Scale)
+	img := Screenshot(g.gb, g.palette(), g.cfg.ColorCorrection, g.cfg.Scale)
 	path, err := saveScreenshot(g.shotDir, g.title, img, time.Now())
 	if err != nil {
 		log.Printf("screenshot: %v", err)
@@ -291,11 +310,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	pal := g.palette()
-	for i, s := range g.gb.Framebuffer() {
-		c := pal.Colors[s]
-		g.pix[i*4], g.pix[i*4+1], g.pix[i*4+2], g.pix[i*4+3] = c.R, c.G, c.B, 0xFF
-	}
+	frameRGBA(g.pix, g.gb, g.palette(), g.cfg.ColorCorrection)
 	g.lcd.WritePixels(g.pix)
 
 	screen.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
@@ -313,7 +328,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.menu.draw(screen, g)
 	}
 	if g.toast != "" && ebiten.Tick() < g.toastUntil {
-		drawToast(screen, g.toast, g.palette())
+		drawToast(screen, g.toast, g.menuPalette())
 	}
 }
 

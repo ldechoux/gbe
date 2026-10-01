@@ -1,4 +1,4 @@
-// Command gbe is a Game Boy (DMG) emulator.
+// Command gbe is a Game Boy (DMG) and Game Boy Color emulator.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -21,8 +22,9 @@ import (
 var version = "dev"
 
 func main() {
-	romPath := flag.String("rom", "", "path to the .gb ROM (may also be given as the first argument)")
-	biosPath := flag.String("bios", "bios/gb_bios.bin", `boot ROM to run first ("none" to skip it; ignored if missing)`)
+	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM (may also be given as the first argument)")
+	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
+	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it), "dmg" or "cgb"`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
@@ -42,7 +44,7 @@ func main() {
 		*romPath = flag.Arg(0)
 	}
 	if *romPath == "" {
-		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb")
+		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb|game.gbc")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -55,7 +57,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	savePath := strings.TrimSuffix(*romPath, ".gb") + ".sav"
+	model, ok := map[string]gb.Model{"auto": gb.ModelAuto, "dmg": gb.ModelDMG, "cgb": gb.ModelCGB}[strings.ToLower(*modelName)]
+	if !ok {
+		log.Fatalf("unknown model %q (want auto, dmg or cgb)", *modelName)
+	}
+	model = gb.ResolveModel(cart, model)
+	base := romBase(*romPath)
+	savePath := base + ".sav"
 	if cart.Battery {
 		if data, err := os.ReadFile(savePath); err == nil {
 			cart.LoadSaveData(data)
@@ -64,14 +72,20 @@ func main() {
 		}
 	}
 
+	if *biosPath == "" {
+		*biosPath = "bios/gb_bios.bin"
+		if model == gb.ModelCGB {
+			*biosPath = "bios/gbc_bios.bin"
+		}
+	}
 	var boot []byte
-	if *biosPath != "none" && *biosPath != "" {
+	if *biosPath != "none" {
 		boot, err = os.ReadFile(*biosPath)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			log.Fatal(err)
 		}
 	}
-	console, err := gb.New(cart, boot)
+	console, err := gb.NewModel(cart, boot, model)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -87,7 +101,7 @@ func main() {
 		GameBoy:    console,
 		Title:      cart.Title,
 		SavePath:   savePath,
-		StatePath:  strings.TrimSuffix(*romPath, ".gb") + ".state",
+		StatePath:  base + ".state",
 		ConfigPath: *cfgPath,
 		Scale:      *scale,
 
@@ -95,6 +109,16 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// romBase is the ROM path without its .gb or .gbc extension, to which the
+// save files extensions are appended.
+func romBase(path string) string {
+	ext := filepath.Ext(path)
+	if strings.EqualFold(ext, ".gb") || strings.EqualFold(ext, ".gbc") {
+		return strings.TrimSuffix(path, ext)
+	}
+	return path
 }
 
 type press struct {
@@ -159,7 +183,7 @@ func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string) erro
 	if shot == "" {
 		return nil
 	}
-	img := ui.ScreenshotImage(console.Framebuffer(), &ui.Palettes[0], 1)
+	img := ui.Screenshot(console, &ui.Palettes[0], false, 1)
 	f, err := os.Create(shot)
 	if err != nil {
 		return err

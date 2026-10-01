@@ -197,10 +197,14 @@ func (m *menu) capture(g *Game) {
 			break
 		}
 	}
-	if !found {
-		return
+	if found {
+		m.captureKey(g, currentHotkey(key))
 	}
-	combo := currentHotkey(key)
+}
+
+// captureKey assigns combo, pressed while capturing, to the selected entry.
+func (m *menu) captureKey(g *Game, combo Hotkey) {
+	key := combo.Key
 	switch {
 	case key == ebiten.KeyEscape && !combo.hasModifiers():
 		m.capturing, m.notice = false, ""

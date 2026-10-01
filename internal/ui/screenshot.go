@@ -21,16 +21,23 @@ func DefaultScreenshotDir() string {
 	return filepath.Join(home, "Pictures", "gbe")
 }
 
-// ScreenshotImage renders a framebuffer with a palette, each Game Boy pixel
-// becoming a scale x scale block.
-func ScreenshotImage(fb *[gb.ScreenWidth * gb.ScreenHeight]byte, pal *Palette, scale int) *image.RGBA {
+// Screenshot renders the last frame of the console (DMG shades through pal,
+// CGB colors corrected or not), each Game Boy pixel becoming a scale x scale
+// block.
+func Screenshot(console *gb.GameBoy, pal *Palette, correct bool, scale int) *image.RGBA {
+	pix := make([]byte, gb.ScreenWidth*gb.ScreenHeight*4)
+	frameRGBA(pix, console, pal, correct)
+	return scaleImage(pix, scale)
+}
+
+// scaleImage turns a 160x144 RGBA frame into an image scaled scale times.
+func scaleImage(pix []byte, scale int) *image.RGBA {
 	scale = max(1, scale)
 	img := image.NewRGBA(image.Rect(0, 0, gb.ScreenWidth*scale, gb.ScreenHeight*scale))
 	for y := range gb.ScreenHeight * scale {
 		row := img.Pix[y*img.Stride:]
 		for x := range gb.ScreenWidth * scale {
-			c := pal.Colors[fb[(y/scale)*gb.ScreenWidth+x/scale]]
-			row[x*4], row[x*4+1], row[x*4+2], row[x*4+3] = c.R, c.G, c.B, 0xFF
+			copy(row[x*4:x*4+4], pix[((y/scale)*gb.ScreenWidth+x/scale)*4:])
 		}
 	}
 	return img

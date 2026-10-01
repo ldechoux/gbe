@@ -51,6 +51,18 @@ const (
 	mainItems
 )
 
+// paletteLabel is the palette entry of the main page. In Game Boy Color mode
+// it switches the color correction instead.
+func paletteLabel(l *i18n.Locale, g *Game) string {
+	if !g.colorMode() {
+		return l.T("menu.palette", g.palette().Name)
+	}
+	if g.cfg.ColorCorrection {
+		return l.T("menu.colors", l.T("colors.corrected"))
+	}
+	return l.T("menu.colors", l.T("colors.raw"))
+}
+
 // buttonLabel names a Game Boy button in language l.
 func buttonLabel(l *i18n.Locale, b gb.Button) string {
 	return l.T("button." + strings.ToLower(b.String()))
@@ -417,7 +429,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	}
 	items = []string{
 		l.T("menu.resume"),
-		l.T("menu.palette", g.palette().Name),
+		paletteLabel(l, g),
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 		l.T("menu.scale", g.cfg.Scale),

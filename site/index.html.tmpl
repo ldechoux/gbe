@@ -39,7 +39,7 @@
       <a class="btn" href="https://github.com/{{.Repo}}">Code source</a>
     </div>
   </div>
-  <div class="consoles">
+  <div class="consoles" data-carousel aria-roledescription="carrousel" aria-label="Les deux consoles émulées">
     <figure class="console" aria-label="Écran titre d'un jeu Game Boy affiché par gbe">
       <div class="bezel">
         <span class="led" aria-hidden="true"></span>
@@ -54,6 +54,12 @@
       </div>
       <figcaption>GAME BOY COLOR · 32 768 COULEURS</figcaption>
     </figure>
+    <div class="carousel-nav" hidden>
+      <button type="button" class="carousel-arrow" data-step="-1" aria-label="Console précédente"></button>
+      <button type="button" class="carousel-dot" aria-label="Game Boy"></button>
+      <button type="button" class="carousel-dot" aria-label="Game Boy Color"></button>
+      <button type="button" class="carousel-arrow" data-step="1" aria-label="Console suivante"></button>
+    </div>
   </div>
 </section>
 
@@ -264,6 +270,83 @@
     var os = /Mac/.test(ua) ? "macos" : /Win/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "";
     var card = os && document.querySelector('.download[data-os="' + os + '"]');
     if (card) card.classList.add("current");
+  })();
+
+  // Hero carousel: one console at a time. Without JavaScript both stay side
+  // by side. The active dot fills up in 5 s, and the end of that animation
+  // shows the next console; hovering or focusing the carousel pauses it, and
+  // any action starts the 5 s over.
+  (function () {
+    var root = document.querySelector("[data-carousel]");
+    if (!root) return;
+    var slides = root.querySelectorAll(".console");
+    var dots = root.querySelectorAll(".carousel-dot");
+    var nav = root.querySelector(".carousel-nav");
+    var current = 0;
+
+    function show(index, step) {
+      var next = (index + slides.length) % slides.length;
+      if (next !== current) {
+        var incoming = slides[next];
+        // Start the incoming console on the side it comes from, then let
+        // the transition bring it in while the current one leaves.
+        incoming.classList.remove("to-left", "to-right");
+        incoming.classList.add(step > 0 ? "from-right" : "from-left");
+        void incoming.offsetWidth;
+        incoming.classList.remove("from-right", "from-left");
+        slides[current].classList.add(step > 0 ? "to-left" : "to-right");
+      }
+      slides.forEach(function (s, i) {
+        var active = i === next;
+        s.classList.toggle("is-active", active);
+        s.setAttribute("aria-hidden", active ? "false" : "true");
+        s.inert = !active;
+      });
+      current = next;
+      dots.forEach(function (d, i) {
+        d.classList.remove("is-active");
+        d.setAttribute("aria-current", i === next ? "true" : "false");
+      });
+      void dots[next].offsetWidth; // restart the 5 s fill
+      dots[next].classList.add("is-active");
+    }
+
+    root.classList.add("is-carousel");
+    nav.hidden = false;
+    show(0, 1);
+
+    dots.forEach(function (d, i) {
+      d.addEventListener("click", function () { show(i, i > current ? 1 : -1); });
+      d.addEventListener("animationend", function () { show(current + 1, 1); });
+    });
+    root.querySelectorAll(".carousel-arrow").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var step = Number(b.dataset.step);
+        show(current + step, step);
+      });
+    });
+    root.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") show(current - 1, -1);
+      else if (e.key === "ArrowRight") show(current + 1, 1);
+    });
+
+    // Swipe on touch screens.
+    var startX = null;
+    root.addEventListener("pointerdown", function (e) { startX = e.clientX; });
+    root.addEventListener("pointerup", function (e) {
+      if (startX === null) return;
+      var dx = e.clientX - startX;
+      startX = null;
+      if (Math.abs(dx) > 40) show(current + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+    });
+
+    function pause(on) { root.classList.toggle("is-paused", on); }
+    root.addEventListener("mouseenter", function () { pause(true); });
+    root.addEventListener("mouseleave", function () { pause(root.contains(document.activeElement)); });
+    root.addEventListener("focusin", function () { pause(true); });
+    root.addEventListener("focusout", function (e) {
+      if (!root.contains(e.relatedTarget)) pause(root.matches(":hover"));
+    });
   })();
 </script>
 </body>

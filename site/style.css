@@ -98,6 +98,60 @@ nav a:hover { color: var(--accent); }
 .pixelated { image-rendering: pixelated; }
 .console figcaption { font-family: var(--pixel); font-size: 8px; color: var(--muted); text-align: center; margin-top: 12px; letter-spacing: 1px; }
 
+/* Hero carousel (set up by the script): the consoles are stacked in one
+   cell, the active one slides in while the other slides out, then its
+   screen lights up in four steps, like the four shades of the DMG LCD. */
+/* overflow-x: clip keeps the sliding consoles inside the column (no page
+   scroll on phones); the padding leaves room for the bezel shadow. */
+.consoles.is-carousel { grid-template-columns: 1fr; max-width: 420px; width: 100%; margin-inline: auto; overflow-x: clip; padding-right: var(--px); touch-action: pan-y; }
+/* The outgoing console leaves quickly, the incoming one follows. */
+.is-carousel .console {
+  grid-area: 1 / 1;
+  margin-top: 0;
+  transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s, opacity 0.3s 0.1s;
+}
+.is-carousel .console:not(.is-active) {
+  opacity: 0; visibility: hidden;
+  transition: transform 0.35s cubic-bezier(0.5, 0, 0.8, 0.3), opacity 0.25s, visibility 0s 0.35s;
+}
+.is-carousel .console.to-left, .is-carousel .console.from-left { transform: translateX(-30%); }
+.is-carousel .console.to-right, .is-carousel .console.from-right { transform: translateX(30%); }
+.is-carousel .console.from-left, .is-carousel .console.from-right { transition: none; }
+.is-carousel .console.is-active .screen { animation: lcd-on 0.6s steps(4, jump-none) 0.4s both; }
+@keyframes lcd-on {
+  from { filter: brightness(1.9) contrast(0.35); }
+  to { filter: none; }
+}
+
+.carousel-nav { grid-area: 2 / 1; display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 20px; }
+.carousel-nav[hidden] { display: none; }
+.carousel-nav button { cursor: pointer; border: 3px solid var(--line); background: var(--surface); color: var(--ink); padding: 0; }
+.carousel-arrow { display: grid; place-items: center; width: 36px; height: 36px; box-shadow: 3px 3px 0 var(--shadow); }
+/* A pixel triangle drawn in CSS: the ◀ ▶ glyphs are missing from the pixel
+   font, and a fallback font would not center them. 2 px steps, 12x22 px. */
+.carousel-arrow::before {
+  content: ""; width: 12px; height: 22px; background: currentColor;
+  clip-path: polygon(0 0, 2px 0, 2px 2px, 4px 2px, 4px 4px, 6px 4px, 6px 6px, 8px 6px, 8px 8px, 10px 8px, 10px 10px, 12px 10px,
+    12px 12px, 10px 12px, 10px 14px, 8px 14px, 8px 16px, 6px 16px, 6px 18px, 4px 18px, 4px 20px, 2px 20px, 2px 22px, 0 22px);
+  margin-left: 3px; /* the triangle's weight sits on its flat side */
+}
+.carousel-arrow[data-step="-1"]::before { transform: scaleX(-1); margin: 0 3px 0 0; }
+.carousel-arrow:active { transform: translate(3px, 3px); box-shadow: none; }
+.carousel-dot { position: relative; width: 40px; height: 14px; overflow: hidden; }
+.carousel-dot::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); }
+/* The fill takes 5 s; its end shows the next console. */
+.carousel-dot.is-active::after { animation: carousel-fill 5s linear forwards; }
+.is-paused .carousel-dot.is-active::after { animation-play-state: paused; }
+.carousel-dot.is-active { background: var(--accent-ink); }
+@keyframes carousel-fill { to { width: 100%; } }
+
+/* No sliding, no light-up and no automatic change: the buttons still work. */
+@media (prefers-reduced-motion: reduce) {
+  .is-carousel .console, .is-carousel .console:not(.is-active) { transition: none; }
+  .is-carousel .console.is-active .screen { animation: none; }
+  .carousel-dot.is-active::after { animation: none; width: 100%; }
+}
+
 /* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: space-between; gap: 12px;

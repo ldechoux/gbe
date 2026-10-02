@@ -61,6 +61,11 @@ CGO_ENABLED=0 go build -o bin/gbe ./cmd/gbe
 Les dossiers `bios/` (boot ROM) et `roms/` ne sont pas versionnés : les fichiers qu'ils
 contiennent sont sous copyright. Il faut y placer ses propres copies.
 
+Une ROM compressée se lance directement (`./bin/gbe roms/Tetris_DX.zip`) : la première
+ROM `.gb` ou `.gbc` de l'archive est décompressée en mémoire, et les sauvegardes
+(`Tetris_DX.sav`, `Tetris_DX.state`) sont enregistrées à côté de l'archive, qui n'est
+jamais modifiée.
+
 Options utiles :
 
 | Option | Rôle |

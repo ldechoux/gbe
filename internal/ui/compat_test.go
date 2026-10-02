@@ -3,6 +3,8 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ldechoux/gbe/internal/gb"
@@ -123,22 +125,135 @@ func TestCompatMenu(t *testing.T) {
 	if got := g.menuPalette().ID; got != "grey" {
 		t.Errorf("menu palette %q, want grey", got)
 	}
+}
 
-	if !g.cfg.ColorizeDMG {
-		t.Fatal("colorization off by default")
+// withModes lets the menu rebuild the console in another mode, as when the
+// hardware is left to auto.
+func withModes(g *Game) *Game {
+	g.autoModel = true
+	g.newConsole = func(m gb.Model) (*gb.GameBoy, error) { return gb.NewModel(g.gb.Cart, nil, m) }
+	return g
+}
+
+// entryLabel is the label of a main page entry.
+func entryLabel(g *Game, item int) string {
+	_, items, _ := g.menu.lines(g)
+	if i := slices.Index(mainEntries(g), item); i >= 0 {
+		return items[i]
+	}
+	return ""
+}
+
+func TestColorizeEntryShown(t *testing.T) {
+	g := withModes(withCompatGameBoy(t, newTestGame(t, newFakePads())))
+	if entryLabel(g, itemColorize) != "Colorize  < on >" {
+		t.Errorf("DMG game left to auto: entry %q", entryLabel(g, itemColorize))
+	}
+
+	g.autoModel = false // -model dmg or cgb decides
+	if entryLabel(g, itemColorize) != "" {
+		t.Error("entry shown although -model forces the hardware")
 	}
 	g.menu.show()
-	g.menu.cursor = itemColorize
-	g.actions = menuActions{ok: true}
+	g.menu.cursor = itemPalette
+	g.actions = menuActions{down: true}
 	g.menu.update(g)
-	if g.cfg.ColorizeDMG || g.toast != "Applied at next launch" {
-		t.Errorf("colorize entry: %v, toast %q", g.cfg.ColorizeDMG, g.toast)
+	if g.menu.cursor != itemControls || g.menu.view(g).selected != 2 {
+		t.Errorf("Down skips the hidden entry: cursor %d, selected %d", g.menu.cursor, g.menu.view(g).selected)
+	}
+	g.actions = menuActions{up: true}
+	g.menu.update(g)
+	if g.menu.cursor != itemPalette {
+		t.Errorf("Up skips the hidden entry: cursor %d", g.menu.cursor)
+	}
+
+	c := withModes(withColorGameBoy(t, newTestGame(t, newFakePads())))
+	if entryLabel(c, itemColorize) != "" || len(mainEntries(c)) != mainItems-1 {
+		t.Error("entry shown for a Game Boy Color game")
+	}
+}
+
+func TestResetAppliesColorize(t *testing.T) {
+	g := withModes(withCompatGameBoy(t, newTestGame(t, newFakePads())))
+	l := g.tr()
+	m := &g.menu
+	press := func(item int) {
+		m.show()
+		m.cursor = item
+		g.actions = menuActions{ok: true}
+		m.update(g)
+	}
+
+	press(itemColorize)
+	if g.cfg.ColorizeDMG || entryLabel(g, itemColorize) != "Colorize  < off >" {
+		t.Fatalf("entry: %v %q", g.cfg.ColorizeDMG, entryLabel(g, itemColorize))
 	}
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.ColorizeDMG {
 		t.Error("setting not saved")
 	}
-	if _, items, _ := g.menu.lines(g); items[itemColorize] != "Colorize  < off >" {
-		t.Errorf("entry %q", items[itemColorize])
+	if !g.gb.Compat() || !g.modePending() {
+		t.Fatal("the game must stay colorized until reset")
+	}
+	if _, _, footer := m.lines(g); footer != l.T("menu.footer_pending") {
+		t.Errorf("footer %q, want the reset hint", footer)
+	}
+	press(itemColorize)
+	if g.modePending() {
+		t.Error("back to the running mode: nothing pending")
+	}
+
+	press(itemColorize)
+	press(itemReset)
+	if g.gb.IsCGB() || g.modePending() {
+		t.Fatal("reset must apply the setting: DMG")
+	}
+	if _, _, footer := m.lines(g); footer != l.T("menu.footer") {
+		t.Errorf("footer after reset %q", footer)
+	}
+	press(itemColorize)
+	press(itemReset)
+	if !g.gb.Compat() {
+		t.Fatal("reset must apply the setting: colorized")
+	}
+	g.gb.RunFrame()
+	press(itemReset) // nothing pending: the same console, power-cycled
+	if !g.gb.Compat() || g.gb.PC() != 0x0100 {
+		t.Errorf("plain reset: compat %v PC %04X", g.gb.Compat(), g.gb.PC())
+	}
+}
+
+func TestStartPageOtherMode(t *testing.T) {
+	g := withModes(withGameBoy(t, newTestGame(t, newFakePads()), busyProgram...))
+	g.saveState()
+	dmg := g.gb
+	m := &g.menu
+
+	// A DMG state, while the settings ask for colors.
+	m.showStart()
+	_, _, footer := m.lines(g)
+	if lines := strings.Split(footer, "\n"); len(lines) != 2 || lines[1] != "DMG game: start over to colorize" {
+		t.Errorf("start page footer %q", footer)
+	}
+	g.actions = menuActions{ok: true} // Resume, in the mode of the state
+	m.update(g)
+	if g.gb != dmg || g.toast != "Game restored" {
+		t.Errorf("resume: console replaced %v, toast %q", g.gb != dmg, g.toast)
+	}
+
+	m.showStart()
+	m.cursor = startFresh
+	m.update(g)
+	if !g.gb.Compat() || !g.started {
+		t.Errorf("start over: compat %v", g.gb.Compat())
+	}
+
+	m.showStart()
+	if _, _, footer := m.lines(g); strings.Contains(footer, "\n") {
+		t.Errorf("same mode: footer %q", footer)
+	}
+	g.cfg.ColorizeDMG = false
+	if _, _, footer := m.lines(g); !strings.HasSuffix(footer, "\nColorized game: start over for the DMG") {
+		t.Errorf("colorized state, colorization off: footer %q", footer)
 	}
 }
 
@@ -155,31 +270,5 @@ func TestColorizeConfig(t *testing.T) {
 	os.WriteFile(path, []byte(`{}`), 0o644)
 	if cfg, _ := LoadConfig(path); !cfg.ColorizeDMG || cfg.CompatPalettes == nil {
 		t.Errorf("defaults: colorize %v palettes %v", cfg.ColorizeDMG, cfg.CompatPalettes)
-	}
-}
-
-func TestStartOverInOtherMode(t *testing.T) {
-	g := withGameBoy(t, newTestGame(t, newFakePads()))
-	g.saveState()
-	dmg := g.gb
-	built := 0
-	g.freshStart = func() (*gb.GameBoy, error) {
-		built++
-		return withCompatGameBoy(t, &Game{}).gb, nil
-	}
-	m := &g.menu
-
-	m.showStart()
-	g.actions = menuActions{ok: true} // Resume, in the mode of the state
-	m.update(g)
-	if g.gb != dmg || built != 0 || g.toast != "Saved in the other mode: restart to switch" {
-		t.Errorf("resume: console replaced %v, toast %q", g.gb != dmg, g.toast)
-	}
-
-	m.showStart()
-	m.cursor = startFresh
-	m.update(g)
-	if built != 1 || !g.gb.Compat() || !g.started {
-		t.Errorf("start over: built %d, compat %v", built, g.gb.Compat())
 	}
 }

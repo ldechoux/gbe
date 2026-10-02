@@ -110,7 +110,7 @@ disposition de clavier. Le menu affiche leur nom selon la disposition active (AZ
 ## Jeux DMG en couleurs
 
 Comme une vraie Game Boy Color, gbe colorise les jeux Game Boy (activé par défaut, entrée
-« Coloriser » du menu, appliquée au prochain lancement) :
+« Coloriser » du menu, présente pour les jeux DMG lancés sans `-model`) :
 
 - **Palette automatique** : les jeux Nintendo reçoivent la palette que la boot ROM couleur
   prévoit pour leur titre (Tetris en jaune et rouge, Link's Awakening en rose…), les autres
@@ -123,6 +123,10 @@ Comme une vraie Game Boy Color, gbe colorise les jeux Game Boy (activé par déf
   (vérifiées contre l'original par les tests).
 - **Fidélité** : la console tourne dans le mode de compatibilité de la Game Boy Color
   (registre KEY0) ; la correction des couleurs s'applique comme pour les jeux GBC.
+- **Changer de réglage** : passer à une autre console demande de redémarrer le jeu. Tant que
+  le réglage et le mode en cours diffèrent, le bas du menu indique « Reinitialiser pour
+  appliquer » ; « Réinitialiser » redémarre alors dans le mode choisi (la partie en cours est
+  perdue, pas le `.sav`).
 
 ## Langues
 
@@ -164,7 +168,8 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
   (DMG / Game Boy Color), est refusé. Les états des versions précédentes restent lisibles.
 - **Changement de mode** : avec `-model auto`, une partie sauvegardée dans l'autre mode (par
   exemple une partie DMG faite avant d'activer la colorisation) se reprend dans son mode ;
-  « Recommencer » relance la console dans le mode choisi. Le `.sav` vaut pour les deux modes.
+  l'écran de reprise le signale sous la date, et « Recommencer » relance la console dans le
+  mode choisi. Le `.sav` vaut pour les deux modes.
 
 ## Compatibilité
 

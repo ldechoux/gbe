@@ -167,8 +167,8 @@ func TestMenuFastForward(t *testing.T) {
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.FastForwardSpeed != 3 {
 		t.Errorf("saved speed %d, want 3", cfg.FastForwardSpeed)
 	}
-	if _, items, _ := m.lines(g); items[itemSpeed] != "Fast fwd  < x3 >" {
-		t.Errorf("speed entry %q", items[itemSpeed])
+	if got := entryLabel(g, itemSpeed); got != "Fast fwd  < x3 >" {
+		t.Errorf("speed entry %q", got)
 	}
 
 	// The actions are bound like the buttons, swapping on conflict.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -146,6 +147,30 @@ func (m *menu) showStart() {
 	*m = menu{open: true, page: pageStart}
 }
 
+// mainEntries lists the entries of the main page shown for this game: the
+// colorization setting only applies to DMG games.
+func mainEntries(g *Game) []int {
+	entries := make([]int, 0, mainItems)
+	for i := range mainItems {
+		if i != itemColorize || g.colorizable() {
+			entries = append(entries, i)
+		}
+	}
+	return entries
+}
+
+// move goes to the previous (-1) or next (1) entry. On the main page, the
+// cursor is the entry itself (itemResume...), whichever are hidden.
+func (m *menu) move(g *Game, delta int) {
+	if m.page != pageMain {
+		m.cursor = (m.cursor + m.itemCount() + delta) % m.itemCount()
+		return
+	}
+	entries := mainEntries(g)
+	i := max(0, slices.Index(entries, m.cursor))
+	m.cursor = entries[(i+len(entries)+delta)%len(entries)]
+}
+
 func (m *menu) itemCount() int {
 	switch m.page {
 	case pageControls:
@@ -194,9 +219,9 @@ func (m *menu) update(g *Game) {
 			m.open = false
 		}
 	case a.up:
-		m.cursor = (m.cursor + m.itemCount() - 1) % m.itemCount()
+		m.move(g, -1)
 	case a.down:
-		m.cursor = (m.cursor + 1) % m.itemCount()
+		m.move(g, 1)
 	case a.left:
 		m.adjust(g, -1)
 	case a.right:
@@ -272,9 +297,8 @@ func (m *menu) adjust(g *Game, delta int) {
 	case itemPalette:
 		g.cyclePalette(delta)
 	case itemColorize:
-		g.cfg.ColorizeDMG = !g.cfg.ColorizeDMG
+		g.cfg.ColorizeDMG = !g.cfg.ColorizeDMG // applied by Reset (see the footer)
 		g.saveConfig()
-		g.notify(g.tr().T("toast.colorize_next_launch"))
 	case itemVolume:
 		v := math.Round(g.cfg.Volume*10) + float64(delta)
 		g.cfg.Volume = max(0, min(10, v)) / 10
@@ -312,10 +336,10 @@ func (m *menu) activate(g *Game) {
 	if m.page == pageStart {
 		m.open = false
 		switch {
-		case m.cursor != startResume:
-			g.startFresh()
-		case g.loadState() && g.freshStart != nil:
-			g.notify(g.tr().T("toast.resumed_other_mode"))
+		case m.cursor == startResume:
+			g.loadState()
+		case g.modePending():
+			g.restart() // starting over: in the mode of the settings
 		}
 		g.started = true
 		return
@@ -360,8 +384,7 @@ func (m *menu) activate(g *Game) {
 		m.open = false
 	case itemReset:
 		g.saveBattery()
-		g.gb.Reset()
-		g.rewind.clear()
+		g.restart()
 		m.open = false
 	case itemQuit:
 		g.quit = true
@@ -377,10 +400,11 @@ type menuTab struct {
 
 // menuView is what draw renders.
 type menuView struct {
-	title  string
-	tabs   []menuTab
-	items  []string
-	footer string
+	title    string
+	tabs     []menuTab
+	items    []string
+	selected int    // highlighted item
+	footer   string // one line or more
 }
 
 func (m *menu) view(g *Game) menuView {
@@ -396,10 +420,15 @@ func (m *menu) view(g *Game) menuView {
 		} else {
 			v.items, v.footer = m.keyboardLines(g)
 		}
+		v.selected = m.cursor
 		return v
 	}
 	title, items, footer := m.lines(g)
-	return menuView{title: title, items: items, footer: footer}
+	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
+	if m.page == pageMain {
+		v.selected = slices.Index(mainEntries(g), m.cursor)
+	}
+	return v
 }
 
 func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, footer string) {
@@ -457,9 +486,16 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		if !g.stateTime.IsZero() {
 			footer = l.T("start.saved_at", g.stateTime.Format(l.T("start.date_format")))
 		}
+		if g.modePending() { // the state was made in the other mode
+			if g.gb.IsCGB() {
+				footer += "\n" + l.T("start.other_mode_color")
+			} else {
+				footer += "\n" + l.T("start.other_mode_dmg")
+			}
+		}
 		return l.T("start.title"), []string{l.T("start.resume"), l.T("start.fresh")}, footer
 	}
-	items = []string{
+	labels := []string{
 		l.T("menu.resume"),
 		paletteLabel(l, g),
 		l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
@@ -473,6 +509,9 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.reset"),
 		l.T("menu.quit"),
 	}
+	for _, e := range mainEntries(g) {
+		items = append(items, labels[e])
+	}
 	key := "menu.footer"
 	if g.colorMode() && !g.compat() {
 		key = "menu.footer_color" // P toggles the color correction
@@ -481,6 +520,9 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		key += "_pad"
 	}
 	footer = l.T(key)
+	if g.modePending() {
+		footer = l.T("menu.footer_pending") // e.g. after changing the colorization
+	}
 	return l.T("menu.title"), items, footer
 }
 
@@ -531,11 +573,15 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	scale := math.Max(1, math.Floor(sh/300))
 
 	v := m.view(g)
-	title, items, footer := v.title, v.items, v.footer
+	title, items := v.title, v.items
+	footer := strings.Split(v.footer, "\n")
 	lineH := 16 * scale
 	pad := 10 * scale
 	tabGap := 2 * text.Advance(" ", menuFace) // space between tabs, before scaling
-	width := text.Advance(footer, menuFace)
+	width := 0.0
+	for _, s := range footer {
+		width = math.Max(width, text.Advance(s, menuFace))
+	}
 	for _, s := range append([]string{title}, items...) {
 		width = math.Max(width, text.Advance("  "+s, menuFace))
 	}
@@ -547,7 +593,7 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	width = math.Max(width, m.width)
 	m.width = width
 	w := width*scale + 2*pad
-	h := float64(len(items)+3)*lineH + 2*pad
+	h := float64(len(items)+len(footer)+2)*lineH + 2*pad
 	if len(v.tabs) > 0 {
 		h += lineH * 1.5
 	}
@@ -583,7 +629,7 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	}
 	for i, s := range items {
 		fg := pal[3]
-		if i == m.cursor {
+		if i == v.selected {
 			fillRect(dst, x+pad/2, ty-2*scale, w-pad, lineH, pal[2])
 			fg = pal[0]
 			s = "> " + s
@@ -593,5 +639,8 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 		drawText(dst, s, x+pad, ty, scale, fg)
 		ty += lineH
 	}
-	drawText(dst, footer, x+pad, ty+lineH*0.5, scale, pal[2])
+	for _, line := range footer {
+		drawText(dst, line, x+pad, ty+lineH*0.5, scale, pal[2])
+		ty += lineH
+	}
 }

@@ -36,10 +36,12 @@ type Options struct {
 	Scale      int    // 0 to use the configured scale
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
 	ScreenshotDir string
-	// FreshStart, when set, builds the console to use if the player starts
-	// over: GameBoy then runs in the hardware mode of the save state, so it
-	// can be resumed, and FreshStart in the preferred one (see cmd/gbe).
-	FreshStart func() (*gb.GameBoy, error)
+	// AutoModel is set when the hardware was left to auto: the settings then
+	// decide it (a DMG game is colorized or not), and NewConsole builds the
+	// console again when they change. GameBoy may still run in the other
+	// mode, that of its save state, so it can be resumed (see cmd/gbe).
+	AutoModel  bool
+	NewConsole func(gb.Model) (*gb.GameBoy, error)
 }
 
 // Game implements ebiten.Game.
@@ -54,7 +56,8 @@ type Game struct {
 	title     string
 	shotDir   string
 
-	freshStart func() (*gb.GameBoy, error) // see Options
+	autoModel  bool                                // see Options
+	newConsole func(gb.Model) (*gb.GameBoy, error) // same
 
 	lcd  *ebiten.Image
 	pix  []byte
@@ -115,7 +118,8 @@ func Run(opts Options) error {
 		statePath:   opts.StatePath,
 		title:       opts.Title,
 		shotDir:     opts.ScreenshotDir,
-		freshStart:  opts.FreshStart,
+		autoModel:   opts.AutoModel,
+		newConsole:  opts.NewConsole,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		pix:         make([]byte, gb.ScreenWidth*gb.ScreenHeight*4),
 		stream:      &audioStream{},
@@ -276,20 +280,52 @@ func (g *Game) loadState() bool {
 	return err == nil
 }
 
-// startFresh replaces the console by one in the preferred hardware mode,
-// when the save state offered at launch was made in the other one.
-func (g *Game) startFresh() {
-	if g.freshStart == nil {
+// preferredModel is the hardware the settings ask for: the Game Boy Color
+// for the games that support it, and for DMG games unless colorization is
+// off.
+func (g *Game) preferredModel() gb.Model {
+	if g.gb.Cart.ColorSupported() || g.cfg.ColorizeDMG {
+		return gb.ModelCGB
+	}
+	return gb.ModelDMG
+}
+
+// modePending reports whether the console runs in another hardware mode than
+// the settings ask for, until restart applies them: the setting changed, or
+// the game was resumed from a save state made in the other mode.
+func (g *Game) modePending() bool {
+	if !g.autoModel || g.newConsole == nil || g.gb == nil {
+		return false
+	}
+	running := gb.ModelDMG
+	if g.gb.IsCGB() {
+		running = gb.ModelCGB
+	}
+	return running != g.preferredModel()
+}
+
+// colorizable reports whether the colorization setting applies to the game:
+// a DMG game, whose hardware was left to auto.
+func (g *Game) colorizable() bool {
+	return g.autoModel && g.gb != nil && !g.gb.Cart.ColorSupported()
+}
+
+// restart power-cycles the console, in the hardware mode the settings ask
+// for. The cartridge, and so its battery RAM, is kept.
+func (g *Game) restart() {
+	g.rewind.clear()
+	if !g.modePending() {
+		g.gb.Reset()
 		return
 	}
-	console, err := g.freshStart()
+	console, err := g.newConsole(g.preferredModel())
 	if err != nil {
 		log.Printf("restarting: %v", err)
 		g.notify(g.tr().T("toast.restart_failed", err))
+		g.gb.Reset()
 		return
 	}
 	g.gb = console
-	g.rewind.clear()
 }
 
 // screenshot saves the current frame, scaled like the window, as a PNG.

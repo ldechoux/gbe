@@ -103,13 +103,12 @@ func main() {
 
 	// Left to auto, the console starts in the hardware mode of the save
 	// state, which could not be resumed otherwise (e.g. after colorizing DMG
-	// games), and goes to the preferred one if the player starts over.
+	// games). The menu goes to the preferred one when the player starts over
+	// or resets.
 	launch := preferred
-	var freshStart func() (*gb.GameBoy, error)
 	if data, err := os.ReadFile(statePath); err == nil && model == gb.ModelAuto && *frames == 0 {
-		if m, err := gb.StateModel(data); err == nil && m != preferred && (m == gb.ModelDMG || m == gb.ModelCGB) {
+		if m, err := gb.StateModel(data); err == nil && (m == gb.ModelDMG || m == gb.ModelCGB) {
 			launch = m
-			freshStart = func() (*gb.GameBoy, error) { return newConsole(preferred) }
 		}
 	}
 	console, err := newConsole(launch)
@@ -133,7 +132,8 @@ func main() {
 		Scale:      *scale,
 
 		ScreenshotDir: *shotDir,
-		FreshStart:    freshStart,
+		AutoModel:     model == gb.ModelAuto,
+		NewConsole:    newConsole,
 	}); err != nil {
 		log.Fatal(err)
 	}

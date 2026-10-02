@@ -250,13 +250,13 @@ func TestConfigLanguage(t *testing.T) {
 func TestMenuLanguage(t *testing.T) {
 	g := newTestGame(t, newFakePads())
 	g.menu = menu{open: true, cursor: itemLanguage}
-	if title, items, _ := g.menu.lines(g); title != "PAUSE" || items[itemQuit] != "Quit" {
-		t.Fatalf("default menu: %q %q", title, items)
+	if title, _, _ := g.menu.lines(g); title != "PAUSE" || entryLabel(g, itemQuit) != "Quit" {
+		t.Fatalf("default menu: %q %q", title, entryLabel(g, itemQuit))
 	}
 	g.actions = menuActions{right: true}
 	g.menu.update(g)
-	if _, items, _ := g.menu.lines(g); items[itemLanguage] != "Langue    < Francais >" || items[itemQuit] != "Quitter" {
-		t.Fatalf("French menu: %q", items)
+	if entryLabel(g, itemLanguage) != "Langue    < Francais >" || entryLabel(g, itemQuit) != "Quitter" {
+		t.Fatalf("French menu: %q %q", entryLabel(g, itemLanguage), entryLabel(g, itemQuit))
 	}
 	cfg, err := LoadConfig(g.cfgPath)
 	if err != nil || cfg.Language != "fr" {

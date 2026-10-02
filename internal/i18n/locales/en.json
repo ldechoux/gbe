@@ -7,6 +7,10 @@
     "menu.colors": "Colors    < %s >",
     "colors.corrected": "corrected",
     "colors.raw": "raw",
+    "colors.auto": "Auto",
+    "menu.colorize": "Colorize  < %s >",
+    "setting.on": "on",
+    "setting.off": "off",
     "menu.controls": "Controls...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Scale     < x%d >",
@@ -63,6 +67,9 @@
     "toast.state_restored": "Game restored",
     "toast.screenshot": "Snapshot: %s",
     "toast.screenshot_failed": "Cannot take snapshot: %s",
+    "toast.colorize_next_launch": "Applied at next launch",
+    "toast.resumed_other_mode": "Saved in the other mode: restart to switch",
+    "toast.restart_failed": "Cannot restart: %s",
 
     "title.paused": "Paused",
 

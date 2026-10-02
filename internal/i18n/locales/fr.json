@@ -7,6 +7,10 @@
     "menu.colors": "Couleurs  < %s >",
     "colors.corrected": "corrigees",
     "colors.raw": "brutes",
+    "colors.auto": "Auto",
+    "menu.colorize": "Coloriser < %s >",
+    "setting.on": "oui",
+    "setting.off": "non",
     "menu.controls": "Controles...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Echelle   < x%d >",
@@ -63,6 +67,9 @@
     "toast.state_restored": "Partie restauree",
     "toast.screenshot": "Capture: %s",
     "toast.screenshot_failed": "Capture impossible: %s",
+    "toast.colorize_next_launch": "Applique au prochain lancement",
+    "toast.resumed_other_mode": "Partie de l'autre mode: Recommencer pour changer",
+    "toast.restart_failed": "Redemarrage impossible: %s",
 
     "title.paused": "Pause",
 

@@ -70,10 +70,14 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 |---|---|---|
 | `menu.title` | | Titre du menu Pause |
 | `menu.resume` | | Entrée qui ferme le menu et reprend le jeu |
-| `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette |
+| `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette (pour un jeu DMG colorisé : `colors.auto` ou une combinaison de boutons, comme `Gauche+B`) |
 | `menu.colors` | `%s` `colors.corrected` ou `colors.raw` | Remplace `menu.palette` en mode Game Boy Color : active la correction des couleurs |
 | `colors.corrected` | | Couleurs ajustées pour ressembler à l'écran de la Game Boy Color |
 | `colors.raw` | | Couleurs telles que le jeu les définit, sans correction |
+| `colors.auto` | | Palette qu'une Game Boy Color choisit d'après le titre d'un jeu DMG |
+| `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée qui active la colorisation des jeux DMG (au prochain lancement) |
+| `setting.on` | | Réglage activé |
+| `setting.off` | | Réglage désactivé |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
@@ -155,6 +159,9 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `toast.state_restored` | | L'état a été rechargé |
 | `toast.screenshot` | `%s` nom du fichier | Capture d'écran enregistrée |
 | `toast.screenshot_failed` | `%s` erreur | La capture d'écran a échoué |
+| `toast.colorize_next_launch` | | La colorisation des jeux DMG change au prochain lancement |
+| `toast.resumed_other_mode` | | La partie reprise a été sauvegardée dans l'autre mode (colorisé ou non) ; Recommencer passe dans le mode choisi |
+| `toast.restart_failed` | `%s` erreur | Le redémarrage dans le mode choisi a échoué |
 
 ### `title.*` — titre de la fenêtre
 

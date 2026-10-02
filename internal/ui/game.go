@@ -36,6 +36,10 @@ type Options struct {
 	Scale      int    // 0 to use the configured scale
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
 	ScreenshotDir string
+	// FreshStart, when set, builds the console to use if the player starts
+	// over: GameBoy then runs in the hardware mode of the save state, so it
+	// can be resumed, and FreshStart in the preferred one (see cmd/gbe).
+	FreshStart func() (*gb.GameBoy, error)
 }
 
 // Game implements ebiten.Game.
@@ -49,6 +53,8 @@ type Game struct {
 	started   bool      // false while the resume prompt is shown
 	title     string
 	shotDir   string
+
+	freshStart func() (*gb.GameBoy, error) // see Options
 
 	lcd  *ebiten.Image
 	pix  []byte
@@ -109,6 +115,7 @@ func Run(opts Options) error {
 		statePath:   opts.StatePath,
 		title:       opts.Title,
 		shotDir:     opts.ScreenshotDir,
+		freshStart:  opts.FreshStart,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		pix:         make([]byte, gb.ScreenWidth*gb.ScreenHeight*4),
 		stream:      &audioStream{},
@@ -187,12 +194,41 @@ func (g *Game) saveBattery() {
 // colorMode reports whether a Game Boy Color game is running.
 func (g *Game) colorMode() bool { return g.gb != nil && g.gb.IsCGB() }
 
+// compat reports whether a DMG game runs colorized on a Game Boy Color.
+func (g *Game) compat() bool { return g.gb != nil && g.gb.Compat() }
+
+// compatChoice is the palette chosen for this colorized DMG game, or
+// gb.CompatAuto.
+func (g *Game) compatChoice() int { return compatPaletteIndex(g.cfg.CompatPalettes[g.title]) }
+
+// applyCompatChoice loads the palette chosen for a colorized DMG game, if
+// any. It runs every frame, so the choice also replaces the palette of the
+// boot ROM, of a loaded state or of a rewind; the game itself cannot change
+// it. With Auto, the palette is left alone, which keeps the one picked by
+// holding buttons during the boot ROM logo.
+func (g *Game) applyCompatChoice() {
+	if c := g.compatChoice(); c != gb.CompatAuto {
+		g.gb.SetCompatPalette(c)
+	}
+}
+
 // cyclePalette changes the DMG palette, or toggles the color correction in
-// Game Boy Color mode, where palettes do not apply.
+// Game Boy Color mode, where palettes do not apply. A colorized DMG game
+// goes through the palettes of the CGB boot ROM.
 func (g *Game) cyclePalette(delta int) {
-	if g.colorMode() {
+	switch {
+	case g.compat():
+		n := gb.CompatKeyPalettes + 1 // Auto, then the button combinations
+		i := (g.compatChoice()+1+delta%n+n)%n - 1
+		if i == gb.CompatAuto {
+			delete(g.cfg.CompatPalettes, g.title)
+		} else {
+			g.cfg.CompatPalettes[g.title] = compatPaletteID(i)
+		}
+		g.gb.SetCompatPalette(i)
+	case g.colorMode():
 		g.cfg.ColorCorrection = !g.cfg.ColorCorrection
-	} else {
+	default:
 		i := (paletteIndex(g.cfg.Palette) + delta + len(Palettes)) % len(Palettes)
 		g.cfg.Palette = Palettes[i].ID
 	}
@@ -219,7 +255,8 @@ func (g *Game) saveState() {
 }
 
 // loadState restores the save state; on failure the game keeps running.
-func (g *Game) loadState() {
+// It reports whether the state was loaded.
+func (g *Game) loadState() bool {
 	data, err := os.ReadFile(g.statePath)
 	if err == nil {
 		err = g.gb.LoadState(data)
@@ -236,6 +273,23 @@ func (g *Game) loadState() {
 	default:
 		g.notify(g.tr().T("toast.state_restored"))
 	}
+	return err == nil
+}
+
+// startFresh replaces the console by one in the preferred hardware mode,
+// when the save state offered at launch was made in the other one.
+func (g *Game) startFresh() {
+	if g.freshStart == nil {
+		return
+	}
+	console, err := g.freshStart()
+	if err != nil {
+		log.Printf("restarting: %v", err)
+		g.notify(g.tr().T("toast.restart_failed", err))
+		return
+	}
+	g.gb = console
+	g.rewind.clear()
 }
 
 // screenshot saves the current frame, scaled like the window, as a PNG.
@@ -313,6 +367,7 @@ func (g *Game) Update() error {
 		k := g.cfg.Key(b)
 		g.gb.SetButton(b, (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b])
 	}
+	g.applyCompatChoice()
 	g.advance(g.held(actionFastForward), g.held(actionRewind))
 
 	g.frame++

@@ -40,6 +40,7 @@ const (
 const (
 	itemResume = iota
 	itemPalette
+	itemColorize
 	itemControls
 	itemVolume
 	itemScale
@@ -53,8 +54,12 @@ const (
 )
 
 // paletteLabel is the palette entry of the main page. In Game Boy Color mode
-// it switches the color correction instead.
+// it switches the color correction instead, except for colorized DMG games,
+// which have the palettes of the CGB boot ROM.
 func paletteLabel(l *i18n.Locale, g *Game) string {
+	if g.compat() {
+		return l.T("menu.palette", compatPaletteLabel(l, g.compatChoice()))
+	}
 	if !g.colorMode() {
 		return l.T("menu.palette", g.palette().Name)
 	}
@@ -62,6 +67,14 @@ func paletteLabel(l *i18n.Locale, g *Game) string {
 		return l.T("menu.colors", l.T("colors.corrected"))
 	}
 	return l.T("menu.colors", l.T("colors.raw"))
+}
+
+// onOff names a setting's state in language l.
+func onOff(l *i18n.Locale, on bool) string {
+	if on {
+		return l.T("setting.on")
+	}
+	return l.T("setting.off")
 }
 
 // bindingLabel names a Game Boy button or an action (see bindingNames) in
@@ -258,6 +271,10 @@ func (m *menu) adjust(g *Game, delta int) {
 	switch m.cursor {
 	case itemPalette:
 		g.cyclePalette(delta)
+	case itemColorize:
+		g.cfg.ColorizeDMG = !g.cfg.ColorizeDMG
+		g.saveConfig()
+		g.notify(g.tr().T("toast.colorize_next_launch"))
 	case itemVolume:
 		v := math.Round(g.cfg.Volume*10) + float64(delta)
 		g.cfg.Volume = max(0, min(10, v)) / 10
@@ -294,8 +311,11 @@ func (m *menu) switchTab(g *Game, delta int) {
 func (m *menu) activate(g *Game) {
 	if m.page == pageStart {
 		m.open = false
-		if m.cursor == startResume {
-			g.loadState()
+		switch {
+		case m.cursor != startResume:
+			g.startFresh()
+		case g.loadState() && g.freshStart != nil:
+			g.notify(g.tr().T("toast.resumed_other_mode"))
 		}
 		g.started = true
 		return
@@ -328,7 +348,7 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemPalette, itemVolume, itemScale, itemSpeed, itemLanguage:
+	case itemPalette, itemColorize, itemVolume, itemScale, itemSpeed, itemLanguage:
 		m.adjust(g, 1)
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
@@ -442,6 +462,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	items = []string{
 		l.T("menu.resume"),
 		paletteLabel(l, g),
+		l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 		l.T("menu.scale", g.cfg.Scale),
@@ -453,7 +474,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.quit"),
 	}
 	key := "menu.footer"
-	if g.colorMode() {
+	if g.colorMode() && !g.compat() {
 		key = "menu.footer_color" // P toggles the color correction
 	}
 	if len(g.pads.ids()) > 0 {

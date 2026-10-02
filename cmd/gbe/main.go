@@ -24,7 +24,7 @@ var version = "dev"
 func main() {
 	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM (may also be given as the first argument)")
 	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
-	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it), "dmg" or "cgb"`)
+	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it, and for DMG games unless colorization is off in the menu), "dmg" or "cgb" (DMG games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
@@ -61,9 +61,20 @@ func main() {
 	if !ok {
 		log.Fatalf("unknown model %q (want auto, dmg or cgb)", *modelName)
 	}
-	model = gb.ResolveModel(cart, model)
+	configPath := *cfgPath
+	if configPath == "" {
+		configPath = ui.DefaultConfigPath()
+	}
+	cfg, err := ui.LoadConfig(configPath)
+	if err != nil {
+		log.Printf("config %s: %v (using defaults)", configPath, err)
+	}
+	preferred := gb.ResolveModel(cart, model)
+	if model == gb.ModelAuto && !cart.ColorSupported() && cfg.ColorizeDMG {
+		preferred = gb.ModelCGB // a Game Boy Color colorizes DMG games
+	}
 	base := romBase(*romPath)
-	savePath := base + ".sav"
+	savePath, statePath := base+".sav", base+".state"
 	if cart.Battery {
 		if data, err := os.ReadFile(savePath); err == nil {
 			cart.LoadSaveData(data)
@@ -72,20 +83,36 @@ func main() {
 		}
 	}
 
-	if *biosPath == "" {
-		*biosPath = "bios/gb_bios.bin"
-		if model == gb.ModelCGB {
-			*biosPath = "bios/gbc_bios.bin"
+	newConsole := func(model gb.Model) (*gb.GameBoy, error) {
+		path := *biosPath
+		if path == "" {
+			path = "bios/gb_bios.bin"
+			if model == gb.ModelCGB {
+				path = "bios/gbc_bios.bin"
+			}
+		}
+		var boot []byte
+		if path != "none" {
+			var err error
+			if boot, err = os.ReadFile(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+		}
+		return gb.NewModel(cart, boot, model)
+	}
+
+	// Left to auto, the console starts in the hardware mode of the save
+	// state, which could not be resumed otherwise (e.g. after colorizing DMG
+	// games), and goes to the preferred one if the player starts over.
+	launch := preferred
+	var freshStart func() (*gb.GameBoy, error)
+	if data, err := os.ReadFile(statePath); err == nil && model == gb.ModelAuto && *frames == 0 {
+		if m, err := gb.StateModel(data); err == nil && m != preferred && (m == gb.ModelDMG || m == gb.ModelCGB) {
+			launch = m
+			freshStart = func() (*gb.GameBoy, error) { return newConsole(preferred) }
 		}
 	}
-	var boot []byte
-	if *biosPath != "none" {
-		boot, err = os.ReadFile(*biosPath)
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			log.Fatal(err)
-		}
-	}
-	console, err := gb.NewModel(cart, boot, model)
+	console, err := newConsole(launch)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,11 +128,12 @@ func main() {
 		GameBoy:    console,
 		Title:      cart.Title,
 		SavePath:   savePath,
-		StatePath:  base + ".state",
-		ConfigPath: *cfgPath,
+		StatePath:  statePath,
+		ConfigPath: configPath,
 		Scale:      *scale,
 
 		ScreenshotDir: *shotDir,
+		FreshStart:    freshStart,
 	}); err != nil {
 		log.Fatal(err)
 	}

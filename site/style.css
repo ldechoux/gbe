@@ -219,7 +219,8 @@ nav a:hover { color: var(--accent); }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--shadow); }
 th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom: var(--px) solid var(--line); }
-.keys { max-width: 640px; margin-bottom: 12px; }
+.keys { margin-bottom: 12px; }
+.keys th:first-child { width: 36%; }
 
 /* Release notes (HTML rendered by GitHub) */
 .release { margin-bottom: 24px; }

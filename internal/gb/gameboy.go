@@ -11,7 +11,7 @@ type Model int
 const (
 	ModelAuto Model = iota // CGB for games that support it, DMG otherwise
 	ModelDMG
-	ModelCGB
+	ModelCGB // DMG games run colorized, in the compatibility mode
 )
 
 // Boot ROM sizes. The CGB one is mapped over 0x0000-0x00FF and
@@ -48,9 +48,6 @@ func New(cart *Cartridge, bootROM []byte) (*GameBoy, error) {
 // 2304 for a CGB).
 func NewModel(cart *Cartridge, bootROM []byte, model Model) (*GameBoy, error) {
 	model = ResolveModel(cart, model)
-	if model == ModelCGB && !cart.ColorSupported() {
-		return nil, errors.New("this game is for the DMG only, it cannot run in Game Boy Color mode")
-	}
 	switch {
 	case bootROM == nil:
 	case model == ModelDMG && len(bootROM) != dmgBootSize:
@@ -108,19 +105,29 @@ func (g *GameBoy) Reset() {
 // skipBoot sets the registers to the values the boot ROM leaves behind.
 func (g *GameBoy) skipBoot() {
 	c := g.CPU
-	if g.IsCGB() {
+	switch {
+	case g.IsCGB() && !g.Cart.ColorSupported():
+		// Compatibility mode, with the palette the boot ROM picks for the
+		// title, which it also leaves in B.
+		combo, checksum := compatAutoCombo(g.Cart)
+		g.Bus.key0, g.Bus.compat = 0x04, true
+		g.PPU.opri = 1
+		c.setAF(0x1180)
+		c.setBC(uint16(checksum) << 8)
+		c.setDE(0x0008)
+		c.setHL(0x007C)
+		g.Timer.counter = 0x1EA0
+		g.whitePalettes()
+		g.PPU.loadCompatCombo(combo)
+	case g.IsCGB():
 		// A=0x11 is how games detect a Game Boy Color.
 		c.setAF(0x1180)
 		c.setBC(0x0000)
 		c.setDE(0xFF56)
 		c.setHL(0x000D)
 		g.Timer.counter = 0x1EA0
-		// The boot ROM leaves every color palette white.
-		for i := 0; i < len(g.PPU.bgPal); i += 2 {
-			g.PPU.bgPal[i], g.PPU.bgPal[i+1] = 0xFF, 0x7F
-			g.PPU.objPal[i], g.PPU.objPal[i+1] = 0xFF, 0x7F
-		}
-	} else {
+		g.whitePalettes()
+	default:
 		c.setAF(0x01B0)
 		c.setBC(0x0013)
 		c.setDE(0x00D8)
@@ -145,6 +152,15 @@ func (g *GameBoy) skipBoot() {
 		g.Bus.write(r.addr, r.v)
 	}
 	g.Bus.ifl = 0x01
+}
+
+// whitePalettes sets every color palette to white, as the CGB boot ROM
+// leaves them.
+func (g *GameBoy) whitePalettes() {
+	for i := 0; i < len(g.PPU.bgPal); i += 2 {
+		g.PPU.bgPal[i], g.PPU.bgPal[i+1] = 0xFF, 0x7F
+		g.PPU.objPal[i], g.PPU.objPal[i+1] = 0xFF, 0x7F
+	}
 }
 
 // RunFrame runs the emulation until the next VBlank (or for one frame's

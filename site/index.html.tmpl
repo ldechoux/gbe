@@ -89,7 +89,7 @@
 
 <section id="palettes" class="wrap">
   <h2>Game Boy : {{len .Palettes}} palettes</h2>
-  <p class="section-lead">Les jeux Game Boy gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette.</p>
+  <p class="section-lead">Par défaut, les jeux Game Boy gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette. Ils peuvent aussi être colorisés comme sur une Game Boy Color (voir plus bas).</p>
   <ul class="palettes">
     {{range .Palettes}}
     <li>
@@ -128,12 +128,32 @@
     </article>
     <article class="card">
       <h3>Choix de la console</h3>
-      <p>gbe choisit la console d'après la cartouche. <code>-model dmg</code> lance un jeu compatible sur la Game Boy d'origine, en quatre teintes avec votre palette.</p>
+      <p>gbe choisit la console d'après la cartouche. <code>-model gb</code> lance un jeu compatible sur la Game Boy d'origine, en quatre teintes avec votre palette.</p>
     </article>
     <article class="card">
       <h3>Save states</h3>
-      <p>Les save states fonctionnent aussi en couleurs. Ils retiennent la console utilisée : un état Game Boy Color ne se recharge pas en mode Game Boy, et inversement.</p>
+      <p>Les save states fonctionnent aussi en couleurs. Ils retiennent la console utilisée : une partie sauvegardée en mode Game Boy se reprend en mode Game Boy, et « Recommencer » passe dans le mode choisi.</p>
     </article>
+  </div>
+  <h3 class="subhead">Les jeux Game Boy en couleurs</h3>
+  <p class="section-lead">Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy : activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code>. Les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Avec la boot ROM couleur, l'animation et les combinaisons au logo fonctionnent comme sur la console.</p>
+  <div class="grid palette-shots">
+    <figure>
+      <img class="pixelated" src="img/gbc/colorized_tetris.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris colorisé en jaune et rouge">
+      <figcaption>Tetris</figcaption>
+    </figure>
+    <figure>
+      <img class="pixelated" src="img/gbc/colorized_zelda.webp" width="640" height="576" loading="lazy" alt="Écran titre de Zelda: Link's Awakening colorisé en rose et rouge">
+      <figcaption>Zelda: Link's Awakening</figcaption>
+    </figure>
+    <figure>
+      <img class="pixelated" src="img/gbc/colorized_sml.webp" width="640" height="576" loading="lazy" alt="Super Mario Land colorisé, ciel bleu et sol jaune">
+      <figcaption>Super Mario Land</figcaption>
+    </figure>
+    <figure>
+      <img class="pixelated" src="img/gbc/colorized_tetris_leftb.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris en niveaux de gris">
+      <figcaption>Tetris, palette Gauche+B</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -195,7 +215,7 @@
       <tr><td>X / Z (X / W en AZERTY)</td><td>A / B</td></tr>
       <tr><td>Entrée / Maj droite</td><td>Start / Select</td></tr>
       <tr><td>Échap</td><td>Menu : palette ou couleurs, contrôles, volume, save states</td></tr>
-      <tr><td>P</td><td>Palette suivante (Game Boy) ou correction des couleurs (Game Boy Color)</td></tr>
+      <tr><td>P</td><td>Palette suivante (palette GBC pour un jeu Game Boy colorisé) ou correction des couleurs (Game Boy Color)</td></tr>
       <tr><td>F11</td><td>Plein écran</td></tr>
       <tr><td>Manette : Start + Select</td><td>Menu, piloté à la croix, A et B</td></tr>
     </tbody>

@@ -234,7 +234,7 @@ func color(pal *[64]byte, n, idx byte) uint16 {
 // palette (bits 0-2), VRAM bank (3), X flip (5), Y flip (6), priority (7).
 func (p *PPU) mapPixel(base, px, py int, signed bool) (idx, attr byte) {
 	off := base + (py/8)*32 + px/8
-	if p.bus.cgb {
+	if p.bus.cgbMode() {
 		attr = p.vram[0x2000+off]
 	}
 	row, bit := py&7, 7-px&7
@@ -250,7 +250,7 @@ func (p *PPU) mapPixel(base, px, py int, signed bool) (idx, attr byte) {
 
 func (p *PPU) renderLine() {
 	ly := int(p.ly)
-	cgb := p.bus.cgb
+	cgb := p.bus.cgbMode()
 	var bgIdx [ScreenWidth]byte  // raw color indices, used for sprite priority
 	var bgAttr [ScreenWidth]byte // CGB tile attributes
 
@@ -259,7 +259,7 @@ func (p *PPU) renderLine() {
 	}
 
 	// On a CGB, LCDC bit 0 does not hide the background, it only takes its
-	// priority over the sprites away.
+	// priority over the sprites away (except in compatibility mode).
 	if cgb || p.lcdc&0x01 != 0 {
 		signed := p.lcdc&0x10 == 0
 		bgMap := 0x1800
@@ -304,17 +304,27 @@ func (p *PPU) renderLine() {
 		return
 	}
 
+	// DMG, or a DMG game on a CGB: there the shades index the color
+	// palettes, BG palette 0 and OBJ palettes 0 and 1.
 	out := p.back[ly*ScreenWidth : (ly+1)*ScreenWidth]
+	cout := p.cback[ly*ScreenWidth : (ly+1)*ScreenWidth]
+	compat := p.bus.compat
 	for x := range ScreenWidth {
 		o := obj[x]
 		if o.idx != 0 && (o.attr&0x80 == 0 || bgIdx[x] == 0) {
-			pal := p.obp0
+			pal, n := p.obp0, byte(0)
 			if o.attr&0x10 != 0 {
-				pal = p.obp1
+				pal, n = p.obp1, 1
 			}
 			out[x] = shade(pal, o.idx)
+			if compat {
+				cout[x] = color(&p.objPal, n, out[x])
+			}
 		} else {
 			out[x] = shade(p.bgp, bgIdx[x])
+			if compat {
+				cout[x] = color(&p.bgPal, 0, out[x])
+			}
 		}
 	}
 }
@@ -340,7 +350,7 @@ func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) {
 	}
 	// DMG priority: lower X first, then lower OAM index (insertion sort keeps
 	// the OAM order stable). A CGB only uses the OAM order.
-	if !p.bus.cgb || p.opri&1 != 0 {
+	if !p.bus.cgbMode() || p.opri&1 != 0 {
 		for i := 1; i < n; i++ {
 			for j := i; j > 0 && p.oam[sel[j]*4+1] < p.oam[sel[j-1]*4+1]; j-- {
 				sel[j], sel[j-1] = sel[j-1], sel[j]
@@ -358,7 +368,7 @@ func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) {
 			tile &^= 1
 		}
 		bank := 0
-		if p.bus.cgb {
+		if p.bus.cgbMode() {
 			bank = int(attr >> 3 & 1)
 		}
 		lo, hi := p.tileRow(bank, tile, row, false)

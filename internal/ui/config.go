@@ -30,6 +30,13 @@ type Config struct {
 	Screenshot Hotkey `json:"screenshot"`
 	// FastForwardSpeed is how many frames run per frame while fast forwarding.
 	FastForwardSpeed int `json:"fast_forward_speed"`
+	// ColorizeDMG runs the DMG games on a Game Boy Color, which colorizes
+	// them, instead of their original hardware (when the model is left to
+	// auto). Off by default.
+	ColorizeDMG bool `json:"colorize_dmg"`
+	// CompatPalettes is the palette chosen for a colorized DMG game, by
+	// title (see compatPaletteID). Absent: the one the boot ROM picks.
+	CompatPalettes map[string]string `json:"compat_palettes"`
 }
 
 // Emulator actions held like the Game Boy buttons, bound in Keys and
@@ -81,6 +88,7 @@ func DefaultConfig() *Config {
 		Gamepad:          defaultPad(),
 		Screenshot:       defaultScreenshotHotkey(),
 		FastForwardSpeed: 4,
+		CompatPalettes:   map[string]string{},
 	}
 }
 
@@ -108,6 +116,7 @@ func LoadConfig(path string) (*Config, error) {
 		Config
 		Screenshot      *Hotkey `json:"screenshot"`       // nil when absent
 		ColorCorrection *bool   `json:"color_correction"` // same
+		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
 	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
@@ -117,6 +126,14 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if loaded.ColorCorrection != nil {
 		cfg.ColorCorrection = *loaded.ColorCorrection
+	}
+	if loaded.ColorizeDMG != nil {
+		cfg.ColorizeDMG = *loaded.ColorizeDMG
+	}
+	for title, id := range loaded.CompatPalettes {
+		if compatPaletteIndex(id) != gb.CompatAuto {
+			cfg.CompatPalettes[title] = id
+		}
 	}
 	if loaded.Palette != "" {
 		cfg.Palette = Palettes[paletteIndex(loaded.Palette)].ID

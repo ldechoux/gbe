@@ -7,6 +7,10 @@
     "menu.colors": "Colors    < %s >",
     "colors.corrected": "corrected",
     "colors.raw": "raw",
+    "colors.auto": "Auto",
+    "menu.colorize": "Colorize  < %s >",
+    "setting.on": "on",
+    "setting.off": "off",
     "menu.controls": "Controls...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Scale     < x%d >",
@@ -19,6 +23,7 @@
     "menu.footer": "P: palette   F11: full screen",
     "menu.footer_pad": "P: palette  F11: full screen  Start+Select: menu",
     "menu.footer_color": "P: colors   F11: full screen",
+    "menu.footer_pending": "Reset to apply the settings",
     "menu.footer_color_pad": "P: colors  F11: full screen  Start+Select: menu",
 
     "start.title": "GAME IN PROGRESS",
@@ -26,6 +31,8 @@
     "start.fresh": "Start over",
     "start.footer": "Enter: confirm",
     "start.saved_at": "Saved on %s",
+    "start.other_mode_dmg": "DMG game: start over to colorize",
+    "start.other_mode_color": "Colorized game: start over for the DMG",
     "start.date_format": "01/02/2006 at 15:04",
 
     "controls.title": "CONTROLS",
@@ -63,6 +70,7 @@
     "toast.state_restored": "Game restored",
     "toast.screenshot": "Snapshot: %s",
     "toast.screenshot_failed": "Cannot take snapshot: %s",
+    "toast.restart_failed": "Cannot restart: %s",
 
     "title.paused": "Paused",
 

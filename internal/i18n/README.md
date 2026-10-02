@@ -70,10 +70,14 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 |---|---|---|
 | `menu.title` | | Titre du menu Pause |
 | `menu.resume` | | Entrée qui ferme le menu et reprend le jeu |
-| `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette |
+| `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette (pour un jeu DMG colorisé : `colors.auto` ou une combinaison de boutons, comme `Gauche+B`) |
 | `menu.colors` | `%s` `colors.corrected` ou `colors.raw` | Remplace `menu.palette` en mode Game Boy Color : active la correction des couleurs |
 | `colors.corrected` | | Couleurs ajustées pour ressembler à l'écran de la Game Boy Color |
 | `colors.raw` | | Couleurs telles que le jeu les définit, sans correction |
+| `colors.auto` | | Palette qu'une Game Boy Color choisit d'après le titre d'un jeu DMG |
+| `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée qui active la colorisation des jeux DMG (appliquée par Réinitialiser), absente pour les jeux Game Boy Color et avec `-model` |
+| `setting.on` | | Réglage activé |
+| `setting.off` | | Réglage désactivé |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
@@ -86,6 +90,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.footer` | | Aide en bas du menu (raccourcis clavier) |
 | `menu.footer_pad` | | Aide en bas du menu quand une manette est branchée |
 | `menu.footer_color` | | `menu.footer` en mode Game Boy Color, où P règle la correction des couleurs |
+| `menu.footer_pending` | | Remplace l'aide en bas du menu tant que le mode de la console (colorisé ou non) diffère du réglage : Réinitialiser l'applique |
 | `menu.footer_color_pad` | | `menu.footer_pad` en mode Game Boy Color |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
@@ -97,6 +102,8 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `start.fresh` | | Entrée qui démarre une nouvelle partie |
 | `start.footer` | | Aide en bas de l'écran, quand la date de sauvegarde est inconnue |
 | `start.saved_at` | `%s` date formatée | Bas de l'écran : date de la sauvegarde |
+| `start.other_mode_dmg` | | Ligne ajoutée sous la date quand la partie a été sauvegardée en DMG alors que le réglage demande la colorisation |
+| `start.other_mode_color` | | Même chose pour une partie colorisée quand la colorisation est désactivée |
 | `start.date_format` | | Format de cette date, au format Go `time` (voir ci-dessous) |
 
 `start.date_format` n'est pas un texte libre mais un modèle de date Go : `02` jour,
@@ -155,6 +162,7 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `toast.state_restored` | | L'état a été rechargé |
 | `toast.screenshot` | `%s` nom du fichier | Capture d'écran enregistrée |
 | `toast.screenshot_failed` | `%s` erreur | La capture d'écran a échoué |
+| `toast.restart_failed` | `%s` erreur | Le redémarrage dans le mode choisi a échoué |
 
 ### `title.*` — titre de la fenêtre
 

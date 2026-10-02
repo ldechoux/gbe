@@ -79,3 +79,44 @@ func TestLoadStateRejectsOtherROMAndGarbage(t *testing.T) {
 		t.Fatalf("failed load changed the machine: PC=%04X", g.PC())
 	}
 }
+
+// newBusyGB runs a loop that keeps changing BGP, so every frame differs.
+func newBusyGB(t *testing.T) *GameBoy {
+	// loop: INC A; LDH (0x47),A; JR loop
+	return newTestGB(t, 0x3C, 0xE0, 0x47, 0x18, 0xFB)
+}
+
+func TestSnapshotRestoresExactly(t *testing.T) {
+	g := newBusyGB(t)
+	for range 10 {
+		g.RunFrame()
+	}
+	g.APU.DrainSamples()
+
+	snap := g.Snapshot(nil)
+	want := runAndHash(g, 30)
+	if err := g.Restore(snap); err != nil {
+		t.Fatal(err)
+	}
+	if got := runAndHash(g, 30); got != want {
+		t.Fatal("emulation diverged after restoring the snapshot")
+	}
+}
+
+func TestSnapshotReusesBuffer(t *testing.T) {
+	g := newBusyGB(t)
+	first := g.Snapshot(nil)
+	g.RunFrame()
+	second := g.Snapshot(first)
+	if &second[0] != &first[0] {
+		t.Error("Snapshot allocated although the buffer was large enough")
+	}
+}
+
+func TestRestoreRejectsTruncatedSnapshot(t *testing.T) {
+	g := newBusyGB(t)
+	snap := g.Snapshot(nil)
+	if err := g.Restore(snap[:len(snap)/2]); err == nil {
+		t.Fatal("truncated snapshot accepted")
+	}
+}

@@ -55,6 +55,22 @@ func (c *codec) u16(p *uint16) {
 	*p = binary.LittleEndian.Uint16(b[:])
 }
 
+// u16s is u16 for every element of s, in one go.
+func (c *codec) u16s(s []uint16) {
+	b := make([]byte, 2*len(s))
+	if !c.loading() {
+		for i, v := range s {
+			binary.LittleEndian.PutUint16(b[2*i:], v)
+		}
+	}
+	c.raw(b)
+	if c.loading() && c.err == nil {
+		for i := range s {
+			s[i] = binary.LittleEndian.Uint16(b[2*i:])
+		}
+	}
+}
+
 func (c *codec) u64(p *uint64) {
 	var b [8]byte
 	binary.LittleEndian.PutUint64(b[:], *p)
@@ -161,6 +177,27 @@ func (g *GameBoy) LoadState(data []byte) error {
 	return nil
 }
 
+// Snapshot captures the machine state for Restore, without the header and
+// compression of SaveState: it is meant to be taken many times per second
+// (rewind). It is written into buf, reused when large enough.
+func (g *GameBoy) Snapshot(buf []byte) []byte {
+	c := &codec{w: bytes.NewBuffer(buf[:0]), version: stateVersion}
+	g.sync(c)
+	return c.w.Bytes()
+}
+
+// Restore goes back to a state taken by Snapshot on this same machine. On
+// error the machine is left in an undefined state.
+func (g *GameBoy) Restore(data []byte) error {
+	c := &codec{r: bytes.NewReader(data), version: stateVersion}
+	g.Reset()
+	g.sync(c)
+	if c.err != nil {
+		return fmt.Errorf("invalid snapshot: %w", c.err)
+	}
+	return nil
+}
+
 func (g *GameBoy) sync(c *codec) {
 	g.CPU.sync(c)
 	g.Bus.sync(c)
@@ -246,11 +283,8 @@ func (p *PPU) sync(c *codec) {
 	}
 	c.raw(p.bgPal[:])
 	c.raw(p.objPal[:])
-	for _, fb := range []*[ScreenWidth * ScreenHeight]uint16{&p.cback, &p.cfront} {
-		for i := range fb {
-			c.u16(&fb[i])
-		}
-	}
+	c.u16s(p.cback[:])
+	c.u16s(p.cfront[:])
 }
 
 func (a *APU) sync(c *codec) {

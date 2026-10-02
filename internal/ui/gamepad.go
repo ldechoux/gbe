@@ -58,7 +58,7 @@ func (b *padButton) UnmarshalText(text []byte) error {
 func (b padButton) std() ebiten.StandardGamepadButton { return ebiten.StandardGamepadButton(b) }
 
 // defaultPad mirrors the Game Boy: B on the bottom face button, A on the
-// right one (the Nintendo layout).
+// right one (the Nintendo layout). The shoulders fast forward and rewind.
 func defaultPad() map[string]padButton {
 	return map[string]padButton{
 		gb.ButtonUp.String():     padButton(ebiten.StandardGamepadButtonLeftTop),
@@ -69,6 +69,8 @@ func defaultPad() map[string]padButton {
 		gb.ButtonB.String():      padButton(ebiten.StandardGamepadButtonRightBottom),
 		gb.ButtonStart.String():  padButton(ebiten.StandardGamepadButtonCenterRight),
 		gb.ButtonSelect.String(): padButton(ebiten.StandardGamepadButtonCenterLeft),
+		actionFastForward:        padButton(ebiten.StandardGamepadButtonFrontTopRight),
+		actionRewind:             padButton(ebiten.StandardGamepadButtonFrontTopLeft),
 	}
 }
 

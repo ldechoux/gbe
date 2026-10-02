@@ -10,6 +10,7 @@
     "menu.controls": "Controles...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Echelle   < x%d >",
+    "menu.fast_forward": "Avance    < x%d >",
     "menu.language": "Langue    < %s >",
     "menu.save_state": "Sauvegarder l'etat",
     "menu.load_state": "Charger l'etat",
@@ -51,6 +52,9 @@
     "button.b": "B",
     "button.start": "Start",
     "button.select": "Select",
+
+    "action.fast_forward": "Avance",
+    "action.rewind": "Arriere",
 
     "toast.state_saved": "Etat sauvegarde",
     "toast.save_failed": "Sauvegarde impossible: %s",

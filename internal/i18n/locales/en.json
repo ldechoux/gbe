@@ -10,6 +10,7 @@
     "menu.controls": "Controls...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Scale     < x%d >",
+    "menu.fast_forward": "Fast fwd  < x%d >",
     "menu.language": "Language  < %s >",
     "menu.save_state": "Save state",
     "menu.load_state": "Load state",
@@ -51,6 +52,9 @@
     "button.b": "B",
     "button.start": "Start",
     "button.select": "Select",
+
+    "action.fast_forward": "Fast fwd",
+    "action.rewind": "Rewind",
 
     "toast.state_saved": "State saved",
     "toast.save_failed": "Cannot save: %s",

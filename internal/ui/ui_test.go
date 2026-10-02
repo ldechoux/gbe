@@ -22,7 +22,7 @@ func TestConfigRoundTrip(t *testing.T) {
 	cfg.Palette = "amber"
 	cfg.Scale = 3
 	cfg.Volume = 0.5
-	cfg.Bind(gb.ButtonA, ebiten.KeyK)
+	cfg.Bind(gb.ButtonA.String(), ebiten.KeyK)
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestConfigRoundTrip(t *testing.T) {
 func TestBindSwapsConflicts(t *testing.T) {
 	cfg := DefaultConfig()
 	oldA := cfg.Key(gb.ButtonA)
-	cfg.Bind(gb.ButtonA, cfg.Key(gb.ButtonB))
+	cfg.Bind(gb.ButtonA.String(), cfg.Key(gb.ButtonB))
 	if cfg.Key(gb.ButtonA) != ebiten.KeyZ || cfg.Key(gb.ButtonB) != oldA {
 		t.Fatalf("A=%s B=%s", cfg.Key(gb.ButtonA), cfg.Key(gb.ButtonB))
 	}

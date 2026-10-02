@@ -3,6 +3,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"image/color"
 	"io/fs"
 	"log"
@@ -66,9 +67,22 @@ type Game struct {
 	fps     fpsCounter
 	quit    bool
 
+	rewind     rewinder
+	rewindTick int      // ticks spent rewinding, which steps back every other tick
+	speed      playMode // shown on screen while not normal
+
 	toast      string // short on-screen notification
 	toastUntil int64  // tick at which the toast disappears
 }
+
+// playMode is how the emulation advances on this tick.
+type playMode int
+
+const (
+	playNormal playMode = iota
+	playFast
+	playRewind
+)
 
 // Run opens the window and runs the emulator until it is closed.
 func Run(opts Options) error {
@@ -210,6 +224,9 @@ func (g *Game) loadState() {
 	if err == nil {
 		err = g.gb.LoadState(data)
 	}
+	if err == nil {
+		g.rewind.clear() // that history belongs to the abandoned game
+	}
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		g.notify(g.tr().T("toast.no_state"))
@@ -296,17 +313,62 @@ func (g *Game) Update() error {
 		k := g.cfg.Key(b)
 		g.gb.SetButton(b, (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b])
 	}
-
-	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()))
-	g.gb.RunFrame()
-	g.fps.frame()
-	g.stream.push(g.gb.APU.DrainSamples())
+	g.advance(g.held(actionFastForward), g.held(actionRewind))
 
 	g.frame++
 	if g.frame%saveEveryFrame == 0 {
 		g.saveBattery()
 	}
 	return nil
+}
+
+// held reports whether the key or gamepad button of an action is held.
+func (g *Game) held(action string) bool {
+	k, b := g.cfg.Keys[action], g.cfg.Gamepad[action]
+	return (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || (!g.ignoredPad[b] && padHeld(g.pads, b))
+}
+
+// advance runs this tick's emulation: one frame, several while fast
+// forwarding, or a step back in time while rewinding (which wins when both
+// are held).
+func (g *Game) advance(fast, rewind bool) {
+	if rewind {
+		g.speed = playRewind
+		// Every other tick: twice as fast as the game went forward. No audio
+		// is queued, so the stream repeats its last frame, which is silent.
+		if g.rewindTick%2 == 0 {
+			g.rewind.step(g.gb)
+		}
+		g.rewindTick++
+		return
+	}
+	g.rewindTick = 0
+	n := 1
+	g.speed = playNormal
+	if fast {
+		n, g.speed = g.cfg.FastForwardSpeed, playFast
+	}
+	// The APU generates n times fewer samples per emulated frame, so a tick
+	// still queues one frame's worth of audio: the sound plays faster
+	// instead of piling up.
+	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()) / float64(n))
+	for range n {
+		g.gb.RunFrame()
+		g.fps.frame()
+		g.rewind.record(g.gb)
+	}
+	g.stream.push(g.gb.APU.DrainSamples())
+}
+
+// speedBadge is the indicator shown while fast forwarding or rewinding.
+func (g *Game) speedBadge() string {
+	switch g.speed {
+	case playFast:
+		return fmt.Sprintf(">> x%d", g.cfg.FastForwardSpeed)
+	case playRewind:
+		return "<<"
+	}
+	return ""
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -329,6 +391,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if g.toast != "" && ebiten.Tick() < g.toastUntil {
 		drawToast(screen, g.toast, g.menuPalette())
+	}
+	if badge := g.speedBadge(); badge != "" && !g.menu.open {
+		drawBadge(screen, badge, g.menuPalette())
 	}
 }
 

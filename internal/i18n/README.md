@@ -38,8 +38,9 @@ Aucun code Go n'est à modifier.
   dans le même ordre.
 - **Alignement.** Les entrées du menu Pause de la forme `Libelle   < %s >` sont alignées
   en colonne : compléter avec des espaces pour que le `<` tombe en 11e position, comme en
-  anglais. Les noms de boutons et `controls.screenshot` sont affichés sur une colonne de 8
-  caractères : au-delà, l'alignement de la page Contrôles se décale.
+  anglais. Les noms de boutons, les actions (`action.*`) et `controls.screenshot` sont
+  affichés sur une colonne de 8 caractères : au-delà, l'alignement de la page Contrôles se
+  décale.
 - **Longueur.** Le panneau du menu s'élargit pour le libellé le plus long ; rester concis.
 - **Messages manquants.** Un message absent d'une langue s'affiche en anglais, mais les tests
   exigent que chaque langue définisse exactement les mêmes clés que `en.json`.
@@ -76,6 +77,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
+| `menu.fast_forward` | `%d` vitesse (2 à 8) | Entrée de réglage de la vitesse de l'avance rapide |
 | `menu.language` | `%s` valeur `name` de la langue | Entrée de choix de la langue |
 | `menu.save_state` | | Entrée qui sauvegarde l'état de la partie |
 | `menu.load_state` | | Entrée qui recharge l'état sauvegardé |
@@ -134,6 +136,13 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `button.b` | Bouton B |
 | `button.start` | Bouton Start |
 | `button.select` | Bouton Select |
+
+### `action.*` — actions de l'émulateur (page Contrôles, 8 caractères max)
+
+| Clé | Usage |
+|---|---|
+| `action.fast_forward` | Touche à maintenir pour l'avance rapide |
+| `action.rewind` | Touche à maintenir pour revenir en arrière |
 
 ### `toast.*` — notifications temporaires en bas à gauche de l'écran
 

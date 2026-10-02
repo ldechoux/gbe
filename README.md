@@ -66,7 +66,7 @@ Options utiles :
 | Option | Rôle |
 |---|---|
 | `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ou `bios/gbc_bios.bin` en mode Game Boy Color ; ignorée si absente ; `none` pour démarrer directement le jeu) |
-| `-model auto\|dmg\|cgb` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color pour les jeux qui la gèrent (octet 0x0143 de l'en-tête), la DMG sinon. `dmg` force la DMG pour un jeu compatible avec les deux |
+| `-model auto\|dmg\|cgb` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color, qui colorise les jeux DMG, sauf si la colorisation est désactivée dans le menu : ces jeux tournent alors sur une DMG. `dmg` force la DMG (palettes monochromes, ou un jeu compatible avec les deux), `cgb` la Game Boy Color |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
@@ -81,13 +81,14 @@ Options utiles :
 | Tab (maintenu) | Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu) |
 | Retour arrière (maintenu) | Rembobinage : le jeu revient en arrière, jusqu'à 10 s |
 | Échap | Menu (pause) |
-| P | Palette suivante, ou correction des couleurs en mode Game Boy Color (si P n'est pas assigné à un bouton) |
+| P | Palette suivante (sur une DMG, ou palette GBC d'un jeu DMG colorisé), ou correction des couleurs dans un jeu Game Boy Color (si P n'est pas assigné à un bouton) |
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
 | F11 | Plein écran |
 
-Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; en mode
-Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
-d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc), de
+Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; dans un
+jeu Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
+d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc ; pour un jeu DMG
+colorisé, voir ci-dessous), d'activer ou non la colorisation des jeux DMG, de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
 de conflit, les deux touches sont échangées), de régler le volume, l'échelle, la vitesse
 de l'avance rapide et la langue, de réinitialiser la console ou de quitter.
@@ -105,6 +106,23 @@ forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatem
 
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
 disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).
+
+## Jeux DMG en couleurs
+
+Comme une vraie Game Boy Color, gbe colorise les jeux Game Boy (activé par défaut, entrée
+« Coloriser » du menu, appliquée au prochain lancement) :
+
+- **Palette automatique** : les jeux Nintendo reçoivent la palette que la boot ROM couleur
+  prévoit pour leur titre (Tetris en jaune et rouge, Link's Awakening en rose…), les autres
+  une palette par défaut.
+- **12 palettes au choix** : celles que la console offrait en maintenant une direction, seule
+  ou avec A ou B, pendant le logo. L'entrée Palette du menu et la touche P passent de « Auto »
+  à « Droite », « Gauche+A »… avec aperçu en direct ; le choix est retenu pour chaque jeu.
+- **Boot ROM** : avec `bios/gbc_bios.bin`, l'animation de démarrage et les combinaisons au
+  logo fonctionnent comme sur la console. Sans elle, gbe reprend les tables de la boot ROM
+  (vérifiées contre l'original par les tests).
+- **Fidélité** : la console tourne dans le mode de compatibilité de la Game Boy Color
+  (registre KEY0) ; la correction des couleurs s'applique comme pour les jeux GBC.
 
 ## Langues
 
@@ -144,6 +162,9 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
   moment.
 - **Sécurité** : un état fait avec une autre ROM (ou une autre version), ou dans l'autre mode
   (DMG / Game Boy Color), est refusé. Les états des versions précédentes restent lisibles.
+- **Changement de mode** : avec `-model auto`, une partie sauvegardée dans l'autre mode (par
+  exemple une partie DMG faite avant d'activer la colorisation) se reprend dans son mode ;
+  « Recommencer » relance la console dans le mode choisi. Le `.sav` vaut pour les deux modes.
 
 ## Compatibilité
 
@@ -151,8 +172,8 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 - Les cartouches à pile sont sauvegardées dans `<rom>.sav`, à la fermeture et toutes les 5 s.
   L'horloge MBC3 est enregistrée au format BGB/VBA-M.
 - Game Boy Color : RAM et VRAM en banques, palettes couleur, attributs des tiles, priorités
-  CGB, DMA VRAM (général et HBlank), double vitesse, boot ROM CGB. Les jeux DMG tournent
-  toujours sur une DMG : le mode de compatibilité colorisé de la CGB n'est pas émulé.
+  CGB, DMA VRAM (général et HBlank), double vitesse, boot ROM CGB, et mode de compatibilité
+  qui colorise les jeux DMG.
 - Tests réussis : blargg `cpu_instrs`, `instr_timing`, `mem_timing` (en DMG et en CGB),
   `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près.
 

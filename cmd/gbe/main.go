@@ -22,7 +22,7 @@ import (
 var version = "dev"
 
 func main() {
-	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM (may also be given as the first argument)")
+	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument)")
 	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
 	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
@@ -44,14 +44,17 @@ func main() {
 		*romPath = flag.Arg(0)
 	}
 	if *romPath == "" {
-		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb|game.gbc")
+		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb|game.gbc|game.zip")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
 
-	rom, err := os.ReadFile(*romPath)
+	rom, entry, err := readROM(*romPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if entry != "" {
+		log.Printf("%s: %s", *romPath, entry)
 	}
 	cart, err := gb.NewCartridge(rom)
 	if err != nil {
@@ -153,11 +156,12 @@ func parseModel(name string) (gb.Model, error) {
 	return 0, fmt.Errorf("unknown model %q (want auto, gb or gbc)", name)
 }
 
-// romBase is the ROM path without its .gb or .gbc extension, to which the
-// save files extensions are appended.
+// romBase is the ROM path without its .gb, .gbc or .zip extension, to which
+// the save files extensions are appended: the saves of a zipped ROM sit next
+// to the archive, which is never written.
 func romBase(path string) string {
 	ext := filepath.Ext(path)
-	if strings.EqualFold(ext, ".gb") || strings.EqualFold(ext, ".gbc") {
+	if isROMName(path) || strings.EqualFold(ext, ".zip") {
 		return strings.TrimSuffix(path, ext)
 	}
 	return path

@@ -26,6 +26,12 @@ type Bus struct {
 	boot        []byte
 	bootEnabled bool
 
+	// A DMG game on a CGB: the boot ROM writes 0x04 to KEY0, and once it
+	// is unmapped the console runs in compatibility mode, where the CGB
+	// registers are gone and the DMG palettes index the color ones.
+	key0   byte
+	compat bool
+
 	wram [0x8000]byte // 8 banks of 4 KiB; a DMG only uses the first two
 	svbk byte         // WRAM bank mapped at 0xD000 (CGB)
 	hram [0x7F]byte
@@ -46,6 +52,10 @@ type Bus struct {
 }
 
 func (b *Bus) requestInterrupt(i byte) { b.ifl |= i }
+
+// cgbMode reports whether the CGB features are available: on a CGB, except
+// in compatibility mode.
+func (b *Bus) cgbMode() bool { return b.cgb && !b.compat }
 
 func (b *Bus) pendingInterrupts() byte { return b.ie & b.ifl & 0x1F }
 
@@ -120,7 +130,7 @@ func (b *Bus) readIO(addr uint16) byte {
 		return b.apu.read(addr)
 	case addr >= 0xFF40 && addr <= 0xFF4B:
 		return b.ppu.read(addr)
-	case !b.cgb:
+	case !b.cgbMode():
 		return 0xFF
 	case addr == 0xFF4D:
 		v := byte(0x7E)
@@ -185,10 +195,15 @@ func (b *Bus) writeIO(addr uint16, v byte) {
 	case addr >= 0xFF40 && addr <= 0xFF4B:
 		b.ppu.write(addr, v)
 	case addr == 0xFF50:
-		if v != 0 {
+		if v != 0 && b.bootEnabled {
 			b.bootEnabled = false
+			b.compat = b.cgb && b.key0&0x0C != 0
 		}
-	case !b.cgb:
+	case addr == 0xFF4C:
+		if b.cgb && b.bootEnabled { // locked once the game starts
+			b.key0 = v
+		}
+	case !b.cgbMode():
 	case addr == 0xFF4D:
 		b.speedArmed = v&1 != 0
 	case addr == 0xFF4F || addr >= 0xFF68 && addr <= 0xFF6C:
@@ -211,7 +226,7 @@ func (b *Bus) writeIO(addr uint16, v byte) {
 // switchSpeed is run by STOP: when armed through KEY1, it toggles the CGB
 // double speed mode. It reports whether the speed changed.
 func (b *Bus) switchSpeed() bool {
-	if !b.cgb || !b.speedArmed {
+	if !b.cgbMode() || !b.speedArmed {
 		return false
 	}
 	b.speedArmed = false

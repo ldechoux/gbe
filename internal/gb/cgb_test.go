@@ -48,11 +48,11 @@ func TestCGBHeader(t *testing.T) {
 
 	rom[0x143] = 0x00
 	dmg, _ := NewCartridge(rom)
-	if _, err := NewModel(dmg, nil, ModelCGB); err == nil {
-		t.Error("DMG only game accepted in CGB mode")
+	if g, err := NewModel(dmg, nil, ModelCGB); err != nil || !g.Compat() {
+		t.Errorf("DMG only game in CGB mode: %v, not in compatibility mode", err)
 	}
 	if g, _ := New(dmg, nil); g.IsCGB() {
-		t.Error("DMG only game run in CGB mode")
+		t.Error("DMG only game run in CGB mode by default")
 	}
 }
 

@@ -13,8 +13,10 @@ import (
 // Save states are gzip-compressed. The payload starts with a magic, a format
 // version and the identity of the ROM, followed by every component's state.
 const (
-	stateMagic   = "GBESTATE"
-	stateVersion = 2 // 2 added the Game Boy Color; version 1 states still load
+	stateMagic = "GBESTATE"
+	// 2 added the Game Boy Color, 3 its compatibility mode; older states
+	// still load.
+	stateVersion = 3
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -105,6 +107,9 @@ func (c *codec) f64(p *float64) {
 	*p = math.Float64frombits(v)
 }
 
+// romIDSize is the length of romID.
+const romIDSize = 0x150 - 0x134
+
 // romID identifies a ROM by its title and header/global checksums.
 func (c *Cartridge) romID() []byte { return append([]byte(nil), c.rom[0x134:0x150]...) }
 
@@ -129,6 +134,30 @@ func (g *GameBoy) encodeState(version uint16) []byte {
 	zw.Write(c.w.Bytes())
 	zw.Close()
 	return out.Bytes()
+}
+
+// StateModel returns the model a state made by SaveState was made on.
+func StateModel(data []byte) (Model, error) {
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return 0, fmt.Errorf("invalid save state: %w", err)
+	}
+	c := &codec{r: zr}
+	magic := make([]byte, len(stateMagic))
+	c.raw(magic)
+	var version uint16
+	c.u16(&version)
+	c.raw(make([]byte, romIDSize))
+	model := ModelDMG
+	if version >= 2 {
+		var m byte
+		c.u8(&m)
+		model = Model(m)
+	}
+	if c.err != nil || string(magic) != stateMagic || version == 0 || version > stateVersion {
+		return 0, errors.New("invalid save state")
+	}
+	return model, nil
 }
 
 // LoadState restores a state made by SaveState. On error the machine is left
@@ -242,6 +271,11 @@ func (b *Bus) sync(c *codec) {
 	c.u8(&b.hdmaLen)
 	c.bool(&b.hdmaActive)
 	c.int(&b.stall)
+	if c.version < 3 {
+		return
+	}
+	c.u8(&b.key0)
+	c.bool(&b.compat)
 }
 
 func (t *Timer) sync(c *codec) {

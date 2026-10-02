@@ -24,7 +24,7 @@ var version = "dev"
 func main() {
 	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM (may also be given as the first argument)")
 	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
-	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it, and for DMG games unless colorization is off in the menu), "dmg" or "cgb" (DMG games run colorized)`)
+	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it, and for Game Boy games unless colorization is off in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
@@ -57,9 +57,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	model, ok := map[string]gb.Model{"auto": gb.ModelAuto, "dmg": gb.ModelDMG, "cgb": gb.ModelCGB}[strings.ToLower(*modelName)]
-	if !ok {
-		log.Fatalf("unknown model %q (want auto, dmg or cgb)", *modelName)
+	model, err := parseModel(*modelName)
+	if err != nil {
+		log.Fatal(err)
 	}
 	configPath := *cfgPath
 	if configPath == "" {
@@ -137,6 +137,20 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// parseModel reads the -model flag. "gb" and "gbc" are the names players
+// know; "dmg" and "cgb", the hardware codes, are accepted too.
+func parseModel(name string) (gb.Model, error) {
+	switch strings.ToLower(name) {
+	case "auto":
+		return gb.ModelAuto, nil
+	case "gb", "dmg":
+		return gb.ModelDMG, nil
+	case "gbc", "cgb":
+		return gb.ModelCGB, nil
+	}
+	return 0, fmt.Errorf("unknown model %q (want auto, gb or gbc)", name)
 }
 
 // romBase is the ROM path without its .gb or .gbc extension, to which the

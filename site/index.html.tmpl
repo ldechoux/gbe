@@ -89,7 +89,7 @@
 
 <section id="palettes" class="wrap">
   <h2>Game Boy : {{len .Palettes}} palettes</h2>
-  <p class="section-lead">Les jeux Game Boy démarrent colorisés, comme sur une Game Boy Color (voir plus bas). Désactivez la colorisation dans le menu, ou lancez-les avec <code>-model dmg</code>, et ils gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette.</p>
+  <p class="section-lead">Les jeux Game Boy démarrent colorisés, comme sur une Game Boy Color (voir plus bas). Désactivez la colorisation dans le menu, ou lancez-les avec <code>-model gb</code>, et ils gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette.</p>
   <ul class="palettes">
     {{range .Palettes}}
     <li>
@@ -128,7 +128,7 @@
     </article>
     <article class="card">
       <h3>Choix de la console</h3>
-      <p>gbe choisit la console d'après la cartouche. <code>-model dmg</code> lance un jeu compatible sur la Game Boy d'origine, en quatre teintes avec votre palette.</p>
+      <p>gbe choisit la console d'après la cartouche. <code>-model gb</code> lance un jeu compatible sur la Game Boy d'origine, en quatre teintes avec votre palette.</p>
     </article>
     <article class="card">
       <h3>Save states</h3>

@@ -66,7 +66,7 @@ Options utiles :
 | Option | Rôle |
 |---|---|
 | `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ou `bios/gbc_bios.bin` en mode Game Boy Color ; ignorée si absente ; `none` pour démarrer directement le jeu) |
-| `-model auto\|dmg\|cgb` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color, qui colorise les jeux DMG, sauf si la colorisation est désactivée dans le menu : ces jeux tournent alors sur une DMG. `dmg` force la DMG (palettes monochromes, ou un jeu compatible avec les deux), `cgb` la Game Boy Color |
+| `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color, qui colorise les jeux Game Boy, sauf si la colorisation est désactivée dans le menu : ces jeux tournent alors sur une Game Boy d'origine. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |

@@ -78,6 +78,8 @@ Options utiles :
 | Flèches | Croix directionnelle |
 | X / Z (X / W en AZERTY) | A / B |
 | Entrée / Maj droite | Start / Select |
+| Tab (maintenu) | Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu) |
+| Retour arrière (maintenu) | Rembobinage : le jeu revient en arrière, jusqu'à 10 s |
 | Échap | Menu (pause) |
 | P | Palette suivante, ou correction des couleurs en mode Game Boy Color (si P n'est pas assigné à un bouton) |
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
@@ -87,8 +89,14 @@ Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct
 Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
 d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc), de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
-de conflit, les deux touches sont échangées), de régler le volume, l'échelle et la langue,
-de réinitialiser la console ou de quitter.
+de conflit, les deux touches sont échangées), de régler le volume, l'échelle, la vitesse
+de l'avance rapide et la langue, de réinitialiser la console ou de quitter.
+
+Pendant l'avance rapide, le son est accéléré lui aussi. Le rembobinage recule deux fois plus
+vite que le jeu n'avance, sans son, et s'arrête sur la plus ancienne image gardée (10 s de jeu,
+ce qui occupe environ 30 Mo de mémoire). Un indicateur `>> x4` ou `<<` s'affiche en haut à
+droite. Les touches de ces deux actions se redéfinissent dans la page Contrôles, comme celles
+des boutons (lignes « Avance » et « Arriere »).
 
 Le raccourci de capture se change dans la même page Contrôles : sélectionner « Capture »,
 puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
@@ -119,9 +127,10 @@ la plupart des manettes USB/Bluetooth) fonctionnent dès qu'elles sont branchée
 | Croix ou stick gauche | Croix directionnelle |
 | Bouton de droite / du bas (B / A sur Xbox, Rond / Croix sur PlayStation) | A / B |
 | Start / Select (Menu / Vue, Options / Share, + / −) | Start / Select |
+| Gâchette haute droite / gauche (RB / LB, R1 / L1, R / L), maintenue | Avance rapide / rembobinage |
 | Start + Select ensemble | Menu (croix pour naviguer, A pour valider, B pour revenir) |
 
-Les boutons se redéfinissent dans l'onglet **Manette** de la page Contrôles (←/→ pour changer
+Les boutons et les deux actions se redéfinissent dans l'onglet **Manette** de la page Contrôles (←/→ pour changer
 d'onglet). Il est grisé tant qu'aucune manette n'est connectée. Les libellés affichés suivent la
 famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 

@@ -66,7 +66,7 @@ Options utiles :
 | Option | Rôle |
 |---|---|
 | `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ou `bios/gbc_bios.bin` en mode Game Boy Color ; ignorée si absente ; `none` pour démarrer directement le jeu) |
-| `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit la Game Boy Color, qui colorise les jeux Game Boy, sauf si la colorisation est désactivée dans le menu : ces jeux tournent alors sur une Game Boy d'origine. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
+| `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit celui pour lequel le jeu a été fait, d'après l'octet 0x0143 de l'en-tête : la Game Boy Color pour les jeux qui la gèrent, la Game Boy d'origine pour les autres, sauf si la colorisation est activée dans le menu. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
@@ -109,8 +109,10 @@ disposition de clavier. Le menu affiche leur nom selon la disposition active (AZ
 
 ## Jeux DMG en couleurs
 
-Comme une vraie Game Boy Color, gbe colorise les jeux Game Boy (activé par défaut, entrée
-« Coloriser » du menu, présente pour les jeux DMG lancés sans `-model`) :
+Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy. C'est une option :
+par défaut, ils tournent sur la Game Boy d'origine. Pour l'activer, passer l'entrée
+« Coloriser » du menu à « oui » (elle apparaît pour les jeux Game Boy lancés sans `-model`)
+puis « Réinitialiser », ou lancer le jeu avec `-model gbc` :
 
 - **Palette automatique** : les jeux Nintendo reçoivent la palette que la boot ROM couleur
   prévoit pour leur titre (Tetris en jaune et rouge, Link's Awakening en rose…), les autres

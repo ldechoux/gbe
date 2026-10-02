@@ -146,6 +146,7 @@ func entryLabel(g *Game, item int) string {
 
 func TestColorizeEntryShown(t *testing.T) {
 	g := withModes(withCompatGameBoy(t, newTestGame(t, newFakePads())))
+	g.cfg.ColorizeDMG = true
 	if entryLabel(g, itemColorize) != "Colorize  < on >" {
 		t.Errorf("DMG game left to auto: entry %q", entryLabel(g, itemColorize))
 	}
@@ -175,6 +176,7 @@ func TestColorizeEntryShown(t *testing.T) {
 
 func TestResetAppliesColorize(t *testing.T) {
 	g := withModes(withCompatGameBoy(t, newTestGame(t, newFakePads())))
+	g.cfg.ColorizeDMG = true
 	l := g.tr()
 	m := &g.menu
 	press := func(item int) {
@@ -224,6 +226,7 @@ func TestResetAppliesColorize(t *testing.T) {
 
 func TestStartPageOtherMode(t *testing.T) {
 	g := withModes(withGameBoy(t, newTestGame(t, newFakePads()), busyProgram...))
+	g.cfg.ColorizeDMG = true
 	g.saveState()
 	dmg := g.gb
 	m := &g.menu
@@ -259,16 +262,16 @@ func TestStartPageOtherMode(t *testing.T) {
 
 func TestColorizeConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
-	os.WriteFile(path, []byte(`{"colorize_dmg": false, "compat_palettes": {"TETRIS": "up+a", "ZELDA": "nope"}}`), 0o644)
+	os.WriteFile(path, []byte(`{"colorize_dmg": true, "compat_palettes": {"TETRIS": "up+a", "ZELDA": "nope"}}`), 0o644)
 	cfg, err := LoadConfig(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ColorizeDMG || cfg.CompatPalettes["TETRIS"] != "up+a" || len(cfg.CompatPalettes) != 1 {
+	if !cfg.ColorizeDMG || cfg.CompatPalettes["TETRIS"] != "up+a" || len(cfg.CompatPalettes) != 1 {
 		t.Errorf("loaded colorize %v palettes %v", cfg.ColorizeDMG, cfg.CompatPalettes)
 	}
 	os.WriteFile(path, []byte(`{}`), 0o644)
-	if cfg, _ := LoadConfig(path); !cfg.ColorizeDMG || cfg.CompatPalettes == nil {
+	if cfg, _ := LoadConfig(path); cfg.ColorizeDMG || cfg.CompatPalettes == nil {
 		t.Errorf("defaults: colorize %v palettes %v", cfg.ColorizeDMG, cfg.CompatPalettes)
 	}
 }

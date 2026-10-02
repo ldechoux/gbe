@@ -24,7 +24,7 @@ var version = "dev"
 func main() {
 	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM (may also be given as the first argument)")
 	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
-	modelName := flag.String("model", "auto", `hardware: "auto" (Game Boy Color for the games that support it, and for Game Boy games unless colorization is off in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
+	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
@@ -71,7 +71,7 @@ func main() {
 	}
 	preferred := gb.ResolveModel(cart, model)
 	if model == gb.ModelAuto && !cart.ColorSupported() && cfg.ColorizeDMG {
-		preferred = gb.ModelCGB // a Game Boy Color colorizes DMG games
+		preferred = gb.ModelCGB // a Game Boy Color colorizes DMG games (opt-in)
 	}
 	base := romBase(*romPath)
 	savePath, statePath := base+".sav", base+".state"

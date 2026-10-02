@@ -31,7 +31,8 @@ type Config struct {
 	// FastForwardSpeed is how many frames run per frame while fast forwarding.
 	FastForwardSpeed int `json:"fast_forward_speed"`
 	// ColorizeDMG runs the DMG games on a Game Boy Color, which colorizes
-	// them (when the model is left to auto).
+	// them, instead of their original hardware (when the model is left to
+	// auto). Off by default.
 	ColorizeDMG bool `json:"colorize_dmg"`
 	// CompatPalettes is the palette chosen for a colorized DMG game, by
 	// title (see compatPaletteID). Absent: the one the boot ROM picks.
@@ -87,7 +88,6 @@ func DefaultConfig() *Config {
 		Gamepad:          defaultPad(),
 		Screenshot:       defaultScreenshotHotkey(),
 		FastForwardSpeed: 4,
-		ColorizeDMG:      true,
 		CompatPalettes:   map[string]string{},
 	}
 }

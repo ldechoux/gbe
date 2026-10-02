@@ -89,7 +89,7 @@
 
 <section id="palettes" class="wrap">
   <h2>Game Boy : {{len .Palettes}} palettes</h2>
-  <p class="section-lead">Les jeux Game Boy démarrent colorisés, comme sur une Game Boy Color (voir plus bas). Désactivez la colorisation dans le menu, ou lancez-les avec <code>-model gb</code>, et ils gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette.</p>
+  <p class="section-lead">Par défaut, les jeux Game Boy gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette. Ils peuvent aussi être colorisés comme sur une Game Boy Color (voir plus bas).</p>
   <ul class="palettes">
     {{range .Palettes}}
     <li>
@@ -136,7 +136,7 @@
     </article>
   </div>
   <h3 class="subhead">Les jeux Game Boy en couleurs</h3>
-  <p class="section-lead">Comme une vraie Game Boy Color, gbe colorise les jeux Game Boy : les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Avec la boot ROM couleur, l'animation et les combinaisons au logo fonctionnent comme sur la console.</p>
+  <p class="section-lead">Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy : activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code>. Les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Avec la boot ROM couleur, l'animation et les combinaisons au logo fonctionnent comme sur la console.</p>
   <div class="grid palette-shots">
     <figure>
       <img class="pixelated" src="img/gbc/colorized_tetris.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris colorisé en jaune et rouge">

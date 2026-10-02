@@ -138,7 +138,7 @@ nav a:hover { color: var(--accent); }
 .palette-shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
 /* Screenshots */
-.shots { grid-template-columns: repeat(2, 1fr); }
+.shots { grid-template-columns: repeat(3, 1fr); }
 .shots-head { margin-top: 32px; }
 .shots figure { margin: 0; }
 /* The screenshots are macOS window captures with their own transparent
@@ -194,7 +194,7 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 40px; }
   .hero h1 { font-size: 40px; }
-  .features, .shots, .downloads { grid-template-columns: 1fr 1fr; }
+  .features, .downloads { grid-template-columns: 1fr 1fr; }
   .palettes { grid-template-columns: repeat(3, 1fr); }
   .palette-shots { grid-template-columns: repeat(2, 1fr); }
 }

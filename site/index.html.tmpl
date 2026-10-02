@@ -33,7 +33,7 @@
   <div class="hero-text">
     <p class="kicker">Émulateur Game Boy et Game Boy Color</p>
     <h1>gbe</h1>
-    <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code> pour jouer, sous macOS, Linux ou Windows.</p>
+    <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, pour jouer, sous macOS, Linux ou Windows.</p>
     <div class="actions">
       <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
       <a class="btn" href="https://github.com/{{.Repo}}">Code source</a>
@@ -70,7 +70,7 @@
     </article>
     <article class="card">
       <h3>Cartouches</h3>
-      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5, en <code>.gb</code> ou <code>.gbc</code>. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
+      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5, en <code>.gb</code> ou <code>.gbc</code>. Une archive <code>.zip</code> se lance telle quelle : la ROM est décompressée en mémoire et l'archive n'est jamais modifiée. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
     </article>
     <article class="card">
       <h3>Save states et retour arrière</h3>
@@ -162,6 +162,10 @@
   <h3 class="shots-head">Game Boy</h3>
   <div class="grid shots">
     <figure>
+      <img src="img/gb/game_title.webp" width="1000" height="958" loading="lazy" alt="Écran titre de Super Mario Land dans gbe, aux couleurs de la palette DMG verte">
+      <figcaption>Écran de jeu</figcaption>
+    </figure>
+    <figure>
       <img src="img/gb/menu.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe au-dessus de l'écran titre de Super Mario Land, aux couleurs de la palette DMG verte">
       <figcaption>Menu de pause (Échap), aux couleurs de la palette</figcaption>
     </figure>
@@ -172,6 +176,10 @@
   </div>
   <h3 class="shots-head">Game Boy Color</h3>
   <div class="grid shots">
+    <figure>
+      <img src="img/gbc/game_title.webp" width="1000" height="958" loading="lazy" alt="Écran titre de Zelda: Link's Awakening DX en couleurs dans gbe">
+      <figcaption>Écran de jeu</figcaption>
+    </figure>
     <figure>
       <img src="img/gbc/menu.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe en noir et blanc au-dessus de l'écran titre de Zelda: Link's Awakening DX">
       <figcaption>Menu de pause, en noir et blanc, avec la correction des couleurs</figcaption>
@@ -207,7 +215,7 @@
   {{end}}
 
   <h3 class="subhead">Démarrage rapide</h3>
-  <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code></pre>
+  <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code><code>./gbe mon-jeu.zip</code></pre>
   <table class="keys">
     <thead><tr><th>Touche</th><th>Action</th></tr></thead>
     <tbody>

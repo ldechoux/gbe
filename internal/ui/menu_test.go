@@ -58,8 +58,8 @@ func TestMenuNavigation(t *testing.T) {
 	}{
 		{"main", pageMain, tabKeyboard, mainItems},
 		{"start", pageStart, tabKeyboard, startItems},
-		{"keyboard", pageControls, tabKeyboard, len(gb.Buttons) + 3},
-		{"gamepad", pageControls, tabPad, len(gb.Buttons) + 2},
+		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
+		{"gamepad", pageControls, tabPad, len(bindingNames()) + 2},
 	} {
 		m := menu{page: c.page, tab: c.tab}
 		if got := m.itemCount(); got != c.want {
@@ -285,7 +285,7 @@ func TestMenuControlsActivate(t *testing.T) {
 		t.Error("OK on Snapshot must start capturing")
 	}
 
-	g.cfg.Bind(gb.ButtonA, ebiten.KeyK)
+	g.cfg.Bind(gb.ButtonA.String(), ebiten.KeyK)
 	g.cfg.Screenshot = Hotkey{Key: ebiten.KeyF5}
 	*m = menu{open: true, page: pageControls, cursor: controlsDefaults()}
 	ok()
@@ -302,7 +302,7 @@ func TestMenuControlsActivate(t *testing.T) {
 		t.Error("Back entry must return to the main page")
 	}
 
-	g.cfg.BindPad(gb.ButtonA, std(ebiten.StandardGamepadButtonRightTop))
+	g.cfg.BindPad(gb.ButtonA.String(), std(ebiten.StandardGamepadButtonRightTop))
 	*m = menu{open: true, page: pageControls, tab: tabPad, cursor: padDefaults()}
 	ok()
 	if g.cfg.PadButton(gb.ButtonA) != defaultPad()[gb.ButtonA.String()] {

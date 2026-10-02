@@ -43,6 +43,7 @@ const (
 	itemControls
 	itemVolume
 	itemScale
+	itemSpeed
 	itemLanguage
 	itemSaveState
 	itemLoadState
@@ -63,9 +64,16 @@ func paletteLabel(l *i18n.Locale, g *Game) string {
 	return l.T("menu.colors", l.T("colors.raw"))
 }
 
-// buttonLabel names a Game Boy button in language l.
-func buttonLabel(l *i18n.Locale, b gb.Button) string {
-	return l.T("button." + strings.ToLower(b.String()))
+// bindingLabel names a Game Boy button or an action (see bindingNames) in
+// language l.
+func bindingLabel(l *i18n.Locale, name string) string {
+	switch name {
+	case actionFastForward:
+		return l.T("action.fast_forward")
+	case actionRewind:
+		return l.T("action.rewind")
+	}
+	return l.T("button." + strings.ToLower(name))
 }
 
 var (
@@ -107,14 +115,14 @@ type menu struct {
 	width float64
 }
 
-// Controls page layout: one entry per button, then these.
-func controlsScreenshot() int { return len(gb.Buttons) }
-func controlsDefaults() int   { return len(gb.Buttons) + 1 }
-func controlsBack() int       { return len(gb.Buttons) + 2 }
+// Controls page layout: one entry per button and action, then these.
+func controlsScreenshot() int { return len(bindingNames()) }
+func controlsDefaults() int   { return len(bindingNames()) + 1 }
+func controlsBack() int       { return len(bindingNames()) + 2 }
 
-// Gamepad tab layout: one entry per button, then these.
-func padDefaults() int { return len(gb.Buttons) }
-func padBack() int     { return len(gb.Buttons) + 1 }
+// Gamepad tab layout: one entry per button and action, then these.
+func padDefaults() int { return len(bindingNames()) }
+func padBack() int     { return len(bindingNames()) + 1 }
 
 func (m *menu) show() {
 	*m = menu{open: true}
@@ -193,7 +201,7 @@ func (m *menu) capturePad(g *Game) {
 		return
 	}
 	if b, ok := padJustPressed(g.pads); ok {
-		g.cfg.BindPad(gb.Buttons[m.cursor], b)
+		g.cfg.BindPad(bindingNames()[m.cursor], b)
 		g.saveConfig()
 		m.capturing, m.notice = false, ""
 	}
@@ -233,7 +241,7 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 			m.notice = g.tr().T("controls.key_used_by_screenshot", keyLabel(g.tr(), key))
 			return
 		}
-		g.cfg.Bind(gb.Buttons[m.cursor], key)
+		g.cfg.Bind(bindingNames()[m.cursor], key)
 		g.saveConfig()
 		m.capturing, m.notice = false, ""
 	}
@@ -258,6 +266,9 @@ func (m *menu) adjust(g *Game, delta int) {
 	case itemScale:
 		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
 		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
+		g.saveConfig()
+	case itemSpeed:
+		g.cfg.FastForwardSpeed = max(minFastForward, min(maxFastForward, g.cfg.FastForwardSpeed+delta))
 		g.saveConfig()
 	case itemLanguage:
 		g.cycleLanguage(delta)
@@ -291,7 +302,7 @@ func (m *menu) activate(g *Game) {
 	}
 	if m.page == pageControls && m.tab == tabPad {
 		switch {
-		case m.cursor < len(gb.Buttons):
+		case m.cursor < padDefaults():
 			m.capturing = true
 		case m.cursor == padDefaults():
 			g.cfg.Gamepad = defaultPad()
@@ -317,7 +328,7 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemPalette, itemVolume, itemScale, itemLanguage:
+	case itemPalette, itemVolume, itemScale, itemSpeed, itemLanguage:
 		m.adjust(g, 1)
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
@@ -330,6 +341,7 @@ func (m *menu) activate(g *Game) {
 	case itemReset:
 		g.saveBattery()
 		g.gb.Reset()
+		g.rewind.clear()
 		m.open = false
 	case itemQuit:
 		g.quit = true
@@ -372,12 +384,12 @@ func (m *menu) view(g *Game) menuView {
 
 func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, footer string) {
 	l := g.tr()
-	for i, b := range gb.Buttons {
-		btn := padLabel(l, family, g.cfg.PadButton(b))
+	for i, name := range bindingNames() {
+		btn := padLabel(l, family, g.cfg.Gamepad[name])
 		if m.capturing && i == m.cursor {
 			btn = l.T("controls.press_button")
 		}
-		items = append(items, fmt.Sprintf("%-8s %s", buttonLabel(l, b), btn))
+		items = append(items, fmt.Sprintf("%-8s %s", bindingLabel(l, name), btn))
 	}
 	items = append(items, l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
@@ -395,12 +407,12 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 
 func (m *menu) keyboardLines(g *Game) (items []string, footer string) {
 	l := g.tr()
-	for i, b := range gb.Buttons {
-		key := keyLabel(l, g.cfg.Key(b))
+	for i, name := range bindingNames() {
+		key := keyLabel(l, g.cfg.Keys[name])
 		if m.capturing && i == m.cursor {
 			key = l.T("controls.press_key")
 		}
-		items = append(items, fmt.Sprintf("%-8s %s", buttonLabel(l, b), key))
+		items = append(items, fmt.Sprintf("%-8s %s", bindingLabel(l, name), key))
 	}
 	shot := g.cfg.Screenshot.label(l)
 	if m.capturing && m.cursor == controlsScreenshot() {
@@ -433,6 +445,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 		l.T("menu.scale", g.cfg.Scale),
+		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),
 		l.T("menu.load_state"),
@@ -451,13 +464,21 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 }
 
 // drawToast shows msg in a small box at the bottom-left of the screen.
-func drawToast(dst *ebiten.Image, msg string, p *Palette) {
-	sh := float64(dst.Bounds().Dy())
+func drawToast(dst *ebiten.Image, msg string, p *Palette) { drawBox(dst, msg, p, false) }
+
+// drawBadge shows msg in a small box at the top-right of the screen.
+func drawBadge(dst *ebiten.Image, msg string, p *Palette) { drawBox(dst, msg, p, true) }
+
+func drawBox(dst *ebiten.Image, msg string, p *Palette, topRight bool) {
+	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	scale := math.Max(1, math.Floor(sh/300))
 	pad := 4 * scale
 	w := text.Advance(msg, menuFace)*scale + 2*pad
 	h := 13*scale + 2*pad
 	x, y := pad, sh-h-pad
+	if topRight {
+		x, y = sw-w-pad, pad
+	}
 	fillRect(dst, x, y, w, h, p.Colors[3])
 	drawText(dst, msg, x+pad, y+pad, scale, p.Colors[0])
 }

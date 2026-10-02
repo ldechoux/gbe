@@ -69,7 +69,7 @@ func std(b ebiten.StandardGamepadButton) padButton { return padButton(b) }
 func TestGamepadConfigRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	cfg := DefaultConfig()
-	cfg.BindPad(gb.ButtonA, std(ebiten.StandardGamepadButtonRightBottom))
+	cfg.BindPad(gb.ButtonA.String(), std(ebiten.StandardGamepadButtonRightBottom))
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestGamepadConfigRoundTrip(t *testing.T) {
 func TestBindPadSwapsConflicts(t *testing.T) {
 	cfg := DefaultConfig()
 	a, b := cfg.PadButton(gb.ButtonA), cfg.PadButton(gb.ButtonB)
-	cfg.BindPad(gb.ButtonA, b)
+	cfg.BindPad(gb.ButtonA.String(), b)
 	if cfg.PadButton(gb.ButtonA) != b || cfg.PadButton(gb.ButtonB) != a {
 		t.Fatalf("A=%v B=%v", cfg.PadButton(gb.ButtonA), cfg.PadButton(gb.ButtonB))
 	}

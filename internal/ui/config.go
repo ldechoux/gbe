@@ -23,11 +23,35 @@ type Config struct {
 	Language string                `json:"language"`
 	Scale    int                   `json:"scale"`
 	Volume   float64               `json:"volume"`
-	Keys     map[string]ebiten.Key `json:"keys"` // Game Boy button name -> key
-	// Gamepad maps Game Boy button names to standard layout gamepad buttons.
+	Keys     map[string]ebiten.Key `json:"keys"` // button or action name -> key
+	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Screenshot is the key combination that saves a PNG of the screen.
 	Screenshot Hotkey `json:"screenshot"`
+	// FastForwardSpeed is how many frames run per frame while fast forwarding.
+	FastForwardSpeed int `json:"fast_forward_speed"`
+}
+
+// Emulator actions held like the Game Boy buttons, bound in Keys and
+// Gamepad next to them.
+const (
+	actionFastForward = "FastForward"
+	actionRewind      = "Rewind"
+)
+
+const (
+	minFastForward = 2
+	maxFastForward = 8
+)
+
+// bindingNames lists the Game Boy buttons, then the actions, in the order of
+// the controls page.
+func bindingNames() []string {
+	names := make([]string, 0, len(gb.Buttons)+2)
+	for _, b := range gb.Buttons {
+		names = append(names, b.String())
+	}
+	return append(names, actionFastForward, actionRewind)
 }
 
 func defaultKeys() map[string]ebiten.Key {
@@ -40,20 +64,23 @@ func defaultKeys() map[string]ebiten.Key {
 		gb.ButtonB.String():      ebiten.KeyZ,
 		gb.ButtonStart.String():  ebiten.KeyEnter,
 		gb.ButtonSelect.String(): ebiten.KeyShiftRight,
+		actionFastForward:        ebiten.KeyTab,
+		actionRewind:             ebiten.KeyBackspace,
 	}
 }
 
 // DefaultConfig returns the out-of-the-box settings.
 func DefaultConfig() *Config {
 	return &Config{
-		Palette:         Palettes[0].ID,
-		ColorCorrection: true,
-		Language:        i18n.Default,
-		Scale:           4,
-		Volume:          0.8,
-		Keys:            defaultKeys(),
-		Gamepad:         defaultPad(),
-		Screenshot:      defaultScreenshotHotkey(),
+		Palette:          Palettes[0].ID,
+		ColorCorrection:  true,
+		Language:         i18n.Default,
+		Scale:            4,
+		Volume:           0.8,
+		Keys:             defaultKeys(),
+		Gamepad:          defaultPad(),
+		Screenshot:       defaultScreenshotHotkey(),
+		FastForwardSpeed: 4,
 	}
 }
 
@@ -103,6 +130,9 @@ func LoadConfig(path string) (*Config, error) {
 	if loaded.Volume >= 0 && loaded.Volume <= 1 {
 		cfg.Volume = loaded.Volume
 	}
+	if loaded.FastForwardSpeed >= minFastForward && loaded.FastForwardSpeed <= maxFastForward {
+		cfg.FastForwardSpeed = loaded.FastForwardSpeed
+	}
 	for name, btn := range loaded.Gamepad {
 		if _, ok := cfg.Gamepad[name]; ok && btn != padNone {
 			cfg.Gamepad[name] = btn
@@ -131,40 +161,40 @@ func (c *Config) Save(path string) error {
 // Key returns the key bound to a Game Boy button.
 func (c *Config) Key(b gb.Button) ebiten.Key { return c.Keys[b.String()] }
 
-// Bind assigns key to button. If another button used that key, it gets the
-// button's previous key, so no two buttons ever share a key.
-func (c *Config) Bind(b gb.Button, key ebiten.Key) {
-	old := c.Keys[b.String()]
-	for name, k := range c.Keys {
+// Bind assigns key to a button or action (see bindingNames). If another one
+// used that key, it gets the previous key, so no two ever share a key.
+func (c *Config) Bind(name string, key ebiten.Key) {
+	old := c.Keys[name]
+	for n, k := range c.Keys {
 		if k == key {
-			c.Keys[name] = old
+			c.Keys[n] = old
 		}
 	}
-	c.Keys[b.String()] = key
+	c.Keys[name] = key
 }
 
-// BindPad assigns a gamepad button to a Game Boy button, swapping with the
-// Game Boy button that used it, like Bind.
-func (c *Config) BindPad(b gb.Button, btn padButton) {
-	old := c.Gamepad[b.String()]
-	for name, pb := range c.Gamepad {
+// BindPad assigns a gamepad button to a button or action, swapping with the
+// one that used it, like Bind.
+func (c *Config) BindPad(name string, btn padButton) {
+	old := c.Gamepad[name]
+	for n, pb := range c.Gamepad {
 		if pb == btn {
-			c.Gamepad[name] = old
+			c.Gamepad[n] = old
 		}
 	}
-	c.Gamepad[b.String()] = btn
+	c.Gamepad[name] = btn
 }
 
 // PadButton returns the gamepad button bound to a Game Boy button.
 func (c *Config) PadButton(b gb.Button) padButton { return c.Gamepad[b.String()] }
 
-// conflicts reports whether a game button bound to key would also fire the
+// conflicts reports whether a button or action bound to key would also fire the
 // screenshot hotkey (only possible when the hotkey has no modifier).
 func (c *Config) conflicts(key ebiten.Key) bool {
 	return !c.Screenshot.hasModifiers() && c.Screenshot.Key == key
 }
 
-// bound reports whether key is assigned to a button.
+// bound reports whether key is assigned to a button or an action.
 func (c *Config) bound(key ebiten.Key) bool {
 	for _, k := range c.Keys {
 		if k == key {

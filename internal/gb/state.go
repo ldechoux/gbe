@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 )
 
 // Save states are gzip-compressed. The payload starts with a magic, a format
@@ -24,60 +25,89 @@ var ErrStateMismatch = errors.New("save state was made with a different ROM")
 
 // codec serializes state in both directions with the same code: each
 // component lists its fields once in sync(), whether saving or loading.
+// It works on byte slices, so that the many snapshots taken for the rewind
+// do not allocate.
 type codec struct {
-	w       *bytes.Buffer // saving
-	r       io.Reader     // loading
-	version uint16        // format of the data being read or written
+	out     []byte // saving: the data written so far
+	in      []byte // loading: the data left to read
+	load    bool
+	version uint16 // format of the data being read or written
 	err     error
 }
 
-func (c *codec) loading() bool { return c.r != nil }
+func (c *codec) loading() bool { return c.load }
+
+// next consumes the next n bytes of the data being loaded, or returns nil
+// once it is exhausted.
+func (c *codec) next(n int) []byte {
+	if c.err != nil {
+		return nil
+	}
+	if len(c.in) < n {
+		c.err = io.ErrUnexpectedEOF
+		return nil
+	}
+	b := c.in[:n]
+	c.in = c.in[n:]
+	return b
+}
 
 func (c *codec) raw(b []byte) {
-	if c.err != nil {
-		return
-	}
-	if c.loading() {
-		_, c.err = io.ReadFull(c.r, b)
-	} else {
-		c.w.Write(b)
+	switch {
+	case !c.load:
+		c.out = append(c.out, b...)
+	case c.err == nil:
+		copy(b, c.next(len(b)))
 	}
 }
 
 func (c *codec) u8(p *byte) {
-	b := []byte{*p}
-	c.raw(b)
-	*p = b[0]
+	if !c.load {
+		c.out = append(c.out, *p)
+	} else if b := c.next(1); b != nil {
+		*p = b[0]
+	}
 }
 
 func (c *codec) u16(p *uint16) {
-	var b [2]byte
-	binary.LittleEndian.PutUint16(b[:], *p)
-	c.raw(b[:])
-	*p = binary.LittleEndian.Uint16(b[:])
+	if !c.load {
+		c.out = binary.LittleEndian.AppendUint16(c.out, *p)
+	} else if b := c.next(2); b != nil {
+		*p = binary.LittleEndian.Uint16(b)
+	}
 }
 
 // u16s is u16 for every element of s, in one go.
 func (c *codec) u16s(s []uint16) {
-	b := make([]byte, 2*len(s))
-	if !c.loading() {
-		for i, v := range s {
-			binary.LittleEndian.PutUint16(b[2*i:], v)
+	if !c.load {
+		n := len(c.out)
+		c.out = slices.Grow(c.out, 2*len(s))[:n+2*len(s)]
+		b := c.out[n:]
+		i := 0
+		for ; i+4 <= len(s); i += 4 { // 4 at a time, much faster
+			binary.LittleEndian.PutUint64(b[2*i:], uint64(s[i])|uint64(s[i+1])<<16|uint64(s[i+2])<<32|uint64(s[i+3])<<48)
 		}
-	}
-	c.raw(b)
-	if c.loading() && c.err == nil {
-		for i := range s {
+		for ; i < len(s); i++ {
+			binary.LittleEndian.PutUint16(b[2*i:], s[i])
+		}
+	} else if b := c.next(2 * len(s)); b != nil {
+		i := 0
+		for ; i+4 <= len(s); i += 4 {
+			v := binary.LittleEndian.Uint64(b[2*i:])
+			s[i], s[i+1], s[i+2], s[i+3] = uint16(v), uint16(v>>16), uint16(v>>32), uint16(v>>48)
+		}
+		for ; i < len(s); i++ {
 			s[i] = binary.LittleEndian.Uint16(b[2*i:])
 		}
 	}
 }
 
 func (c *codec) u64(p *uint64) {
-	var b [8]byte
-	binary.LittleEndian.PutUint64(b[:], *p)
-	c.raw(b[:])
-	*p = binary.LittleEndian.Uint64(b[:])
+	if !c.load {
+		c.out = binary.LittleEndian.AppendUint64(c.out, *p)
+	} else if b := c.next(8); b != nil {
+		*p = binary.LittleEndian.Uint64(b)
+	}
 }
 
 func (c *codec) i64(p *int64) {
@@ -119,7 +149,7 @@ func (g *GameBoy) SaveState() []byte { return g.encodeState(stateVersion) }
 // encodeState writes a save state in the given format version (older ones
 // are only written by tests).
 func (g *GameBoy) encodeState(version uint16) []byte {
-	c := &codec{w: &bytes.Buffer{}, version: version}
+	c := &codec{version: version}
 	c.raw([]byte(stateMagic))
 	c.u16(&version)
 	c.raw(g.Cart.romID())
@@ -131,18 +161,29 @@ func (g *GameBoy) encodeState(version uint16) []byte {
 
 	var out bytes.Buffer
 	zw := gzip.NewWriter(&out)
-	zw.Write(c.w.Bytes())
+	zw.Write(c.out)
 	zw.Close()
 	return out.Bytes()
 }
 
+// stateDecoder decompresses a save state, ready to be read.
+func stateDecoder(data []byte) (*codec, error) {
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	if err == nil {
+		data, err = io.ReadAll(zr)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("invalid save state: %w", err)
+	}
+	return &codec{in: data, load: true}, nil
+}
+
 // StateModel returns the model a state made by SaveState was made on.
 func StateModel(data []byte) (Model, error) {
-	zr, err := gzip.NewReader(bytes.NewReader(data))
+	c, err := stateDecoder(data)
 	if err != nil {
-		return 0, fmt.Errorf("invalid save state: %w", err)
+		return 0, err
 	}
-	c := &codec{r: zr}
 	magic := make([]byte, len(stateMagic))
 	c.raw(magic)
 	var version uint16
@@ -163,11 +204,10 @@ func StateModel(data []byte) (Model, error) {
 // LoadState restores a state made by SaveState. On error the machine is left
 // untouched.
 func (g *GameBoy) LoadState(data []byte) error {
-	zr, err := gzip.NewReader(bytes.NewReader(data))
+	c, err := stateDecoder(data)
 	if err != nil {
-		return fmt.Errorf("invalid save state: %w", err)
+		return err
 	}
-	c := &codec{r: zr}
 	magic := make([]byte, len(stateMagic))
 	c.raw(magic)
 	var version uint16
@@ -210,17 +250,24 @@ func (g *GameBoy) LoadState(data []byte) error {
 // compression of SaveState: it is meant to be taken many times per second
 // (rewind). It is written into buf, reused when large enough.
 func (g *GameBoy) Snapshot(buf []byte) []byte {
-	c := &codec{w: bytes.NewBuffer(buf[:0]), version: stateVersion}
+	c := &codec{out: buf[:0], version: stateVersion}
 	g.sync(c)
-	return c.w.Bytes()
+	return c.out
 }
 
 // Restore goes back to a state taken by Snapshot on this same machine. On
 // error the machine is left in an undefined state.
 func (g *GameBoy) Restore(data []byte) error {
-	c := &codec{r: bytes.NewReader(data), version: stateVersion}
-	g.Reset()
+	c := &codec{in: data, load: true, version: stateVersion}
+	// Unlike LoadState, which may read older formats, there is no need to
+	// Reset first: the snapshot overwrites the whole machine but for the
+	// following, which are reset as Reset would. The sample rate, which
+	// belongs to the frontend, is kept.
 	g.sync(c)
+	g.PPU.frameReady = false
+	g.Joypad.pressed = [8]bool{}
+	g.Serial.Output = nil
+	g.APU.samples = g.APU.samples[:0]
 	if c.err != nil {
 		return fmt.Errorf("invalid snapshot: %w", c.err)
 	}

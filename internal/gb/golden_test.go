@@ -93,6 +93,29 @@ func TestGoldenSynthetic(t *testing.T) {
 	}
 }
 
+// TestGoldenRestore checks that a busy machine carries on exactly the same
+// after going back to a snapshot or a save state.
+func TestGoldenRestore(t *testing.T) {
+	for _, model := range []Model{ModelDMG, ModelCGB} {
+		g := newSyntheticGB(t, model)
+		goldenHash(g, 100)
+		snap, state := g.Snapshot(nil), g.SaveState()
+		want := goldenHash(g, 120)
+		if err := g.Restore(snap); err != nil {
+			t.Fatal(err)
+		}
+		if got := goldenHash(g, 120); got != want {
+			t.Errorf("model %d: emulation diverged after Restore", model)
+		}
+		if err := g.LoadState(state); err != nil {
+			t.Fatal(err)
+		}
+		if got := goldenHash(g, 120); got != want {
+			t.Errorf("model %d: emulation diverged after LoadState", model)
+		}
+	}
+}
+
 func TestGoldenROMs(t *testing.T) {
 	runs := []struct {
 		name, path string

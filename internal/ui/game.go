@@ -77,6 +77,7 @@ type Game struct {
 	quit    bool
 
 	rewind     rewinder
+	rumble     rumbler
 	rewindTick int      // ticks spent rewinding, which steps back every other tick
 	speed      playMode // shown on screen while not normal
 
@@ -360,6 +361,7 @@ func (g *Game) ignoreHeldInputs() {
 
 func (g *Game) Update() error {
 	if g.quit {
+		g.rumble.stop(g.pads)
 		return ebiten.Termination
 	}
 	if g.fps.update(time.Now()) {
@@ -373,6 +375,7 @@ func (g *Game) Update() error {
 	}
 	g.actions = keyboardActions().or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
 	if g.menu.open {
+		g.rumble.stop(g.pads) // the game is paused
 		g.menu.update(g)
 		if !g.menu.open {
 			g.ignoreHeldInputs()
@@ -423,6 +426,7 @@ func (g *Game) held(action string) bool {
 // are held).
 func (g *Game) advance(fast, rewind bool) {
 	if rewind {
+		g.rumble.stop(g.pads)
 		g.speed = playRewind
 		// Every other tick: twice as fast as the game went forward. No audio
 		// is queued, so the stream repeats its last frame, which is silent.
@@ -442,12 +446,15 @@ func (g *Game) advance(fast, rewind bool) {
 	// still queues one frame's worth of audio: the sound plays faster
 	// instead of piling up.
 	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()) / float64(n))
+	rumble := 0.0
 	for range n {
 		g.gb.RunFrame()
 		g.fps.frame()
 		g.rewind.record(g.gb)
+		rumble += g.gb.Rumble()
 	}
 	g.stream.push(g.gb.APU.DrainSamples())
+	g.rumble.update(g.pads, g.cfg.Vibration, rumble/float64(n))
 }
 
 // speedBadge is the indicator shown while fast forwarding or rewinding.

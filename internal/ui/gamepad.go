@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -187,6 +189,11 @@ type padReader interface {
 	// duration is how many ticks the button has been held (0: released).
 	duration(id ebiten.GamepadID, b padButton) int
 	axis(id ebiten.GamepadID, a ebiten.StandardGamepadAxis) float64
+	// canVibrate reports whether the gamepad may vibrate (see ebitenPads).
+	canVibrate(id ebiten.GamepadID) bool
+	// vibrate shakes the gamepad with both motors at strength (0 to 1) for
+	// d; a strength of 0 stops it.
+	vibrate(id ebiten.GamepadID, strength float64, d time.Duration)
 }
 
 // ebitenPads reads the real gamepads.
@@ -211,6 +218,82 @@ func (p *ebitenPads) duration(id ebiten.GamepadID, b padButton) int {
 
 func (p *ebitenPads) axis(id ebiten.GamepadID, a ebiten.StandardGamepadAxis) float64 {
 	return ebiten.StandardGamepadAxisValue(id, a)
+}
+
+// xinputSDLID starts the SDL ID that Ebitengine gives XInput gamepads on
+// Windows ("xinput" in hexadecimal).
+const xinputSDLID = "78696e707574"
+
+// canVibrate: Ebitengine has no way to tell whether a gamepad vibrates. It
+// only can on Windows for XInput gamepads, which their SDL ID shows. On
+// macOS and Linux most gamepads do, but not all: the menu offers a test.
+// IsGamepadVibrationAvailable, proposed to Ebitengine, would tell
+// (https://github.com/hajimehoshi/ebiten/issues/3854).
+func (p *ebitenPads) canVibrate(id ebiten.GamepadID) bool {
+	if runtime.GOOS == "windows" {
+		return strings.HasPrefix(ebiten.GamepadSDLID(id), xinputSDLID)
+	}
+	return true
+}
+
+func (p *ebitenPads) vibrate(id ebiten.GamepadID, strength float64, d time.Duration) {
+	ebiten.VibrateGamepad(id, &ebiten.VibrateGamepadOptions{
+		Duration:        d,
+		StrongMagnitude: strength,
+		WeakMagnitude:   strength,
+	})
+}
+
+// rumbleHold is how long each vibration lasts: a bit more than a tick, so
+// that it does not stop between two ticks while the motor keeps running.
+const rumbleHold = 50 * time.Millisecond
+
+// rumbler makes the gamepads shake with the motor of the cartridge.
+type rumbler struct {
+	last float64 // motor share of the previous tick
+	on   bool    // the gamepads are vibrating
+}
+
+// update follows share, the part of this tick's frames during which the
+// motor ran. Games set its strength by running it part of the time, often
+// every other frame: two ticks are averaged. Small motors barely move under
+// a quarter of their strength, hence the floor.
+func (r *rumbler) update(pads padReader, enabled bool, share float64) {
+	level := (r.last + share) / 2
+	r.last = share
+	if !enabled || level == 0 {
+		r.stop(pads)
+		return
+	}
+	for _, id := range pads.ids() {
+		if pads.canVibrate(id) {
+			pads.vibrate(id, 0.25+0.75*level, rumbleHold)
+		}
+	}
+	r.on = true
+}
+
+// stop ends the vibrations, while the menu is open, when rewinding...
+func (r *rumbler) stop(pads padReader) {
+	r.last = 0
+	if !r.on {
+		return
+	}
+	for _, id := range pads.ids() {
+		if pads.canVibrate(id) {
+			pads.vibrate(id, 0, 0)
+		}
+	}
+	r.on = false
+}
+
+// testVibration shakes the gamepads at full strength for half a second.
+func testVibration(pads padReader) {
+	for _, id := range pads.ids() {
+		if pads.canVibrate(id) {
+			pads.vibrate(id, 1, 500*time.Millisecond)
+		}
+	}
 }
 
 // stickThreshold is how far the left stick must be pushed to act as the

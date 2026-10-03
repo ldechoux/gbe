@@ -59,7 +59,7 @@ func TestMenuNavigation(t *testing.T) {
 		{"main", pageMain, tabKeyboard, mainItems},
 		{"start", pageStart, tabKeyboard, startItems},
 		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
-		{"gamepad", pageControls, tabPad, len(bindingNames()) + 2},
+		{"gamepad", pageControls, tabPad, len(bindingNames()) + 4}, // vibration, test, defaults, back
 	} {
 		m := menu{page: c.page, tab: c.tab}
 		if got := m.itemCount(); got != c.want {

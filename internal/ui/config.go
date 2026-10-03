@@ -26,6 +26,9 @@ type Config struct {
 	Keys     map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
+	// Vibration makes the gamepads shake with the motor of rumble
+	// cartridges (Pokemon Pinball...).
+	Vibration bool `json:"vibration"`
 	// Screenshot is the key combination that saves a PNG of the screen.
 	Screenshot Hotkey `json:"screenshot"`
 	// FastForwardSpeed is how many frames run per frame while fast forwarding.
@@ -81,6 +84,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Palette:          Palettes[0].ID,
 		ColorCorrection:  true,
+		Vibration:        true,
 		Language:         i18n.Default,
 		Scale:            4,
 		Volume:           0.8,
@@ -117,6 +121,7 @@ func LoadConfig(path string) (*Config, error) {
 		Screenshot      *Hotkey `json:"screenshot"`       // nil when absent
 		ColorCorrection *bool   `json:"color_correction"` // same
 		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
+		Vibration       *bool   `json:"vibration"`        // same
 	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
@@ -129,6 +134,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if loaded.ColorizeDMG != nil {
 		cfg.ColorizeDMG = *loaded.ColorizeDMG
+	}
+	if loaded.Vibration != nil {
+		cfg.Vibration = *loaded.Vibration
 	}
 	for title, id := range loaded.CompatPalettes {
 		if compatPaletteIndex(id) != gb.CompatAuto {

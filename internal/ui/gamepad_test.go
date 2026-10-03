@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -16,13 +17,21 @@ import (
 
 // fakePads is a scriptable padReader.
 type fakePads struct {
-	pads map[ebiten.GamepadID]*fakePad
+	pads       map[ebiten.GamepadID]*fakePad
+	vibrations []vibration // every call to vibrate
 }
 
 type fakePad struct {
-	name string
-	held map[padButton]int
-	axes map[ebiten.StandardGamepadAxis]float64
+	name        string
+	held        map[padButton]int
+	axes        map[ebiten.StandardGamepadAxis]float64
+	noVibration bool
+}
+
+type vibration struct {
+	id       ebiten.GamepadID
+	strength float64
+	d        time.Duration
 }
 
 func newFakePads(names ...string) *fakePads {
@@ -48,6 +57,10 @@ func (f *fakePads) duration(id ebiten.GamepadID, b padButton) int {
 }
 func (f *fakePads) axis(id ebiten.GamepadID, a ebiten.StandardGamepadAxis) float64 {
 	return f.pads[id].axes[a]
+}
+func (f *fakePads) canVibrate(id ebiten.GamepadID) bool { return !f.pads[id].noVibration }
+func (f *fakePads) vibrate(id ebiten.GamepadID, strength float64, d time.Duration) {
+	f.vibrations = append(f.vibrations, vibration{id, strength, d})
 }
 
 // tick advances every held button by one tick, like Ebitengine does.

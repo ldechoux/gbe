@@ -74,6 +74,13 @@ func TestNewCartridge(t *testing.T) {
 	if cart.Title != "TETRIS" {
 		t.Errorf("title %q, want TETRIS", cart.Title)
 	}
+	// A Game Boy Color title followed by a manufacturer code.
+	copy(rom[0x134:], "DK COUNTRY\x00BDDE\xC0")
+	if cart, err := NewCartridge(rom); err != nil {
+		t.Error(err)
+	} else if cart.Title != "DK COUNTRY" {
+		t.Errorf("title %q, want DK COUNTRY", cart.Title)
+	}
 	if len(cart.rom) != 0x10000 || cart.rom[0x9000] != 0xFF || cart.rom[0xFFFF] != 0xFF {
 		t.Errorf("ROM not padded to a power of two with 0xFF (size %#x)", len(cart.rom))
 	}

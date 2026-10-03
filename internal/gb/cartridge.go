@@ -46,11 +46,16 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 		CGB:  rom[0x143],
 	}
 	// The title is 16 bytes long on DMG games, 15 when 0x0143 is a CGB flag.
+	// It ends at the first NUL: later games follow it with a manufacturer
+	// code ("DK COUNTRY\x00BDDE"), which is not part of the title.
 	title := rom[0x134:0x144]
 	if c.ColorSupported() {
 		title = rom[0x134:0x143]
 	}
-	c.Title = strings.TrimRight(string(bytes.TrimRight(title, "\x00")), " ")
+	if i := bytes.IndexByte(title, 0); i >= 0 {
+		title = title[:i]
+	}
+	c.Title = strings.TrimRight(string(title), " ")
 	// Pad the ROM to a power of two so bank offsets can simply wrap.
 	size := 0x8000
 	for size < len(rom) {

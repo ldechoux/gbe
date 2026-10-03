@@ -187,7 +187,9 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
   CGB, DMA VRAM (général et HBlank), double vitesse, boot ROM CGB, et mode de compatibilité
   qui colorise les jeux DMG.
 - Tests réussis : blargg `cpu_instrs`, `instr_timing`, `mem_timing` (en DMG et en CGB),
-  `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près.
+  `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près, et 17 des 23 tests son de blargg
+  (`dmg_sound`, `cgb_sound`). Ceux qui manquent touchent la wave RAM pendant que le canal 3
+  joue et l'extinction de l'APU sur DMG.
 
 ## Tests
 
@@ -200,6 +202,14 @@ curl -sfLO https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-ac
 curl -sfL -o dmg-acid2-ref.png https://raw.githubusercontent.com/mattcurrie/dmg-acid2/master/img/reference-dmg.png
 curl -sfLO https://github.com/mattcurrie/cgb-acid2/releases/download/v1.1/cgb-acid2.gbc
 curl -sfL -o cgb-acid2-ref.png https://raw.githubusercontent.com/mattcurrie/cgb-acid2/master/img/reference.png
+for set in dmg_sound cgb_sound; do
+  mkdir -p $set
+  for n in 01-registers "02-len ctr" 03-trigger 04-sweep "05-sweep details" "06-overflow on trigger" \
+           "07-len sweep period sync" "08-len ctr during power" "09-wave read while on" \
+           "10-wave trigger while on" "11-regs after power" "12-wave write while on"; do
+    curl -sfL -o "$set/$n.gb" "https://github.com/retrio/gb-test-roms/raw/master/$set/rom_singles/${n// /%20}.gb" || true
+  done
+done
 cd .. && go test ./...
 ```
 

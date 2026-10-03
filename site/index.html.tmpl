@@ -33,13 +33,13 @@
   <div class="hero-text">
     <p class="kicker">Émulateur Game Boy et Game Boy Color</p>
     <h1>gbe</h1>
-    <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code> pour jouer, sous macOS, Linux ou Windows.</p>
+    <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, pour jouer, sous macOS, Linux ou Windows.</p>
     <div class="actions">
       <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
       <a class="btn" href="https://github.com/{{.Repo}}">Code source</a>
     </div>
   </div>
-  <div class="consoles">
+  <div class="consoles" data-carousel aria-roledescription="carrousel" aria-label="Les deux consoles émulées">
     <figure class="console" aria-label="Écran titre d'un jeu Game Boy affiché par gbe">
       <div class="bezel">
         <span class="led" aria-hidden="true"></span>
@@ -54,6 +54,12 @@
       </div>
       <figcaption>GAME BOY COLOR · 32 768 COULEURS</figcaption>
     </figure>
+    <div class="carousel-nav" hidden>
+      <button type="button" class="carousel-arrow" data-step="-1" aria-label="Console précédente"></button>
+      <button type="button" class="carousel-dot" aria-label="Game Boy"></button>
+      <button type="button" class="carousel-dot" aria-label="Game Boy Color"></button>
+      <button type="button" class="carousel-arrow" data-step="1" aria-label="Console suivante"></button>
+    </div>
   </div>
 </section>
 
@@ -70,7 +76,7 @@
     </article>
     <article class="card">
       <h3>Cartouches</h3>
-      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5, en <code>.gb</code> ou <code>.gbc</code>. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
+      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5, en <code>.gb</code> ou <code>.gbc</code>. Une archive <code>.zip</code> se lance telle quelle : la ROM est décompressée en mémoire et l'archive n'est jamais modifiée. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
     </article>
     <article class="card">
       <h3>Save states et retour arrière</h3>
@@ -162,6 +168,10 @@
   <h3 class="shots-head">Game Boy</h3>
   <div class="grid shots">
     <figure>
+      <img src="img/gb/game_title.webp" width="1000" height="958" loading="lazy" alt="Écran titre de Super Mario Land dans gbe, aux couleurs de la palette DMG verte">
+      <figcaption>Écran de jeu</figcaption>
+    </figure>
+    <figure>
       <img src="img/gb/menu.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe au-dessus de l'écran titre de Super Mario Land, aux couleurs de la palette DMG verte">
       <figcaption>Menu de pause (Échap), aux couleurs de la palette</figcaption>
     </figure>
@@ -172,6 +182,10 @@
   </div>
   <h3 class="shots-head">Game Boy Color</h3>
   <div class="grid shots">
+    <figure>
+      <img src="img/gbc/game_title.webp" width="1000" height="958" loading="lazy" alt="Écran titre de Zelda: Link's Awakening DX en couleurs dans gbe">
+      <figcaption>Écran de jeu</figcaption>
+    </figure>
     <figure>
       <img src="img/gbc/menu.webp" width="1000" height="958" loading="lazy" alt="Menu de pause de gbe en noir et blanc au-dessus de l'écran titre de Zelda: Link's Awakening DX">
       <figcaption>Menu de pause, en noir et blanc, avec la correction des couleurs</figcaption>
@@ -207,17 +221,20 @@
   {{end}}
 
   <h3 class="subhead">Démarrage rapide</h3>
-  <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code></pre>
+  <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code><code>./gbe mon-jeu.zip</code></pre>
   <table class="keys">
     <thead><tr><th>Touche</th><th>Action</th></tr></thead>
     <tbody>
       <tr><td>Flèches</td><td>Croix directionnelle</td></tr>
       <tr><td>X / Z (X / W en AZERTY)</td><td>A / B</td></tr>
       <tr><td>Entrée / Maj droite</td><td>Start / Select</td></tr>
+      <tr><td>Tab (maintenu)</td><td>Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu)</td></tr>
+      <tr><td>Retour arrière (maintenu)</td><td>Rembobinage : le jeu revient en arrière, jusqu'à 10 s</td></tr>
       <tr><td>Échap</td><td>Menu : palette ou couleurs, contrôles, volume, save states</td></tr>
       <tr><td>P</td><td>Palette suivante (palette GBC pour un jeu Game Boy colorisé) ou correction des couleurs (Game Boy Color)</td></tr>
       <tr><td>F11</td><td>Plein écran</td></tr>
       <tr><td>Manette : Start + Select</td><td>Menu, piloté à la croix, A et B</td></tr>
+      <tr><td>Manette : gâchettes hautes R / L (maintenues)</td><td>Avance rapide / rembobinage</td></tr>
     </tbody>
   </table>
   <p class="note">Aucune ROM ni boot ROM n'est fournie : utilisez vos propres copies.</p>
@@ -256,6 +273,83 @@
     var os = /Mac/.test(ua) ? "macos" : /Win/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "";
     var card = os && document.querySelector('.download[data-os="' + os + '"]');
     if (card) card.classList.add("current");
+  })();
+
+  // Hero carousel: one console at a time. Without JavaScript both stay side
+  // by side. The active dot fills up in 5 s, and the end of that animation
+  // shows the next console; hovering or focusing the carousel pauses it, and
+  // any action starts the 5 s over.
+  (function () {
+    var root = document.querySelector("[data-carousel]");
+    if (!root) return;
+    var slides = root.querySelectorAll(".console");
+    var dots = root.querySelectorAll(".carousel-dot");
+    var nav = root.querySelector(".carousel-nav");
+    var current = 0;
+
+    function show(index, step) {
+      var next = (index + slides.length) % slides.length;
+      if (next !== current) {
+        var incoming = slides[next];
+        // Start the incoming console on the side it comes from, then let
+        // the transition bring it in while the current one leaves.
+        incoming.classList.remove("to-left", "to-right");
+        incoming.classList.add(step > 0 ? "from-right" : "from-left");
+        void incoming.offsetWidth;
+        incoming.classList.remove("from-right", "from-left");
+        slides[current].classList.add(step > 0 ? "to-left" : "to-right");
+      }
+      slides.forEach(function (s, i) {
+        var active = i === next;
+        s.classList.toggle("is-active", active);
+        s.setAttribute("aria-hidden", active ? "false" : "true");
+        s.inert = !active;
+      });
+      current = next;
+      dots.forEach(function (d, i) {
+        d.classList.remove("is-active");
+        d.setAttribute("aria-current", i === next ? "true" : "false");
+      });
+      void dots[next].offsetWidth; // restart the 5 s fill
+      dots[next].classList.add("is-active");
+    }
+
+    root.classList.add("is-carousel");
+    nav.hidden = false;
+    show(0, 1);
+
+    dots.forEach(function (d, i) {
+      d.addEventListener("click", function () { show(i, i > current ? 1 : -1); });
+      d.addEventListener("animationend", function () { show(current + 1, 1); });
+    });
+    root.querySelectorAll(".carousel-arrow").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var step = Number(b.dataset.step);
+        show(current + step, step);
+      });
+    });
+    root.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") show(current - 1, -1);
+      else if (e.key === "ArrowRight") show(current + 1, 1);
+    });
+
+    // Swipe on touch screens.
+    var startX = null;
+    root.addEventListener("pointerdown", function (e) { startX = e.clientX; });
+    root.addEventListener("pointerup", function (e) {
+      if (startX === null) return;
+      var dx = e.clientX - startX;
+      startX = null;
+      if (Math.abs(dx) > 40) show(current + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+    });
+
+    function pause(on) { root.classList.toggle("is-paused", on); }
+    root.addEventListener("mouseenter", function () { pause(true); });
+    root.addEventListener("mouseleave", function () { pause(root.contains(document.activeElement)); });
+    root.addEventListener("focusin", function () { pause(true); });
+    root.addEventListener("focusout", function (e) {
+      if (!root.contains(e.relatedTarget)) pause(root.matches(":hover"));
+    });
   })();
 </script>
 </body>

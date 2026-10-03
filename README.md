@@ -187,9 +187,8 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
   CGB, DMA VRAM (général et HBlank), double vitesse, boot ROM CGB, et mode de compatibilité
   qui colorise les jeux DMG.
 - Tests réussis : blargg `cpu_instrs`, `instr_timing`, `mem_timing` (en DMG et en CGB),
-  `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près, et 17 des 23 tests son de blargg
-  (`dmg_sound`, `cgb_sound`). Ceux qui manquent touchent la wave RAM pendant que le canal 3
-  joue et l'extinction de l'APU sur DMG.
+  `halt_bug`, `dmg-acid2` et `cgb-acid2` au pixel près, et les 23 tests son de blargg
+  (`dmg_sound`, `cgb_sound`).
 
 ## Tests
 

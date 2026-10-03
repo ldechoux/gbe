@@ -389,3 +389,123 @@ func TestAPUSequencerFollowsDIV(t *testing.T) {
 		t.Error("the sequencer moved while the APU is off")
 	}
 }
+
+// While the APU is powered off, a DMG still takes writes to the length
+// counters (blargg's dmg_sound 08 and 11); a CGB ignores them.
+func TestAPULengthWritesWhileOff(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		g    *GameBoy
+		want [4]int
+	}{
+		{"dmg", newTestGB(t), [4]int{2, 3, 1, 4}},
+		{"cgb", newTestCGB(t), [4]int{}},
+	} {
+		a := c.g.APU
+		a.write(0xFF26, 0x00)
+		a.write(0xFF11, 0xBE) // duty 2, length 2
+		a.write(0xFF16, 0x3D)
+		a.write(0xFF1B, 0xFF)
+		a.write(0xFF20, 0x3C)
+		got := [4]int{a.ch[0].length, a.ch[1].length, a.ch[2].length, a.ch[3].length}
+		if got != c.want {
+			t.Errorf("%s: lengths %v, want %v", c.name, got, c.want)
+		}
+		if a.regs[1] != 0 {
+			t.Errorf("%s: NR11 %02X written while off", c.name, a.regs[1])
+		}
+		a.write(0xFF26, 0x80)
+		if a.ch[0].length != c.want[0] {
+			t.Errorf("%s: length %d after powering on, want %d", c.name, a.ch[0].length, c.want[0])
+		}
+	}
+}
+
+// playWave starts channel 3 on a wave RAM whose byte i holds i*0x11.
+func playWave(g *GameBoy) *APU {
+	a := g.APU
+	for i := range uint16(16) {
+		a.write(0xFF30+i, byte(i*0x11))
+	}
+	a.write(0xFF1A, 0x80) // DAC on
+	a.write(0xFF1D, 0x00) // frequency 0x700: a byte every 512 T-cycles
+	a.write(0xFF1E, 0x87) // trigger
+	return a
+}
+
+// stepWave advances the APU 2 T-cycles at a time until channel 3 reads its
+// next sample, and returns the position of that sample.
+func stepWave(a *APU) byte {
+	pos := a.ch[2].wavePos
+	for a.ch[2].wavePos == pos {
+		a.tick(2)
+	}
+	return a.ch[2].wavePos
+}
+
+// While channel 3 plays, the wave RAM accesses reach the byte it reads: at
+// any time on a CGB, only as it reads it on a DMG (blargg's 09 and 12).
+func TestAPUWaveRAMWhilePlaying(t *testing.T) {
+	a := playWave(newTestCGB(t))
+	pos := stepWave(a)
+	pos = stepWave(a)
+	a.tick(100)
+	if got, want := a.read(0xFF3F), byte(pos/2*0x11); got != want {
+		t.Errorf("CGB: read %02X at sample %d, want %02X", got, pos, want)
+	}
+	a.write(0xFF30, 0xAB)
+	if a.regs[0x20+pos/2] != 0xAB || a.regs[0x20] == 0xAB {
+		t.Error("CGB: the write did not reach the byte being played")
+	}
+
+	a = playWave(newTestGB(t))
+	stepWave(a)
+	pos = stepWave(a)
+	if got, want := a.read(0xFF3F), byte(pos/2*0x11); got != want {
+		t.Errorf("DMG: read %02X as the channel reads sample %d, want %02X", got, pos, want)
+	}
+	a.tick(2)
+	if got := a.read(0xFF3F); got != 0xFF {
+		t.Errorf("DMG: read %02X between two reads of the channel, want FF", got)
+	}
+	a.write(0xFF3F, 0xAB)
+	for i, v := range a.regs[0x20:0x30] {
+		if v != byte(i*0x11) {
+			t.Errorf("DMG: write between two reads changed byte %d to %02X", i, v)
+		}
+	}
+
+	a.write(0xFF1A, 0x00) // channel 3 off: plain accesses again
+	if got := a.read(0xFF35); got != 0x55 {
+		t.Errorf("read %02X with channel 3 off, want 55", got)
+	}
+}
+
+// On a DMG, retriggering channel 3 just before it reads a byte copies the
+// four bytes around it over the first four (blargg's dmg_sound 10).
+func TestAPUWaveTriggerCorruption(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		g       *GameBoy
+		corrupt bool
+	}{{"dmg", newTestGB(t), true}, {"cgb", newTestCGB(t), false}} {
+		a := playWave(c.g)
+		for a.ch[2].wavePos < 9 {
+			stepWave(a)
+		}
+		next := int(a.ch[2].wavePos+1) / 2 // the byte read next: 5
+		for a.ch[2].timer-a.pending > 2 {
+			a.tick(2)
+		}
+		a.write(0xFF1E, 0x87)
+		for i := range 4 {
+			want := byte(i * 0x11)
+			if c.corrupt {
+				want = byte((next&^3 + i) * 0x11)
+			}
+			if got := a.regs[0x20+i]; got != want {
+				t.Errorf("%s: byte %d is %02X after the trigger, want %02X", c.name, i, got, want)
+			}
+		}
+	}
+}

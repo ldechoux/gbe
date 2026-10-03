@@ -16,9 +16,9 @@ import (
 const (
 	stateMagic = "GBESTATE"
 	// 2 added the Game Boy Color, 3 its compatibility mode, 4 dropped the
-	// timer of the frame sequencer, now clocked by DIV; older states still
-	// load.
-	stateVersion = 4
+	// timer of the frame sequencer, now clocked by DIV, 5 added when
+	// channel 3 last read the wave RAM; older states still load.
+	stateVersion = 5
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -416,6 +416,10 @@ func (ch *channel) sync(c *codec) {
 	c.bool(&ch.sweepOn)
 	c.int(&ch.sweepShadow)
 	c.bool(&ch.sweepNegUsed)
+	if c.version >= 5 {
+		c.bool(&ch.waveRead)
+		c.int(&ch.reload)
+	}
 }
 
 func (cart *Cartridge) sync(c *codec) {

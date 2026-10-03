@@ -61,17 +61,6 @@ func runBlargg(t *testing.T, g *GameBoy) {
 	t.Fatalf("serial output:\n%s", g.Serial.Output)
 }
 
-// blarggSoundKnown lists the sound tests gbe does not pass yet, with the
-// reason, so that they are reported as skipped rather than failed.
-var blarggSoundKnown = map[string]string{
-	"dmg_sound/08-len ctr during power":  "on a DMG, powering the APU off keeps the length counters",
-	"dmg_sound/09-wave read while on":    "wave RAM reads while channel 3 plays",
-	"dmg_sound/10-wave trigger while on": "wave RAM corruption when retriggering channel 3 on a DMG",
-	"dmg_sound/11-regs after power":      "on a DMG, powering the APU off keeps the length counters",
-	"dmg_sound/12-wave write while on":   "wave RAM writes while channel 3 plays",
-	"cgb_sound/09-wave read while on":    "wave RAM reads while channel 3 plays",
-}
-
 // TestBlarggSound runs blargg's dmg_sound and cgb_sound tests, the single
 // ROMs, which report in the cartridge RAM rather than on the serial port.
 func TestBlarggSound(t *testing.T) {
@@ -86,9 +75,6 @@ func TestBlarggSound(t *testing.T) {
 		for _, rom := range roms {
 			name := set.dir + "/" + strings.TrimSuffix(filepath.Base(rom), ".gb")
 			t.Run(name, func(t *testing.T) {
-				if why, known := blarggSoundKnown[name]; known {
-					t.Skip("known failure: " + why)
-				}
 				runBlarggMemory(t, loadROMModel(t, rom, set.model))
 			})
 		}

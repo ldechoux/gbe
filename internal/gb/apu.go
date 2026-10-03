@@ -477,11 +477,14 @@ func (a *APU) mix(cycles int) {
 	l, r := a.accL/float64(a.accN)/4, a.accR/float64(a.accN)/4
 	a.accL, a.accR, a.accN = 0, 0, 0
 
-	// High-pass filter removing the DC offset, like the real hardware.
+	// High-pass filter removing the DC offset, like the real hardware. The
+	// explicit conversions round the products, which some architectures
+	// (arm64) would otherwise fuse with the subtractions: the output is the
+	// same everywhere.
 	outL := l - a.hpL
-	a.hpL = l - outL*a.hpCharge
+	a.hpL = l - float64(outL*a.hpCharge)
 	outR := r - a.hpR
-	a.hpR = r - outR*a.hpCharge
+	a.hpR = r - float64(outR*a.hpCharge)
 
 	a.samples = append(a.samples, toInt16(outL), toInt16(outR))
 }

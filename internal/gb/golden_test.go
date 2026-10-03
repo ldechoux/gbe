@@ -12,7 +12,7 @@ import (
 // hash everything it produces: the audio samples, every frame, and the whole
 // machine state at the end. Optimizations must not change a single bit, so
 // the hashes below are only updated when the emulation is meant to behave
-// differently.
+// differently. They are the same on every architecture.
 
 // goldenHashes holds the expected hash of each golden run.
 var goldenHashes = map[string]uint64{
@@ -23,13 +23,13 @@ var goldenHashes = map[string]uint64{
 	"dmg-acid2/compat": 0x9e9a7538d2478406,
 	"halt_bug":         0x9d4d6529a3726f9a,
 	"instr_timing":     0x9fff8b92176f613b,
-	"mem_timing":       0x10ec3a7595ec9fe3,
+	"mem_timing":       0xa591ddfa332731d3,
 	"sml":              0x72f079d4dffeeaf9,
-	"synthetic/cgb":    0xb5e0a9ba1e8495f8,
-	"synthetic/dmg":    0x016cf92b9d4aeeac,
-	"tetris":           0xdbae82964c344762,
+	"synthetic/cgb":    0xca1794227ae10540,
+	"synthetic/dmg":    0x07027ced9820dae8,
+	"tetris":           0xcd4b18ae7c9841c2,
 	"tetris/compat":    0x41eab652c52be80c,
-	"zelda":            0xed60149ca7f792c6,
+	"zelda":            0x50db7a03474b2e1a,
 	"zelda-dx":         0xf03c248aedf08553,
 }
 

@@ -91,6 +91,9 @@ hParallax:    ds 1 ; SCX below the raster split of the game scene
 hLCDC:        ds 1 ; set by the scene init routines
 hIE:          ds 1
 hMusicOn:     ds 1
+IF DEF(FREEZE_AT)
+hFrozen:      ds 1
+ENDC
 
 ; ---------------------------------------------------------------------------
 ; Start-up
@@ -149,6 +152,8 @@ IF DEF(FREEZE_AT)
 .frozen
 	xor a
 	ldh [hMusicOn], a
+	inc a
+	ldh [hFrozen], a ; the sound scene keeps showing NR52 as it was
 	call WaitVBlank
 	jr MainLoop
 .run

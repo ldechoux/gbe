@@ -49,7 +49,9 @@ matériel, la ROM a été comparée avec `sameboy_tester` de [SameBoy](https://s
 Deux options de compilation servent à cela :
 - `FORCE_SCENE=n` choisit la scène, car le testeur ne peut pas tenir de bouton.
 - `FREEZE_AT=frame` fige la scène à cette frame. L'image ne dépend alors plus de la durée de
-  la boot ROM de chaque émulateur.
+  la boot ROM de chaque émulateur. La scène son continue d'afficher `NR52` tel qu'il était à
+  la frame du gel : la valeur en direct changerait encore, et les deux émulateurs ne
+  prennent pas leur image à la même frame.
 
 ```sh
 rgbasm -I src/ -D FORCE_SCENE=1 -D FREEZE_AT=200 -o scene.o src/main.asm
@@ -59,12 +61,19 @@ sameboy_tester --cgb --length 12 scene.gbc               # écrit scene.bmp
 gbe -bios none -model gbc -frames 700 -screenshot scene.png scene.gbc
 ```
 
-Figées à la frame 200, les dix images (5 scènes × DMG/CGB) sont identiques au pixel près
-dans les deux émulateurs, une fois leurs palettes de couleurs mises en correspondance.
+Figées aux frames 200 et 500, les dix images (5 scènes × DMG/CGB) sont identiques au pixel
+près dans les deux émulateurs, une fois leurs palettes de couleurs mises en correspondance.
 
-Figée à la frame 500, la scène son en CGB affiche une autre valeur de `NR52` : SameBoy fait
-durer le canal 3 plus longtemps. C'est l'indice d'un écart de l'APU de gbe en mode Game Boy
-Color, qui reste à étudier. Il n'affecte pas les tests, dont les références viennent de gbe.
+Cette comparaison a révélé deux écarts de l'APU de gbe, corrigés depuis. Ils sont confirmés
+par les tests `03-trigger` de blargg (`dmg_sound` et `cgb_sound`) :
+- le frame sequencer (durées, sweep, enveloppes) doit être cadencé par DIV ;
+- activer le compteur de durée quand la prochaine étape du sequencer ne le décompte pas le
+  décompte une fois de plus.
+
+Avant ces corrections, la scène son figée à la frame 168 montrait un autre `NR52` que
+SameBoy. Sur 1 000 frames, la scène son relevée frame par frame est maintenant identique à
+SameBoy en CGB. En DMG, 2 frames diffèrent encore : un cas limite du sweep, que SameBoy
+modélise cycle par cycle et selon la révision de la console.
 
 Les effets raster écrivent leurs registres pendant le HBlank, comme le font les jeux. Une
 première version les changeait au milieu d'une ligne, un timing que gbe n'émule pas.

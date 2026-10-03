@@ -1,0 +1,25 @@
+// Helpers inserted in every shader, after its header (see source).
+
+// pos returns the position of a fragment in image 0, in pixels from its
+// top-left corner: pixel (i, j) spans [i, i+1) x [j, j+1).
+func pos(srcPos vec2) vec2 {
+	return srcPos - imageSrc0Origin()
+}
+
+// fetch returns pixel p of image 0, the nearest one inside it when p is
+// out of bounds.
+func fetch(p vec2) vec4 {
+	p = clamp(floor(p), vec2(0), imageSrc0Size()-1)
+	return imageSrc0UnsafeAt(imageSrc0Origin() + p + 0.5)
+}
+
+// same reports whether two pixels have the same color.
+func same(a, b vec4) bool {
+	d := abs(a.rgb - b.rgb)
+	return max(max(d.r, d.g), d.b) < 0.5/255
+}
+
+// luma returns the brightness of a color (Rec. 709).
+func luma(c vec4) float {
+	return dot(c.rgb, vec3(0.2126, 0.7152, 0.0722))
+}

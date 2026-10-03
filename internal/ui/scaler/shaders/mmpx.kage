@@ -1,0 +1,164 @@
+// MMPX: a 2x scaler made for pixel art, which keeps the outlines, the
+// text and the dithering while smoothing the slopes, without adding
+// colors. Port of the reference implementation by Morgan McGuire and Mara
+// Gagiu, "MMPX Style-Preserving Pixel Art Magnification" (Journal of
+// Computer Graphics Techniques, 2021), MIT license.
+//
+//       P
+//     A B C
+//   Q D E F R    ->   J K
+//     G H I           L M
+//       S
+
+// src returns the pixel at (x, y) from cell.
+func src(cell vec2, x, y float) vec4 {
+	return fetch(cell + vec2(x, y))
+}
+
+func bright(c vec4) float {
+	return c.r + c.g + c.b
+}
+
+func anyEq3(b, a0, a1, a2 vec4) bool {
+	return same(b, a0) || same(b, a1) || same(b, a2)
+}
+
+func allEq2(b, a0, a1 vec4) bool {
+	return same(b, a0) && same(b, a1)
+}
+
+func allEq3(b, a0, a1, a2 vec4) bool {
+	return same(b, a0) && same(b, a1) && same(b, a2)
+}
+
+func allEq4(b, a0, a1, a2, a3 vec4) bool {
+	return same(b, a0) && same(b, a1) && same(b, a2) && same(b, a3)
+}
+
+func noneEq2(b, a0, a1 vec4) bool {
+	return !same(b, a0) && !same(b, a1)
+}
+
+func noneEq4(b, a0, a1, a2, a3 vec4) bool {
+	return !same(b, a0) && !same(b, a1) && !same(b, a2) && !same(b, a3)
+}
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	p := pos(srcPos)
+	cell := floor(p)
+	q := step(0.5, p-cell)
+
+	A := src(cell, -1, -1)
+	B := src(cell, 0, -1)
+	C := src(cell, 1, -1)
+	D := src(cell, -1, 0)
+	E := src(cell, 0, 0)
+	F := src(cell, 1, 0)
+	G := src(cell, -1, 1)
+	H := src(cell, 0, 1)
+	I := src(cell, 1, 1)
+	J := E
+	K := E
+	L := E
+	M := E
+
+	if !(allEq4(E, A, B, C, D) && allEq4(E, F, G, H, I)) {
+		P := src(cell, 0, -2)
+		S := src(cell, 0, 2)
+		Q := src(cell, -2, 0)
+		R := src(cell, 2, 0)
+		Bl := bright(B)
+		Dl := bright(D)
+		El := bright(E)
+		Fl := bright(F)
+		Hl := bright(H)
+
+		// 1:1 slopes
+		if (same(D, B) && !same(D, H) && !same(D, F)) && (El >= Dl || same(E, A)) && anyEq3(E, A, C, G) && (El < Dl || !same(A, D) || !same(E, P) || !same(E, Q)) {
+			J = D
+		}
+		if (same(B, F) && !same(B, D) && !same(B, H)) && (El >= Bl || same(E, C)) && anyEq3(E, A, C, I) && (El < Bl || !same(C, B) || !same(E, P) || !same(E, R)) {
+			K = B
+		}
+		if (same(H, D) && !same(H, F) && !same(H, B)) && (El >= Hl || same(E, G)) && anyEq3(E, A, G, I) && (El < Hl || !same(G, H) || !same(E, S) || !same(E, Q)) {
+			L = H
+		}
+		if (same(F, H) && !same(F, B) && !same(F, D)) && (El >= Fl || same(E, I)) && anyEq3(E, C, G, I) && (El < Fl || !same(I, H) || !same(E, R) || !same(E, S)) {
+			M = F
+		}
+
+		// Intersections
+		if (!same(E, F) && allEq4(E, C, I, D, Q) && allEq2(F, B, H)) && !same(F, src(cell, 3, 0)) {
+			K = F
+			M = F
+		}
+		if (!same(E, D) && allEq4(E, A, G, F, R) && allEq2(D, B, H)) && !same(D, src(cell, -3, 0)) {
+			J = D
+			L = D
+		}
+		if (!same(E, H) && allEq4(E, G, I, B, P) && allEq2(H, D, F)) && !same(H, src(cell, 0, 3)) {
+			L = H
+			M = H
+		}
+		if (!same(E, B) && allEq4(E, A, C, H, S) && allEq2(B, D, F)) && !same(B, src(cell, 0, -3)) {
+			J = B
+			K = B
+		}
+		if Bl < El && allEq4(E, G, H, I, S) && noneEq4(E, A, D, C, F) {
+			J = B
+			K = B
+		}
+		if Hl < El && allEq4(E, A, B, C, P) && noneEq4(E, D, G, I, F) {
+			L = H
+			M = H
+		}
+		if Fl < El && allEq4(E, A, D, G, Q) && noneEq4(E, B, C, I, H) {
+			K = F
+			M = F
+		}
+		if Dl < El && allEq4(E, C, F, I, R) && noneEq4(E, B, A, G, H) {
+			J = D
+			L = D
+		}
+
+		// 2:1 slopes
+		if !same(H, B) {
+			if !same(H, A) && !same(H, E) && !same(H, C) {
+				if allEq3(H, G, F, R) && noneEq2(H, D, src(cell, 2, -1)) {
+					L = M
+				}
+				if allEq3(H, I, D, Q) && noneEq2(H, F, src(cell, -2, -1)) {
+					M = L
+				}
+			}
+			if !same(B, I) && !same(B, G) && !same(B, E) {
+				if allEq3(B, A, F, R) && noneEq2(B, D, src(cell, 2, 1)) {
+					J = K
+				}
+				if allEq3(B, C, D, Q) && noneEq2(B, F, src(cell, -2, 1)) {
+					K = J
+				}
+			}
+		}
+		if !same(F, D) {
+			if !same(D, I) && !same(D, E) && !same(D, C) {
+				if allEq3(D, A, H, S) && noneEq2(D, B, src(cell, 1, 2)) {
+					J = L
+				}
+				if allEq3(D, G, B, P) && noneEq2(D, H, src(cell, 1, -2)) {
+					L = J
+				}
+			}
+			if !same(F, E) && !same(F, A) && !same(F, G) {
+				if allEq3(F, C, H, S) && noneEq2(F, B, src(cell, -1, 2)) {
+					K = M
+				}
+				if allEq3(F, I, B, P) && noneEq2(F, H, src(cell, -1, -2)) {
+					M = K
+				}
+			}
+		}
+	}
+
+	return mix(mix(J, K, q.x), mix(L, M, q.x), q.y)
+}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/ui"
+	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
 // version is set at build time by the release workflow (-ldflags -X).
@@ -27,6 +28,7 @@ func main() {
 	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
+	filterName := flag.String("filter", "", "display filter, overrides the config: "+strings.Join(scaler.IDs(), ", "))
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
 	frames := flag.Int("frames", 0, "headless mode: run this many frames without a window, then exit")
 	shot := flag.String("screenshot", "", "headless mode: write the last frame to this PNG file")
@@ -63,6 +65,9 @@ func main() {
 	model, err := parseModel(*modelName)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if _, ok := scaler.ID(*filterName); *filterName != "" && !ok {
+		log.Fatalf("unknown filter %q (want %s)", *filterName, strings.Join(scaler.IDs(), ", "))
 	}
 	configPath := *cfgPath
 	if configPath == "" {
@@ -133,6 +138,7 @@ func main() {
 		StatePath:  statePath,
 		ConfigPath: configPath,
 		Scale:      *scale,
+		Filter:     *filterName,
 
 		ScreenshotDir: *shotDir,
 		AutoModel:     model == gb.ModelAuto,

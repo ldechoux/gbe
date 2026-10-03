@@ -73,6 +73,7 @@ Options utiles :
 | `-bios chemin` | Boot ROM à exécuter (défaut `bios/gb_bios.bin`, ou `bios/gbc_bios.bin` en mode Game Boy Color ; ignorée si absente ; `none` pour démarrer directement le jeu) |
 | `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit celui pour lequel le jeu a été fait, d'après l'octet 0x0143 de l'en-tête : la Game Boy Color pour les jeux qui la gèrent, la Game Boy d'origine pour les autres, sauf si la colorisation est activée dans le menu. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
+| `-filter nom` | Filtre d'affichage : `nearest`, `sharp`, `lcd`, `scale2x`, `scale3x` ou `mmpx` (voir [Affichage](#affichage-grands-écrans)) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
 
@@ -88,15 +89,16 @@ Options utiles :
 | Échap | Menu (pause) |
 | P | Palette suivante (sur une DMG, ou palette GBC d'un jeu DMG colorisé), ou correction des couleurs dans un jeu Game Boy Color (si P n'est pas assigné à un bouton) |
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
-| F11 | Plein écran |
+| F11 | Plein écran (retenu au prochain lancement) |
 
 Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; dans un
 jeu Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
 d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc ; pour un jeu DMG
 colorisé, voir ci-dessous), d'activer ou non la colorisation des jeux DMG, de
 redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
-de conflit, les deux touches sont échangées), de régler le volume, l'échelle, la vitesse
-de l'avance rapide et la langue, de réinitialiser la console ou de quitter.
+de conflit, les deux touches sont échangées), de régler le volume, l'échelle, le filtre
+d'affichage, la rémanence, la vitesse de l'avance rapide et la langue, de réinitialiser la
+console ou de quitter.
 
 Pendant l'avance rapide, le son est accéléré lui aussi. Le rembobinage recule deux fois plus
 vite que le jeu n'avance, sans son, et s'arrête sur la plus ancienne image gardée (10 s de jeu,
@@ -111,6 +113,32 @@ forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatem
 
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
 disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).
+
+## Affichage (grands écrans)
+
+L'entrée « Filtre » du menu choisit comment l'image de 160×144 pixels est agrandie. Tous les
+filtres tournent sur la carte graphique (shaders Kage), et l'image reste centrée avec ses
+proportions :
+
+| Filtre | Rendu |
+|---|---|
+| Pixels entiers (`nearest`, défaut) | Pixels carrés, agrandis d'un facteur entier : parfaitement nets, mais l'écran n'est pas rempli (×7 en Full HD, soit 1008 lignes sur 1080) |
+| Net (`sharp`) | Remplit l'écran : pixels nets, dont seuls les bords sont adoucis sur un pixel de l'écran, pour éviter des pixels de tailles inégales |
+| LCD (`lcd`) | La grille de l'écran d'origine : points séparés d'un fin interstice, et bandes rouge, verte et bleue sur Game Boy Color. Prend tout son sens en 4K (15 pixels de l'écran par pixel) ; s'estompe aux petites échelles |
+| Scale2x, Scale3x | Arrondit les diagonales en gardant l'aspect pixel art, sans ajouter de couleurs |
+| MMPX | Algorithme récent (McGuire et Gagiu, 2021) conçu pour le pixel art : lisse les pentes en préservant le texte, les contours et le tramage |
+
+Les filtres à base d'algorithme agrandissent d'abord l'image d'un facteur fixe (×2 ou ×3) chaque
+fois qu'elle change, puis la passe « Net » l'étend à l'écran : leur coût ne dépend pas de la
+résolution de l'écran, et le jeu reste à 60 images par seconde en 4K.
+
+L'entrée « Rémanence » mélange chaque image à la précédente, comme l'écran LCD de la console,
+lent à réagir : certains jeux faisaient clignoter des sprites d'une image à l'autre pour les
+rendre transparents. Elle se combine à tous les filtres.
+
+> **Expérimental** : la rémanence est encore imparfaite (simple mélange à parts égales de
+> deux images successives, qui laisse un halo sur les éléments en mouvement) et sera améliorée
+> plus tard.
 
 ## Jeux DMG en couleurs
 
@@ -298,6 +326,9 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   - Timer, joypad, port série, MBC.
 - `internal/ui` : le frontend Ebitengine.
   - Rendu avec la palette choisie, ou en couleurs (corrigées ou non) en mode Game Boy Color.
+  - `internal/ui/scaler` : les filtres d'affichage, des chaînes de shaders Kage
+    (`shaders/*.kage`). Ajouter un filtre : un shader, une entrée dans `scaler.Filters` et
+    son nom `filter.<id>` dans les traductions.
   - Audio : tampon dont le taux d'échantillonnage s'ajuste légèrement pour compenser l'écart
     entre 60 Hz et 59,73 Hz.
   - Menu, configuration JSON.

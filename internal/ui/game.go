@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"io/fs"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
+	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
 const (
@@ -34,6 +34,7 @@ type Options struct {
 	StatePath  string // save state, written on exit and offered on launch
 	ConfigPath string // "" for DefaultConfigPath()
 	Scale      int    // 0 to use the configured scale
+	Filter     string // "" to use the configured filter (see scaler.Filters)
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
 	ScreenshotDir string
 	// AutoModel is set when the hardware was left to auto: the settings then
@@ -59,9 +60,11 @@ type Game struct {
 	autoModel  bool                                // see Options
 	newConsole func(gb.Model) (*gb.GameBoy, error) // same
 
-	lcd      *ebiten.Image
-	lcdFrame lcdFrame // the frame in lcd
-	menu     menu
+	lcd        *ebiten.Image
+	lcdFrame   lcdFrame        // the frame in lcd
+	video      scaler.Pipeline // draws lcd on the screen
+	drawnFrame int             // frame shown by the last Draw
+	menu       menu
 
 	stream *audioStream
 	player *audio.Player
@@ -107,6 +110,9 @@ func Run(opts Options) error {
 	if opts.Scale > 0 {
 		cfg.Scale = min(opts.Scale, maxScale)
 	}
+	if id, ok := scaler.ID(opts.Filter); ok {
+		cfg.Filter = id
+	}
 
 	if opts.ScreenshotDir == "" {
 		opts.ScreenshotDir = DefaultScreenshotDir()
@@ -148,6 +154,7 @@ func Run(opts Options) error {
 	ebiten.SetWindowTitle(windowTitle(g.tr(), opts.Title, 0, !g.started))
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetFullscreen(cfg.Fullscreen)
 	ebiten.SetTPS(60)
 
 	err = ebiten.RunGame(g)
@@ -159,6 +166,22 @@ func Run(opts Options) error {
 }
 
 func (g *Game) palette() *Palette { return &Palettes[paletteIndex(g.cfg.Palette)] }
+
+func (g *Game) filter() *scaler.Filter { return &scaler.Filters[scaler.Index(g.cfg.Filter)] }
+
+func (g *Game) cycleFilter(delta int) {
+	n := len(scaler.Filters)
+	g.cfg.Filter = scaler.Filters[(scaler.Index(g.cfg.Filter)+delta%n+n)%n].ID
+	g.saveConfig()
+}
+
+// toggleFullscreen switches between the window and the full screen, which
+// the next launch restores.
+func (g *Game) toggleFullscreen() {
+	g.cfg.Fullscreen = !ebiten.IsFullscreen()
+	ebiten.SetFullscreen(g.cfg.Fullscreen)
+	g.saveConfig()
+}
 
 // menuPalette colors the menu and the notifications: the selected palette
 // in DMG mode, black and white for Game Boy Color games, whose screen has
@@ -371,7 +394,7 @@ func (g *Game) Update() error {
 		g.screenshot()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
-		ebiten.SetFullscreen(!ebiten.IsFullscreen())
+		g.toggleFullscreen()
 	}
 	g.actions = keyboardActions().or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
 	if g.menu.open {
@@ -469,20 +492,21 @@ func (g *Game) speedBadge() string {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if g.lcdFrame.update(g.gb, g.palette(), g.cfg.ColorCorrection) {
+	changed := g.lcdFrame.update(g.gb, g.palette(), g.cfg.ColorCorrection)
+	if changed {
 		g.lcd.WritePixels(g.lcdFrame.pix)
 	}
 
 	screen.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
-	sw, sh := float64(screen.Bounds().Dx()), float64(screen.Bounds().Dy())
-	scale := math.Min(sw/gb.ScreenWidth, sh/gb.ScreenHeight)
-	if scale >= 1 {
-		scale = math.Floor(scale) // crisp integer scaling when possible
-	}
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate((sw-gb.ScreenWidth*scale)/2, (sh-gb.ScreenHeight*scale)/2)
-	screen.DrawImage(g.lcd, op)
+	g.video.Draw(screen, g.filter(), scaler.Frame{
+		Image:   g.lcd,
+		Changed: changed,
+		Ghost:   g.cfg.Ghosting,
+		Advance: g.frame != g.drawnFrame,
+		Color:   g.colorMode(),
+		Gap:     g.palette().Colors[0],
+	})
+	g.drawnFrame = g.frame
 
 	if g.menu.open {
 		g.menu.draw(screen, g)

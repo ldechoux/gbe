@@ -11,6 +11,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
+	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
 // Config holds the user preferences persisted between runs.
@@ -20,10 +21,15 @@ type Config struct {
 	// screen instead of showing their raw, oversaturated colors.
 	ColorCorrection bool `json:"color_correction"`
 	// Language is the code of the user interface language (see i18n).
-	Language string                `json:"language"`
-	Scale    int                   `json:"scale"`
-	Volume   float64               `json:"volume"`
-	Keys     map[string]ebiten.Key `json:"keys"` // button or action name -> key
+	Language string `json:"language"`
+	Scale    int    `json:"scale"`
+	// Filter draws the picture on the screen (see scaler.Filters).
+	Filter string `json:"filter"`
+	// Ghosting blends each frame with the previous one, like the LCD.
+	Ghosting   bool                  `json:"ghosting"`
+	Fullscreen bool                  `json:"fullscreen"`
+	Volume     float64               `json:"volume"`
+	Keys       map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Vibration makes the gamepads shake with the motor of rumble
@@ -87,6 +93,7 @@ func DefaultConfig() *Config {
 		Vibration:        true,
 		Language:         i18n.Default,
 		Scale:            4,
+		Filter:           scaler.Filters[0].ID,
 		Volume:           0.8,
 		Keys:             defaultKeys(),
 		Gamepad:          defaultPad(),
@@ -138,6 +145,7 @@ func LoadConfig(path string) (*Config, error) {
 	if loaded.Vibration != nil {
 		cfg.Vibration = *loaded.Vibration
 	}
+	cfg.Ghosting, cfg.Fullscreen = loaded.Ghosting, loaded.Fullscreen
 	for title, id := range loaded.CompatPalettes {
 		if compatPaletteIndex(id) != gb.CompatAuto {
 			cfg.CompatPalettes[title] = id
@@ -148,6 +156,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if i18n.Has(loaded.Language) {
 		cfg.Language = loaded.Language
+	}
+	if id, ok := scaler.ID(loaded.Filter); ok {
+		cfg.Filter = id
 	}
 	if loaded.Scale >= 1 && loaded.Scale <= maxScale {
 		cfg.Scale = loaded.Scale

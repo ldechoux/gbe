@@ -81,6 +81,14 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
+| `menu.filter` | `%s` nom du filtre (`filter.*`) | Entrée de choix du filtre d'affichage |
+| `filter.nearest` | | Filtre par défaut : pixels carrés, agrandis d'un facteur entier |
+| `filter.sharp` | | Filtre qui remplit l'écran avec des pixels nets, bords adoucis sur un pixel de l'écran |
+| `filter.lcd` | | Filtre qui imite la grille de l'écran d'origine |
+| `filter.scale2x` | | Filtre Scale2x (nom de l'algorithme) |
+| `filter.scale3x` | | Filtre Scale3x (nom de l'algorithme) |
+| `filter.mmpx` | | Filtre MMPX (nom de l'algorithme) |
+| `menu.ghosting` | `%s` `setting.on` ou `setting.off` | Entrée qui active la rémanence : chaque image se mélange à la précédente, comme sur l'écran LCD |
 | `menu.fast_forward` | `%d` vitesse (2 à 8) | Entrée de réglage de la vitesse de l'avance rapide |
 | `menu.language` | `%s` valeur `name` de la langue | Entrée de choix de la langue |
 | `menu.save_state` | | Entrée qui sauvegarde l'état de la partie |

@@ -1,0 +1,38 @@
+// LCD: the dot matrix of the original screen. The pixels are separated by
+// a thin gap, of the lightest shade on a DMG (the color of a pixel that is
+// off), darker on a Game Boy Color, whose pixels are also made of red,
+// green and blue stripes. The grid fades out at small scales, where it
+// would only darken the picture.
+
+var Scale vec2  // screen pixels per Game Boy pixel
+var Color float // 1 for a Game Boy Color picture
+var Gap vec3    // DMG: the color between the dots
+
+// gapWidth is the width of the gap between two pixels, in pixels.
+const gapWidth = 0.14
+
+// cover returns how much of the screen pixel spanning [f-h, f+h] (in
+// Game Boy pixels) the interval [lo, hi] covers, from 0 to 1.
+func cover(f, h, lo, hi float) float {
+	return clamp((min(f+h, hi)-max(f-h, lo))/(2*h), 0, 1)
+}
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	p := pos(srcPos)
+	cell := floor(p)
+	f := p - cell
+	h := 0.5 / Scale
+	c := fetch(cell).rgb
+	strength := smoothstep(2.0, 5.0, min(Scale.x, Scale.y))
+
+	g := gapWidth / 2
+	dot := cover(f.x, h.x, g, 1-g) * cover(f.y, h.y, g, 1-g)
+	gap := mix(c, Gap, 0.35)
+	if Color > 0.5 {
+		// One stripe per component; the others shine through a bit.
+		stripes := vec3(cover(f.x, h.x, 0, 1.0/3), cover(f.x, h.x, 1.0/3, 2.0/3), cover(f.x, h.x, 2.0/3, 1))
+		c *= mix(vec3(1), 0.75+0.45*stripes, strength)
+		gap = c * 0.5
+	}
+	return vec4(mix(c, gap, (1-dot)*strength), 1)
+}

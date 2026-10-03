@@ -1,0 +1,10 @@
+// Ghosting: the LCD of the Game Boy was slow, and each frame stayed visible
+// during the next one. Games relied on it to make flickering sprites look
+// transparent. Image 0 is the new frame, image 1 the previous one.
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	// srcPos is a position in image 0, which may sit elsewhere in its
+	// texture than image 1 in its own: the FromSrc0Pos variant converts it.
+	prev := imageSrc1UnsafeAtFromSrc0Pos(srcPos)
+	return mix(imageSrc0UnsafeAt(srcPos), prev, 0.5)
+}

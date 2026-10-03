@@ -1,0 +1,15 @@
+// Sharp bilinear: each pixel is a solid square, as with nearest neighbor,
+// but the boundaries between pixels are blended over one screen pixel.
+// The picture fills the screen at any scale without pixels of uneven
+// sizes, and without the blur of plain bilinear filtering.
+
+var Scale vec2 // screen pixels per pixel of image 0
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	t := pos(srcPos) - 0.5 // pixel centers at integers
+	i := floor(t)
+	f := clamp((t-i-0.5)*max(Scale, 1)+0.5, 0, 1)
+	top := mix(fetch(i), fetch(i+vec2(1, 0)), f.x)
+	bottom := mix(fetch(i+vec2(0, 1)), fetch(i+1), f.x)
+	return mix(top, bottom, f.y)
+}

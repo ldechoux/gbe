@@ -381,3 +381,20 @@ func TestLoadVersion1State(t *testing.T) {
 		t.Error("version 1 state not restored")
 	}
 }
+
+// Version 3 states still have the timer of the frame sequencer.
+func TestLoadVersion3State(t *testing.T) {
+	g := newTestCGB(t)
+	g.Bus.write(0xFF26, 0x80)
+	g.APU.seqStep = 5
+	g.Bus.write(0xD000, 0x42)
+	state := g.encodeState(3)
+
+	g2 := newTestCGB(t)
+	if err := g2.LoadState(state); err != nil {
+		t.Fatal(err)
+	}
+	if g2.APU.seqStep != 5 || g2.Bus.read(0xD000) != 0x42 {
+		t.Errorf("version 3 state not restored: step %d", g2.APU.seqStep)
+	}
+}

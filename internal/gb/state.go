@@ -15,9 +15,10 @@ import (
 // version and the identity of the ROM, followed by every component's state.
 const (
 	stateMagic = "GBESTATE"
-	// 2 added the Game Boy Color, 3 its compatibility mode; older states
-	// still load.
-	stateVersion = 3
+	// 2 added the Game Boy Color, 3 its compatibility mode, 4 dropped the
+	// timer of the frame sequencer, now clocked by DIV; older states still
+	// load.
+	stateVersion = 4
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -377,7 +378,10 @@ func (a *APU) sync(c *codec) {
 	for i := range a.ch {
 		a.ch[i].sync(c)
 	}
-	c.int(&a.seqTimer)
+	if c.version < 4 {
+		var seqTimer int // replaced by DIV
+		c.int(&seqTimer)
+	}
 	c.int(&a.seqStep)
 	c.f64(&a.sampleClock)
 	c.f64(&a.accL)

@@ -289,3 +289,103 @@ func TestToInt16(t *testing.T) {
 		}
 	}
 }
+
+// Enabling the length counter when the next step of the frame sequencer
+// does not clock it clocks it once (blargg's dmg_sound 03-trigger).
+func TestAPULengthExtraClock(t *testing.T) {
+	g := newTestGB(t)
+	a := g.APU
+	a.write(0xFF17, 0xF0) // channel 2 DAC on
+
+	// Next step clocks the lengths: no extra clock.
+	a.seqStep = 0
+	a.write(0xFF16, 0x3E) // length 2
+	a.write(0xFF19, 0xC0) // trigger, length enabled
+	if a.ch[1].length != 2 {
+		t.Errorf("length %d, want 2: no extra clock before a length step", a.ch[1].length)
+	}
+
+	// Next step does not clock them: enabling the counter clocks it.
+	a.write(0xFF19, 0x80) // trigger, length disabled
+	a.seqStep = 1
+	a.write(0xFF19, 0x40) // length enabled, no trigger
+	if a.ch[1].length != 1 || !a.ch[1].enabled {
+		t.Errorf("length %d, enabled %v: want 1 and still playing", a.ch[1].length, a.ch[1].enabled)
+	}
+	a.write(0xFF19, 0x00)
+	a.write(0xFF19, 0x40) // enabled again: the length reaches 0
+	if a.ch[1].enabled {
+		t.Error("channel 2 still playing after its length expired on the extra clock")
+	}
+	// Already enabled: no extra clock.
+	a.write(0xFF16, 0x3E) // length 2
+	a.write(0xFF19, 0xC0)
+	a.write(0xFF19, 0x40)
+	if a.ch[1].length != 2 {
+		t.Errorf("length %d, want 2: the counter was already enabled", a.ch[1].length)
+	}
+
+	// Trigger with a length of 0 and the counter enabled: 63, not 64.
+	a.write(0xFF16, 0x3F) // length 1
+	a.write(0xFF19, 0x00)
+	a.write(0xFF19, 0x40) // the extra clock: length 0
+	a.write(0xFF19, 0xC0)
+	if a.ch[1].length != 63 || !a.ch[1].enabled {
+		t.Errorf("length %d after trigger, enabled %v: want 63 and playing", a.ch[1].length, a.ch[1].enabled)
+	}
+}
+
+// The frame sequencer follows DIV: a step on every falling edge of bit 4 of
+// DIV, so writing to DIV moves its next step.
+func TestAPUSequencerFollowsDIV(t *testing.T) {
+	g := newTestGB(t)
+	a, tm := g.APU, g.Timer
+	step := func() int { return a.seqStep }
+
+	tm.counter = 0
+	a.seqStep = 0
+	for range 0x1000 / 4 { // up to bit 12 set: no falling edge yet
+		tm.tick()
+	}
+	if step() != 0 {
+		t.Fatalf("step %d before the first falling edge", step())
+	}
+	for range 0x1000 / 4 { // bit 12 falls once the counter reaches 0x2000
+		tm.tick()
+	}
+	if step() != 1 {
+		t.Fatalf("step %d after one falling edge, want 1", step())
+	}
+
+	// Writing to DIV with bit 12 set is a falling edge.
+	tm.counter = 0x1000
+	tm.write(0xFF04, 0)
+	if step() != 2 {
+		t.Errorf("step %d after resetting DIV with bit 4 set, want 2", step())
+	}
+	tm.write(0xFF04, 0)
+	if step() != 2 {
+		t.Errorf("step %d after resetting DIV with bit 4 clear, want 2", step())
+	}
+
+	// In double speed mode, bit 13 clocks it.
+	g.Bus.doubleSpeed = true
+	tm.counter = 0x1FFC
+	tm.tick() // bit 12 falls, but not bit 13
+	if step() != 2 {
+		t.Errorf("step %d: bit 12 clocked the sequencer in double speed mode", step())
+	}
+	tm.counter = 0x3FFC
+	tm.tick()
+	if step() != 3 {
+		t.Errorf("step %d: bit 13 did not clock the sequencer in double speed mode", step())
+	}
+
+	// Powered off, the APU ignores it.
+	a.write(0xFF26, 0x00)
+	tm.counter = 0x3FFC
+	tm.tick()
+	if step() != 3 {
+		t.Error("the sequencer moved while the APU is off")
+	}
+}

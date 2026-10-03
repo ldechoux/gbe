@@ -603,6 +603,11 @@ SoundUpdate:
 	jp WaitVBlank
 
 SoundVBlank:
+IF DEF(FREEZE_AT)
+	ldh a, [hFrozen]
+	and a
+	ret nz
+ENDC
 	ld de, _SCRN0 + 32 * 3 + 6
 	ldh a, [rNR52]
 	jp PrintHex

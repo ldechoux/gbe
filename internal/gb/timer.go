@@ -33,24 +33,42 @@ func (t *Timer) tick() {
 		t.tima = t.tma
 		t.bus.requestInterrupt(IntTimer)
 	}
-	// signal(), inlined: the bit of the counter TIMA follows, 0 when off.
-	var mask uint16
-	if t.tac&4 != 0 {
-		mask = timerBits[t.tac&3]
-	}
-	old := t.counter & mask
+	// The bits of the counter that fall: TIMA and the frame sequencer of
+	// the APU count falling edges. Every other M-cycle, none does.
+	old := t.counter
 	t.counter += 4
-	if old != 0 && t.counter&mask == 0 {
+	fell := old &^ t.counter
+	if fell == 0 {
+		return
+	}
+	if t.tac&4 != 0 && fell&timerBits[t.tac&3] != 0 {
 		t.incTIMA()
+	}
+	if fell&t.divEventBit() != 0 {
+		t.bus.apu.divEvent()
 	}
 }
 
 func (t *Timer) resetDiv() {
 	old := t.signal()
+	div := t.counter&t.divEventBit() != 0
 	t.counter = 0
 	if old {
 		t.incTIMA()
 	}
+	if div { // a falling edge for the APU as well
+		t.bus.apu.divEvent()
+	}
+}
+
+// divEventBit is the bit of the counter whose falling edges clock the frame
+// sequencer of the APU: bit 4 of DIV, bit 5 in double speed mode (where the
+// counter runs twice as fast).
+func (t *Timer) divEventBit() uint16 {
+	if t.bus.doubleSpeed {
+		return 1 << 13
+	}
+	return 1 << 12
 }
 
 func (t *Timer) read(addr uint16) byte {

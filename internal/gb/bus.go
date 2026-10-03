@@ -159,6 +159,9 @@ func (b *Bus) readIO(addr uint16) byte {
 func (b *Bus) write(addr uint16, v byte) {
 	switch {
 	case addr < 0x8000:
+		if b.cart.rumble && addr >= 0x4000 && addr < 0x6000 {
+			b.cart.setMotor(v&0x08 != 0, b.cycles)
+		}
 		b.cart.writeROM(addr, v)
 	case addr < 0xA000:
 		b.ppu.vram[b.ppu.vramOffset(addr)] = v

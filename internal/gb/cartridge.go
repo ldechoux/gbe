@@ -32,6 +32,14 @@ type Cartridge struct {
 	rtc *rtc // MBC3 only, nil otherwise
 
 	ramDirty bool
+
+	// Rumble cartridges (MBC5 types 0x1C to 0x1E) have a motor, driven by
+	// bit 3 of the RAM bank register. Games set its strength by switching
+	// it on for part of the time, so the time it runs is counted.
+	rumble     bool
+	motorOn    bool
+	motorSince uint64 // T-cycle of the last switch, or of the last count
+	motorTime  uint64 // T-cycles the motor ran since the last count
 }
 
 var ramSizes = map[byte]int{0: 0, 1: 0x800, 2: 0x2000, 3: 0x8000, 4: 0x20000, 5: 0x10000}
@@ -88,6 +96,7 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 	case 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E:
 		c.mbc = &mbc5{c: c, bank: 1}
 		c.Battery = c.Type == 0x1B || c.Type == 0x1E
+		c.rumble = c.Type >= 0x1C
 	default:
 		return nil, fmt.Errorf("unsupported cartridge type 0x%02X", c.Type)
 	}
@@ -113,6 +122,30 @@ func (c *Cartridge) romByte(bank int, addr uint16) byte {
 func (c *Cartridge) ramOffset(bank int, addr uint16) int {
 	return (bank*0x2000 + int(addr&0x1FFF)) % len(c.ram)
 }
+
+// setMotor switches the rumble motor at T-cycle now.
+func (c *Cartridge) setMotor(on bool, now uint64) {
+	if c.motorOn && now > c.motorSince {
+		c.motorTime += now - c.motorSince
+	}
+	c.motorOn, c.motorSince = on, now
+}
+
+// motorShare returns the share of the T-cycles from start to now during
+// which the motor ran, and starts counting again from now.
+func (c *Cartridge) motorShare(start, now uint64) float64 {
+	c.setMotor(c.motorOn, now)
+	t := c.motorTime
+	c.motorTime = 0
+	if now <= start {
+		return 0
+	}
+	return min(1, float64(t)/float64(now-start))
+}
+
+// stopMotor turns the motor off, as when the console is reset or a state
+// is restored (the motor is not part of the saved state).
+func (c *Cartridge) stopMotor() { c.motorOn, c.motorSince, c.motorTime = false, 0, 0 }
 
 // Dirty reports whether battery-backed state changed since the last save.
 func (c *Cartridge) Dirty() bool { return c.Battery && c.ramDirty }

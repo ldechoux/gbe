@@ -32,8 +32,9 @@ type GameBoy struct {
 	Serial *Serial
 	Cart   *Cartridge
 
-	model Model // ModelDMG or ModelCGB
-	boot  []byte
+	model  Model // ModelDMG or ModelCGB
+	boot   []byte
+	rumble float64 // see Rumble
 }
 
 // New creates a Game Boy running the given cartridge, on a CGB if the game
@@ -84,6 +85,8 @@ func (g *GameBoy) IsCGB() bool { return g.model == ModelCGB }
 
 // Reset power-cycles the console, keeping the cartridge RAM.
 func (g *GameBoy) Reset() {
+	g.Cart.stopMotor()
+	g.rumble = 0
 	bus := &Bus{cart: g.Cart, cgb: g.model == ModelCGB, hdmaLen: 0xFF}
 	g.Bus = bus
 	g.CPU = &CPU{bus: bus}
@@ -171,7 +174,15 @@ func (g *GameBoy) RunFrame() {
 	for !g.PPU.frameReady && g.Bus.cycles-start < CyclesPerFrame {
 		g.CPU.Step()
 	}
+	if g.Cart.rumble {
+		g.rumble = g.Cart.motorShare(start, g.Bus.cycles)
+	}
 }
+
+// Rumble returns the share of the last frame during which the rumble motor
+// of the cartridge ran, from 0 to 1: how hard it shook. It is always 0 for
+// cartridges without a motor.
+func (g *GameBoy) Rumble() float64 { return g.rumble }
 
 // Framebuffer returns the last complete frame in DMG mode, one shade (0-3)
 // per pixel.

@@ -266,6 +266,8 @@ func (g *GameBoy) Restore(data []byte) error {
 	// belongs to the frontend, is kept.
 	g.sync(c)
 	g.PPU.frameReady = false
+	g.Cart.stopMotor()
+	g.rumble = 0
 	g.Joypad.pressed = [8]bool{}
 	g.Serial.Output = nil
 	g.APU.samples = g.APU.samples[:0]

@@ -1,7 +1,10 @@
 package gb
 
 import (
+	"archive/zip"
 	"bytes"
+	"io"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -459,4 +462,127 @@ func TestSaveStateRestoresMBC(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMotorShare(t *testing.T) {
+	c := &Cartridge{rumble: true}
+	c.setMotor(true, 100)
+	c.setMotor(false, 600)
+	c.setMotor(true, 900)
+	if got := c.motorShare(0, 1000); got != 0.6 {
+		t.Errorf("share %v, want 0.6", got)
+	}
+	if got := c.motorShare(1000, 2000); got != 1 {
+		t.Errorf("share %v while the motor kept running, want 1", got)
+	}
+	c.setMotor(false, 2500)
+	if got := c.motorShare(2000, 3000); got != 0.5 {
+		t.Errorf("share %v, want 0.5", got)
+	}
+	if got := c.motorShare(3000, 4000); got != 0 {
+		t.Errorf("share %v with the motor off, want 0", got)
+	}
+}
+
+// rumbleGB runs a program that switches the motor on (bit 3 of a write to
+// 0x4000), waits 256 loops of 16 T-cycles, switches it off and loops.
+func rumbleGB(t *testing.T, cartType byte) *GameBoy {
+	t.Helper()
+	rom := make([]byte, 0x8000)
+	rom[0x147] = cartType
+	copy(rom[0x100:], []byte{
+		0x3E, 0x08, 0xEA, 0x00, 0x40, // LD A,0x08; LD (0x4000),A: motor on
+		0x06, 0x00, // LD B,0 (256 loops)
+		0x05, 0x20, 0xFD, // loop: DEC B; JR NZ,loop
+		0xAF, 0xEA, 0x00, 0x40, // XOR A; LD (0x4000),A: motor off
+		0x18, 0xFE, // JR -2
+	})
+	cart, err := NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := New(cart, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return g
+}
+
+func TestRumble(t *testing.T) {
+	g := rumbleGB(t, 0x1C) // MBC5 + rumble
+	start := g.Bus.cycles
+	g.RunFrame()
+	frame := float64(g.Bus.cycles - start)
+	want := (256*16 - 4 + 12 + 4) / frame // the loop, the last JR not taken, LD A,0x08... to the write off
+	if got := g.Rumble(); got < want*0.95 || got > want*1.05 {
+		t.Errorf("rumble %.4f in the first frame, want about %.4f", got, want)
+	}
+	g.RunFrame()
+	if got := g.Rumble(); got != 0 {
+		t.Errorf("rumble %v once the motor is off, want 0", got)
+	}
+
+	// Restoring a state stops the motor, which the state does not hold.
+	g = rumbleGB(t, 0x1C)
+	snap := g.Snapshot(nil)
+	g.Cart.setMotor(true, g.Bus.cycles)
+	if err := g.Restore(snap); err != nil {
+		t.Fatal(err)
+	}
+	if g.Cart.motorOn {
+		t.Error("motor still running after Restore")
+	}
+
+	// Without a motor, bit 3 selects a RAM bank and nothing shakes.
+	g = rumbleGB(t, 0x19)
+	g.RunFrame()
+	if got := g.Rumble(); got != 0 {
+		t.Errorf("rumble %v on a cartridge without a motor", got)
+	}
+}
+
+// TestPokemonPinballRumble plays Pokemon Pinball (kept locally, as a zip)
+// and checks that its motor runs only once the game is on.
+func TestPokemonPinballRumble(t *testing.T) {
+	zr, err := zip.OpenReader(filepath.Join(gameDir, "Pokemon_Pinball.zip"))
+	if err != nil {
+		t.Skip(err)
+	}
+	defer zr.Close()
+	f, err := zr.File[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rom, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cart, err := NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := New(cart, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shaking := 0
+	for frame := range 1500 {
+		// Through the menus, then launch the ball and flip.
+		g.SetButton(ButtonStart, frame%200 < 3)
+		g.SetButton(ButtonA, frame%37 < 6)
+		g.SetButton(ButtonLeft, frame%23 < 4)
+		g.RunFrame()
+		g.APU.DrainSamples()
+		r := g.Rumble()
+		if frame < 300 && r != 0 {
+			t.Fatalf("rumble %v at frame %d, on the title screens", r, frame)
+		}
+		if r > 0 {
+			shaking++
+		}
+	}
+	if shaking < 20 {
+		t.Errorf("the motor ran during %d frames of play, want more", shaking)
+	}
+	t.Logf("the motor ran during %d of 1500 frames", shaking)
 }

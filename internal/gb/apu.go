@@ -102,8 +102,9 @@ type APU struct {
 
 	ch [4]channel
 
-	seqTimer int
-	seqStep  int
+	// The frame sequencer, clocked by DIV (see divEvent). seqStep is its
+	// next step: lengths on the even ones, sweep on 2 and 6, envelopes on 7.
+	seqStep int
 
 	// The channel timers are only brought up to date when one of them
 	// expires, or before anything else uses them: pending T-cycles are not
@@ -275,7 +276,17 @@ func (a *APU) writeControl(i int, v byte, maxLen int) {
 	if i != 3 {
 		c.freq = c.freq&0xFF | int(v&7)<<8
 	}
+	wasOn := c.lengthOn
 	c.lengthOn = v&0x40 != 0
+	// When the next step of the frame sequencer does not clock the lengths,
+	// enabling the length counter clocks it once: it may expire right away.
+	noLengthStep := a.seqStep&1 != 0
+	if noLengthStep && !wasOn && c.lengthOn && c.length > 0 {
+		c.length--
+		if c.length == 0 && v&0x80 == 0 {
+			c.enabled = false
+		}
+	}
 	if v&0x80 == 0 {
 		return
 	}
@@ -283,6 +294,9 @@ func (a *APU) writeControl(i int, v byte, maxLen int) {
 	c.enabled = c.dac
 	if c.length == 0 {
 		c.length = maxLen
+		if c.lengthOn && noLengthStep {
+			c.length-- // the extra clock again
+		}
 	}
 	c.timer = a.period(i)
 	switch i {
@@ -347,6 +361,17 @@ func (a *APU) sweepStep() {
 	}
 }
 
+// divEvent is the clock of the frame sequencer: a falling edge of bit 12
+// of the system counter (bit 4 of DIV), or of bit 13 in double speed mode,
+// 512 times per second. The Timer calls it, also when a write to DIV or
+// STOP resets the counter.
+func (a *APU) divEvent() {
+	if a.on {
+		a.sequencerStep()
+		a.mixValid = false
+	}
+}
+
 func (a *APU) sequencerStep() {
 	switch a.seqStep {
 	case 0, 4:
@@ -368,17 +393,10 @@ func (a *APU) lengthSteps() {
 	}
 }
 
-// tick advances the APU by one M-cycle and produces output samples.
 // tick advances the APU by the given number of T-cycles at the normal speed
 // (4 per M-cycle, 2 in CGB double speed mode).
 func (a *APU) tick(cycles int) {
 	if a.on {
-		a.seqTimer += cycles
-		if a.seqTimer >= 8192 {
-			a.seqTimer -= 8192
-			a.sequencerStep()
-			a.mixValid = false
-		}
 		a.pending += cycles
 		if a.pending >= a.untilClock {
 			a.clockChannels(a.pending)

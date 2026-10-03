@@ -17,7 +17,7 @@ func loadROM(t *testing.T, path string) *GameBoy {
 	return loadROMModel(t, path, ModelAuto)
 }
 
-func loadROMModel(t *testing.T, path string, model Model) *GameBoy {
+func loadROMModel(t testing.TB, path string, model Model) *GameBoy {
 	t.Helper()
 	rom, err := os.ReadFile(path)
 	if err != nil {

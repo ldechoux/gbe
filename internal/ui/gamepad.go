@@ -227,6 +227,8 @@ const xinputSDLID = "78696e707574"
 // canVibrate: Ebitengine has no way to tell whether a gamepad vibrates. It
 // only can on Windows for XInput gamepads, which their SDL ID shows. On
 // macOS and Linux most gamepads do, but not all: the menu offers a test.
+// IsGamepadVibrationAvailable, proposed to Ebitengine, would tell
+// (https://github.com/hajimehoshi/ebiten/issues/3854).
 func (p *ebitenPads) canVibrate(id ebiten.GamepadID) bool {
 	if runtime.GOOS == "windows" {
 		return strings.HasPrefix(ebiten.GamepadSDLID(id), xinputSDLID)

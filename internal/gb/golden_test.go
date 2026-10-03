@@ -3,7 +3,6 @@ package gb
 import (
 	"encoding/binary"
 	"hash"
-	"hash/fnv"
 	"path/filepath"
 	"testing"
 )
@@ -16,21 +15,34 @@ import (
 
 // goldenHashes holds the expected hash of each golden run.
 var goldenHashes = map[string]uint64{
-	"cgb-acid2":        0x765259a35260ea95,
-	"cpu_instrs/cgb":   0x764f088ad6ace2cd,
-	"cpu_instrs/dmg":   0x01e735ce38753fda,
-	"dmg-acid2":        0x7a987746286a6124,
-	"dmg-acid2/compat": 0x9e9a7538d2478406,
-	"halt_bug":         0x9d4d6529a3726f9a,
-	"instr_timing":     0x9fff8b92176f613b,
-	"mem_timing":       0xa591ddfa332731d3,
-	"sml":              0x72f079d4dffeeaf9,
-	"synthetic/cgb":    0xca1794227ae10540,
-	"synthetic/dmg":    0x07027ced9820dae8,
-	"tetris":           0xcd4b18ae7c9841c2,
-	"tetris/compat":    0x41eab652c52be80c,
-	"zelda":            0x50db7a03474b2e1a,
-	"zelda-dx":         0xf03c248aedf08553,
+	// The benchmark ROM: see benchrom_test.go.
+	"benchrom/game/dmg":  0x30a126a767e0f824,
+	"benchrom/game/cgb":  0xdb01eed46bfca071,
+	"benchrom/cpu/dmg":   0x9cfb80209f409765,
+	"benchrom/cpu/cgb":   0x897d48e760199366,
+	"benchrom/idle/dmg":  0xb6a455180fdd15e5,
+	"benchrom/idle/cgb":  0xd99f0e33c2476b7b,
+	"benchrom/color/dmg": 0x038398e9e409cb68,
+	"benchrom/color/cgb": 0x4ca73d722d80898f,
+	"benchrom/sound/dmg": 0xec074b19c51e33fa,
+	"benchrom/sound/cgb": 0xf3aae54f6d344bfd,
+	"benchrom/demo/dmg":  0x6480e1746fc41fb8,
+	"benchrom/demo/cgb":  0x6d4f0e65c1ddba86,
+	"cgb-acid2":          0x765259a35260ea95,
+	"cpu_instrs/cgb":     0x764f088ad6ace2cd,
+	"cpu_instrs/dmg":     0x01e735ce38753fda,
+	"dmg-acid2":          0x7a987746286a6124,
+	"dmg-acid2/compat":   0x9e9a7538d2478406,
+	"halt_bug":           0x9d4d6529a3726f9a,
+	"instr_timing":       0x9fff8b92176f613b,
+	"mem_timing":         0xa591ddfa332731d3,
+	"sml":                0x72f079d4dffeeaf9,
+	"synthetic/cgb":      0xca1794227ae10540,
+	"synthetic/dmg":      0x07027ced9820dae8,
+	"tetris":             0xcd4b18ae7c9841c2,
+	"tetris/compat":      0x41eab652c52be80c,
+	"zelda":              0x50db7a03474b2e1a,
+	"zelda-dx":           0xf03c248aedf08553,
 }
 
 // gameDir holds the games kept locally (see .gitignore); like the test
@@ -40,17 +52,7 @@ const gameDir = "../../roms"
 // goldenHash runs g for the given number of frames, pressing buttons on a
 // fixed schedule, and hashes its output.
 func goldenHash(g *GameBoy, frames int) uint64 {
-	h := fnv.New64a()
-	for f := range frames {
-		goldenInputs(g, f)
-		g.RunFrame()
-		for _, s := range g.APU.DrainSamples() {
-			h.Write([]byte{byte(s), byte(s >> 8)})
-		}
-		hashFrame(h, g)
-	}
-	h.Write(g.Snapshot(nil))
-	return h.Sum64()
+	return goldenRun(g, frames, goldenInputs, nil)
 }
 
 // goldenInputs gets games past their title screen and moves the player.

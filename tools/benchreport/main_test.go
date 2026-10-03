@@ -13,7 +13,7 @@ import (
 // run 0.1% slower than the previous one (a bit of noise).
 func benchOutput(runs int, ns map[string]float64, order ...string) string {
 	var b strings.Builder
-	b.WriteString("goos: linux\ngoarch: amd64\npkg: github.com/ldechoux/gbe/internal/gb\ncpu: Test CPU\n")
+	b.WriteString("goos: linux\ngoarch: amd64\npkg: github.com/ldechoux/gbe/internal/gb\ncpu: Test CPU        \n")
 	for r := range runs {
 		for _, name := range order {
 			v := ns[name] * (1 + 0.001*float64(r))

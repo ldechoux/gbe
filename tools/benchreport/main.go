@@ -95,7 +95,7 @@ func readResults(r io.Reader, fileName string) (*results, error) {
 			units[v.Unit] = append(units[v.Unit], v.Value)
 		}
 		if res.cpu == "" {
-			res.cpu = rec.GetConfig("cpu")
+			res.cpu = strings.TrimSpace(rec.GetConfig("cpu")) // padded on some machines
 		}
 	}
 	return res, br.Err()

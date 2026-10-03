@@ -1,47 +1,122 @@
 name: Benchmarks
 
-# Runs the benchmarks of a pull request and of its base branch on the same
-# runner, and posts the differences on the pull request, in a comment
-# updated on every push (see tools/benchcompare.sh and tools/benchreport).
-# The report is informative: the job does not fail on a regression.
+# Compares the performance of two versions of gbe on the same runner (see
+# tools/benchcompare.sh and tools/benchreport). The report is informative:
+# the job does not fail on a regression.
+#
+# - On every pull request: its benchmarks against those of its base branch.
+#   The report is posted on the pull request, in a comment updated on every
+#   push.
+# - By hand (Actions > Benchmarks > Run workflow, or
+#   gh workflow run bench.yml -f base=v0.1.4 -f head=main): any two
+#   versions, tags, branches or commits. The benchmarks of bench/, which
+#   only use the API every release has, run in both, so that releases older
+#   than the benchmarks can be measured. The report is in the summary of
+#   the run.
 on:
   pull_request: # opened, new commits pushed, reopened
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Reference version: tag, branch or commit (e.g. v0.1.4)"
+        required: true
+      head:
+        description: "Version compared with it: tag, branch or commit"
+        required: true
+        default: main
+      runs:
+        description: "Runs of each benchmark per version"
+        required: true
+        default: "10"
+
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Benchmarks {0} → {1}', inputs.base, inputs.head) || github.event.pull_request.title }}
 
 permissions:
   contents: read
   pull-requests: write # to comment on the pull request
 
 concurrency:
-  # A new push to the pull request cancels the run on the previous commit.
-  group: bench-${{ github.event.pull_request.number }}
+  # A new push to the pull request cancels the run on the previous commit;
+  # runs by hand never cancel each other.
+  group: bench-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   compare:
     runs-on: ubuntu-latest
-    env:
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      BASE_REF: ${{ github.event.pull_request.base.ref }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      PR: ${{ github.event.pull_request.number }}
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # the base commit is needed too
+          fetch-depth: 0 # every commit, branch and tag
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Check out the base branch
-        run: git worktree add "$RUNNER_TEMP/base" "$BASE_SHA"
-      # About 5 minutes. The checkout of the pull request is GitHub's merge
-      # of it into the base branch: what would be merged.
-      - name: Run the benchmarks of both sides, interleaved
-        run: tools/benchcompare.sh "$RUNNER_TEMP/base" . 10 "$RUNNER_TEMP/bench"
-      - name: Write the report
+      - name: Check out the two versions
+        id: versions
+        env:
+          EVENT: ${{ github.event_name }}
+          # Pull request
+          PR: ${{ github.event.pull_request.number }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # By hand
+          BASE: ${{ inputs.base }}
+          HEAD: ${{ inputs.head }}
+          RUNS: ${{ inputs.runs }}
         run: |
-          go run ./tools/benchreport \
-            -base "$BASE_REF (${BASE_SHA::7})" -head "#$PR (${HEAD_SHA::7})" \
-            -note "Runs interleaved on the same GitHub runner; the pull request is measured merged into $BASE_REF." \
+          # resolve prints the commit of a tag, branch or commit.
+          resolve() {
+            git rev-parse --verify --quiet "$1^{commit}" ||
+              git rev-parse --verify --quiet "origin/$1^{commit}" ||
+              { echo "::error::Unknown version: $1" >&2; exit 1; }
+          }
+          if [ "$EVENT" = pull_request ]; then
+            # The checkout of the pull request is GitHub's merge of it into
+            # the base branch: what would be merged.
+            git worktree add "$RUNNER_TEMP/base" "$PR_BASE_SHA"
+            {
+              echo "base_dir=$RUNNER_TEMP/base"
+              echo "head_dir=$GITHUB_WORKSPACE"
+              echo "base_label=$PR_BASE_REF (${PR_BASE_SHA::7})"
+              echo "head_label=#$PR (${PR_HEAD_SHA::7})"
+              echo "runs=10"
+              echo "note=Runs interleaved on the same GitHub runner; the pull request is measured merged into $PR_BASE_REF."
+            } >> "$GITHUB_OUTPUT"
+          else
+            if ! [[ "$RUNS" =~ ^[1-9][0-9]?$ ]]; then
+              echo "::error::runs must be a number from 1 to 99"
+              exit 1
+            fi
+            base_sha=$(resolve "$BASE")
+            head_sha=$(resolve "$HEAD")
+            git worktree add --detach "$RUNNER_TEMP/base" "$base_sha"
+            git worktree add --detach "$RUNNER_TEMP/head" "$head_sha"
+            {
+              echo "base_dir=$RUNNER_TEMP/base"
+              echo "head_dir=$RUNNER_TEMP/head"
+              echo "base_label=$BASE (${base_sha::7})"
+              echo "head_label=$HEAD (${head_sha::7})"
+              echo "runs=$RUNS"
+              echo "harness=$GITHUB_WORKSPACE/bench"
+              echo "note=Runs interleaved on the same GitHub runner. Both versions ran the benchmarks of bench/ (and the benchmark ROM) of ${GITHUB_REF_NAME}; each was built with its own PGO profile, if it has one, like its release."
+            } >> "$GITHUB_OUTPUT"
+          fi
+      # About 5 minutes with 10 runs.
+      - name: Run the benchmarks of both versions, interleaved
+        env:
+          HARNESS: ${{ steps.versions.outputs.harness }}
+          BASE_DIR: ${{ steps.versions.outputs.base_dir }}
+          HEAD_DIR: ${{ steps.versions.outputs.head_dir }}
+          RUNS: ${{ steps.versions.outputs.runs }}
+        run: tools/benchcompare.sh "$BASE_DIR" "$HEAD_DIR" "$RUNS" "$RUNNER_TEMP/bench"
+      - name: Write the report
+        env:
+          BASE_LABEL: ${{ steps.versions.outputs.base_label }}
+          HEAD_LABEL: ${{ steps.versions.outputs.head_label }}
+          NOTE: ${{ steps.versions.outputs.note }}
+        run: |
+          go run ./tools/benchreport -base "$BASE_LABEL" -head "$HEAD_LABEL" -note "$NOTE" \
             "$RUNNER_TEMP/bench/base.txt" "$RUNNER_TEMP/bench/head.txt" > "$RUNNER_TEMP/report.md"
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -53,10 +128,11 @@ jobs:
       # The token of a pull request from a fork cannot comment: the report
       # is then only in the summary of the run.
       - name: Comment on the pull request
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- gbe-benchmarks -->"))) | .id' | head -n 1)

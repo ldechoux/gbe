@@ -42,6 +42,29 @@ func BenchmarkFrameSML(b *testing.B) {
 	benchFrames(b, loadROMModel(b, filepath.Join(gameDir, "Super_Mario_Land_World_Rev1.gb"), ModelDMG))
 }
 
+// BenchmarkFrameBenchROM runs each scene of the benchmark ROM (benchrom/),
+// which is committed: unlike the games, these run everywhere, the CI
+// included. Each scene follows the profile of a kind of game (see
+// benchrom/src/main.asm).
+func BenchmarkFrameBenchROM(b *testing.B) {
+	for _, s := range benchScenes {
+		if s.button < 0 {
+			continue // the demo goes through the other scenes
+		}
+		for _, m := range benchModels {
+			b.Run(s.name+"/"+m.name, func(b *testing.B) {
+				g := newBenchROM(b, s, m.model)
+				for f := range 10 {
+					benchInputs(g, f)
+					g.RunFrame()
+				}
+				benchInputs(g, 10)
+				benchFrames(b, g)
+			})
+		}
+	}
+}
+
 // busyCGB is a Game Boy Color with a busy state to snapshot.
 func busyCGB(b *testing.B) *GameBoy {
 	g := newSyntheticGB(b, ModelCGB)

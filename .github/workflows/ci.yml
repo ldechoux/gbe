@@ -22,8 +22,39 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
-      # ROM-based tests are skipped: ROMs are not in the repository.
+      # The tests on games and test ROMs are skipped: they are not in the
+      # repository. Those on the benchmark ROM (benchrom/) run.
       - run: go test ./...
+        env:
+          GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      # Frames and audio of the benchmark ROM runs that failed.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: golden-failures
+          path: ${{ runner.temp }}/golden
+          if-no-files-found: ignore
+
+  benchrom:
+    runs-on: ubuntu-latest
+    env:
+      RGBDS_VERSION: v1.0.4
+      RGBDS_SHA256: 3e19e50ea602e316be709160acaf0a708b1fa6d32d219ec541f244442895dbb7
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install RGBDS
+        run: |
+          curl -sSfL -o rgbds.tar.xz "https://github.com/gbdev/rgbds/releases/download/$RGBDS_VERSION/rgbds-linux-x86_64.tar.xz"
+          echo "$RGBDS_SHA256  rgbds.tar.xz" | sha256sum -c
+          mkdir -p "$RUNNER_TEMP/rgbds"
+          tar -xJf rgbds.tar.xz -C "$RUNNER_TEMP/rgbds"
+          rm rgbds.tar.xz
+          echo "$RUNNER_TEMP/rgbds" >> "$GITHUB_PATH"
+      - name: Check that the committed benchmark ROM matches its sources
+        run: |
+          make -C benchrom clean
+          make -C benchrom
+          git diff --exit-code --stat benchrom/gbe-bench.gbc
 
   build:
     runs-on: ubuntu-latest

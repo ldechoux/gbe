@@ -205,15 +205,33 @@ cd .. && go test ./...
 
 Sans ces ROMs, les tests qui en dépendent sont ignorés.
 
+La ROM de benchmark ([`benchrom/`](benchrom/README.md)), écrite pour gbe, est dans le dépôt :
+ses tests tournent partout, la CI comprise. Ses scènes reproduisent la charge de types de
+jeux (jeu classique, calcul, jeu presque toujours en pause, Game Boy Color, son). Pour chacune,
+en DMG et en CGB, l'image finale doit correspondre à une image de référence. En cas d'écart,
+`GBE_GOLDEN_OUT=<dossier>` récupère l'image et le son obtenus.
+
 Les tests « golden » (`internal/gb/golden_test.go`) hashent le son, chaque image et l'état
-final de la machine sur un programme synthétique, les ROMs de test et quelques jeux gardés
-dans `roms/` : une optimisation ne doit pas changer un seul bit.
+final de la machine sur la ROM de benchmark, un programme synthétique, les ROMs de test et
+quelques jeux gardés dans `roms/` : une optimisation ne doit pas changer un seul bit.
+
+Un mode sans fenêtre sert au débogage :
+`./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
 
 ## Performances
 
+Sur chaque pull request, la CI lance les benchmarks de la branche et ceux de sa branche de
+base, en alternance sur la même machine. Le rapport des écarts est publié en commentaire de la
+PR, mis à jour à chaque push : médianes, test statistique, 🟢 au-delà de 5 % plus rapide, ⚠️
+au-delà de 10 % plus lent. Il est informatif : les machines de la CI sont partagées, donc
+bruitées, et il ne fait jamais échouer la PR.
+
+La même comparaison en local, par exemple avec `main` :
+
 ```sh
-go test ./internal/gb -run '^$' -bench . -count 10 > new.txt
-benchstat old.txt new.txt   # go install golang.org/x/perf/cmd/benchstat@latest
+git worktree add /tmp/gbe-main main
+tools/benchcompare.sh /tmp/gbe-main . 10 /tmp/bench
+go run ./tools/benchreport -base main -head branche /tmp/bench/base.txt /tmp/bench/head.txt
 ```
 
 Le binaire est compilé avec l'optimisation guidée par profil (PGO) : `go build` utilise
@@ -222,9 +240,6 @@ automatiquement `cmd/gbe/default.pgo`. Le régénérer après un changement impo
 ```sh
 go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/default.pgo
 ```
-
-Un mode sans fenêtre sert au débogage :
-`./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
 
 ## Architecture
 

@@ -1,0 +1,64 @@
+// Scale3x (AdvanceMAME): Scale2x for a 3x3 output, whose middle edges
+// also follow the diagonals.
+//
+// A B C      E0 E1 E2
+// D E F  ->  E3 E4 E5
+// G H I      E6 E7 E8
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	p := pos(srcPos)
+	cell := floor(p)
+	q := min(floor((p-cell)*3), 2)
+	E := fetch(cell)
+	B := fetch(cell + vec2(0, -1))
+	D := fetch(cell + vec2(-1, 0))
+	F := fetch(cell + vec2(1, 0))
+	H := fetch(cell + vec2(0, 1))
+	if same(B, H) || same(D, F) {
+		return E
+	}
+	A := fetch(cell + vec2(-1, -1))
+	C := fetch(cell + vec2(1, -1))
+	G := fetch(cell + vec2(-1, 1))
+	I := fetch(cell + vec2(1, 1))
+	db := same(D, B)
+	bf := same(B, F)
+	dh := same(D, H)
+	hf := same(H, F)
+
+	k := q.y*3 + q.x
+	if k == 0 {
+		if db {
+			return D
+		}
+	} else if k == 1 {
+		if (db && !same(E, C)) || (bf && !same(E, A)) {
+			return B
+		}
+	} else if k == 2 {
+		if bf {
+			return F
+		}
+	} else if k == 3 {
+		if (db && !same(E, G)) || (dh && !same(E, A)) {
+			return D
+		}
+	} else if k == 5 {
+		if (bf && !same(E, I)) || (hf && !same(E, C)) {
+			return F
+		}
+	} else if k == 6 {
+		if dh {
+			return D
+		}
+	} else if k == 7 {
+		if (dh && !same(E, I)) || (hf && !same(E, G)) {
+			return H
+		}
+	} else if k == 8 {
+		if hf {
+			return F
+		}
+	}
+	return E
+}

@@ -1,0 +1,27 @@
+// Scale2x (EPX, AdvanceMAME): each pixel becomes 2x2, whose corners take
+// the color of the two neighbors they touch when these match, which rounds
+// the diagonals off without adding colors.
+//
+//   B        E0 E1
+// D E F  ->  E2 E3
+//   H
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	p := pos(srcPos)
+	cell := floor(p)
+	q := step(0.5, p-cell) // the corner: 0 left/top, 1 right/bottom
+	E := fetch(cell)
+	B := fetch(cell + vec2(0, -1))
+	D := fetch(cell + vec2(-1, 0))
+	F := fetch(cell + vec2(1, 0))
+	H := fetch(cell + vec2(0, 1))
+	if same(B, H) || same(D, F) {
+		return E
+	}
+	X := mix(D, F, q.x) // the neighbors on the side of the corner
+	Y := mix(B, H, q.y)
+	if same(X, Y) {
+		return X
+	}
+	return E
+}

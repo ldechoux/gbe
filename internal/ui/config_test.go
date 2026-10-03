@@ -14,6 +14,7 @@ func TestLoadConfigIgnoresInvalidEntries(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	os.WriteFile(path, []byte(`{
 		"palette": "nope",
+		"filter": "nope",
 		"scale": 99,
 		"volume": 2,
 		"keys": {"A": "K", "Turbo": "L"},
@@ -25,8 +26,8 @@ func TestLoadConfigIgnoresInvalidEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	def := DefaultConfig()
-	if cfg.Palette != def.Palette || cfg.Scale != def.Scale || cfg.Volume != def.Volume {
-		t.Errorf("invalid values kept: palette %q scale %d volume %v", cfg.Palette, cfg.Scale, cfg.Volume)
+	if cfg.Palette != def.Palette || cfg.Filter != def.Filter || cfg.Scale != def.Scale || cfg.Volume != def.Volume {
+		t.Errorf("invalid values kept: palette %q filter %q scale %d volume %v", cfg.Palette, cfg.Filter, cfg.Scale, cfg.Volume)
 	}
 	if cfg.Key(gb.ButtonA) != ebiten.KeyK || len(cfg.Keys) != len(def.Keys) {
 		t.Errorf("keys %v: want A rebound and Turbo dropped", cfg.Keys)

@@ -49,7 +49,7 @@ func TestKeysDocumented(t *testing.T) {
 		t.Fatal(err)
 	}
 	documented := map[string]bool{}
-	for _, m := range regexp.MustCompile("(?m)^\\| `([a-z_.]+)` \\|").FindAllSubmatch(readme, -1) {
+	for _, m := range regexp.MustCompile("(?m)^\\| `([a-z0-9_.]+)` \\|").FindAllSubmatch(readme, -1) {
 		documented[string(m[1])] = true
 	}
 	for _, k := range Get(Default).Keys() {

@@ -45,6 +45,8 @@ const (
 	itemControls
 	itemVolume
 	itemScale
+	itemFilter
+	itemGhosting
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -321,6 +323,11 @@ func (m *menu) adjust(g *Game, delta int) {
 		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
 		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
 		g.saveConfig()
+	case itemFilter:
+		g.cycleFilter(delta)
+	case itemGhosting:
+		g.cfg.Ghosting = !g.cfg.Ghosting
+		g.saveConfig()
 	case itemSpeed:
 		g.cfg.FastForwardSpeed = max(minFastForward, min(maxFastForward, g.cfg.FastForwardSpeed+delta))
 		g.saveConfig()
@@ -400,7 +407,7 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemPalette, itemColorize, itemVolume, itemScale, itemSpeed, itemLanguage:
+	case itemPalette, itemColorize, itemVolume, itemScale, itemFilter, itemGhosting, itemSpeed, itemLanguage:
 		m.adjust(g, 1)
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
@@ -540,6 +547,8 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 		l.T("menu.scale", g.cfg.Scale),
+		l.T("menu.filter", l.T("filter."+g.filter().ID)),
+		l.T("menu.ghosting", onOff(l, g.cfg.Ghosting)),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),

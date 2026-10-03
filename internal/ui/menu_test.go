@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
 // withGameBoy gives g a machine running program from 0x0100 on an MBC1
@@ -256,6 +257,23 @@ func TestMenuAdjust(t *testing.T) {
 	adjust(itemScale, 1)
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.Scale != 2 {
 		t.Errorf("saved scale %d, want 2", cfg.Scale)
+	}
+
+	adjust(itemFilter, -1)
+	if last := scaler.Filters[len(scaler.Filters)-1].ID; g.cfg.Filter != last {
+		t.Errorf("Left on the first filter: %q, want the last one", g.cfg.Filter)
+	}
+	adjust(itemFilter, 1)
+	adjust(itemFilter, 1)
+	if cfg, _ := LoadConfig(g.cfgPath); cfg.Filter != scaler.Filters[1].ID {
+		t.Errorf("saved filter %q, want %q", cfg.Filter, scaler.Filters[1].ID)
+	}
+	if got := entryLabel(g, itemFilter); got != "Filter    < Sharp >" {
+		t.Errorf("filter entry %q", got)
+	}
+	adjust(itemGhosting, 1)
+	if cfg, _ := LoadConfig(g.cfgPath); !cfg.Ghosting || entryLabel(g, itemGhosting) != "Ghosting  < on >" {
+		t.Errorf("ghosting not turned on: %q", entryLabel(g, itemGhosting))
 	}
 
 	before := *g.cfg

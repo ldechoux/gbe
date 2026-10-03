@@ -33,9 +33,14 @@ func (t *Timer) tick() {
 		t.tima = t.tma
 		t.bus.requestInterrupt(IntTimer)
 	}
-	old := t.signal()
+	// signal(), inlined: the bit of the counter TIMA follows, 0 when off.
+	var mask uint16
+	if t.tac&4 != 0 {
+		mask = timerBits[t.tac&3]
+	}
+	old := t.counter & mask
 	t.counter += 4
-	if old && !t.signal() {
+	if old != 0 && t.counter&mask == 0 {
 		t.incTIMA()
 	}
 }

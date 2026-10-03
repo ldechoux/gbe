@@ -1,5 +1,7 @@
 package gb
 
+import "math/bits"
+
 const (
 	ScreenWidth  = 160
 	ScreenHeight = 144
@@ -167,6 +169,7 @@ func (p *PPU) tick(dots int) {
 		return
 	}
 	p.dot += dots
+	mode, ly := p.mode, p.ly
 	switch p.mode {
 	case 2:
 		if p.dot >= 80 {
@@ -203,7 +206,11 @@ func (p *PPU) tick(dots int) {
 			}
 		}
 	}
-	p.updateStat()
+	// The other inputs of the STAT line only change through write, which
+	// updates it.
+	if p.mode != mode || p.ly != ly {
+		p.updateStat()
+	}
 }
 
 func (p *PPU) tileRow(bank int, tile byte, row int, signed bool) (lo, hi byte) {
@@ -229,23 +236,32 @@ func color(pal *[64]byte, n, idx byte) uint16 {
 	return (uint16(pal[i]) | uint16(pal[i+1])<<8) & 0x7FFF
 }
 
-// mapPixel returns the color index of the pixel (px, py) of the tile map at
-// base, along with the CGB attributes of its tile (always 0 on a DMG):
-// palette (bits 0-2), VRAM bank (3), X flip (5), Y flip (6), priority (7).
-func (p *PPU) mapPixel(base, px, py int, signed bool) (idx, attr byte) {
-	off := base + (py/8)*32 + px/8
-	if p.bus.cgbMode() {
-		attr = p.vram[0x2000+off]
+// mapRow reads a run of pixels of the tile map at base, from (px, py)
+// rightwards, wrapping around at 256: their color indices go to idx and the
+// CGB attributes of their tiles to attrs (always 0 on a DMG): palette (bits
+// 0-2), VRAM bank (3), X flip (5), Y flip (6), priority (7).
+func (p *PPU) mapRow(base, px, py int, signed, cgb bool, idx, attrs []byte) {
+	rowBase := base + (py/8)*32
+	for i := 0; i < len(idx); {
+		off := rowBase + px/8
+		var attr byte
+		if cgb {
+			attr = p.vram[0x2000+off]
+		}
+		row := py & 7
+		if attr&0x40 != 0 {
+			row = 7 - row
+		}
+		lo, hi := p.tileRow(int(attr>>3&1), p.vram[off], row, signed)
+		if attr&0x20 != 0 {
+			lo, hi = bits.Reverse8(lo), bits.Reverse8(hi)
+		}
+		for x := px & 7; x < 8 && i < len(idx); x++ {
+			idx[i], attrs[i] = colorIndex(lo, hi, 7-x), attr
+			i++
+		}
+		px = (px | 7 + 1) & 0xFF // next tile
 	}
-	row, bit := py&7, 7-px&7
-	if attr&0x40 != 0 {
-		row = 7 - row
-	}
-	if attr&0x20 != 0 {
-		bit = px & 7
-	}
-	lo, hi := p.tileRow(int(attr>>3&1), p.vram[off], row, signed)
-	return colorIndex(lo, hi, bit), attr
 }
 
 func (p *PPU) renderLine() {
@@ -267,9 +283,7 @@ func (p *PPU) renderLine() {
 			bgMap = 0x1C00
 		}
 		y := (int(p.scy) + ly) & 0xFF
-		for x := range ScreenWidth {
-			bgIdx[x], bgAttr[x] = p.mapPixel(bgMap, (int(p.scx)+x)&0xFF, y, signed)
-		}
+		p.mapRow(bgMap, int(p.scx), y, signed, cgb, bgIdx[:], bgAttr[:])
 
 		wx := int(p.wx) - 7
 		if p.lcdc&0x20 != 0 && p.wyReached && wx < ScreenWidth {
@@ -277,9 +291,8 @@ func (p *PPU) renderLine() {
 			if p.lcdc&0x40 != 0 {
 				winMap = 0x1C00
 			}
-			for x := max(wx, 0); x < ScreenWidth; x++ {
-				bgIdx[x], bgAttr[x] = p.mapPixel(winMap, x-wx, p.windowLine, signed)
-			}
+			x := max(wx, 0)
+			p.mapRow(winMap, x-wx, p.windowLine, signed, cgb, bgIdx[x:], bgAttr[x:])
 			p.windowLine++
 		}
 	}

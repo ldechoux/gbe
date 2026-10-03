@@ -205,6 +205,24 @@ cd .. && go test ./...
 
 Sans ces ROMs, les tests qui en dépendent sont ignorés.
 
+Les tests « golden » (`internal/gb/golden_test.go`) hashent le son, chaque image et l'état
+final de la machine sur un programme synthétique, les ROMs de test et quelques jeux gardés
+dans `roms/` : une optimisation ne doit pas changer un seul bit.
+
+## Performances
+
+```sh
+go test ./internal/gb -run '^$' -bench . -count 10 > new.txt
+benchstat old.txt new.txt   # go install golang.org/x/perf/cmd/benchstat@latest
+```
+
+Le binaire est compilé avec l'optimisation guidée par profil (PGO) : `go build` utilise
+automatiquement `cmd/gbe/default.pgo`. Le régénérer après un changement important du cœur :
+
+```sh
+go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/default.pgo
+```
+
 Un mode sans fenêtre sert au débogage :
 `./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
 

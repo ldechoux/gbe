@@ -64,7 +64,9 @@ func (b *Bus) pendingInterrupts() byte { return b.ie & b.ifl & 0x1F }
 // but the PPU and the APU keep running at the normal speed.
 func (b *Bus) tick() {
 	b.timer.tick()
-	b.serial.tick()
+	if b.serial.remaining > 0 { // a transfer in progress
+		b.serial.tick()
+	}
 	dots := 4
 	if b.doubleSpeed {
 		dots = 2

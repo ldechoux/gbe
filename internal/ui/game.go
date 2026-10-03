@@ -59,9 +59,9 @@ type Game struct {
 	autoModel  bool                                // see Options
 	newConsole func(gb.Model) (*gb.GameBoy, error) // same
 
-	lcd  *ebiten.Image
-	pix  []byte
-	menu menu
+	lcd      *ebiten.Image
+	lcdFrame lcdFrame // the frame in lcd
+	menu     menu
 
 	stream *audioStream
 	player *audio.Player
@@ -121,7 +121,6 @@ func Run(opts Options) error {
 		autoModel:   opts.AutoModel,
 		newConsole:  opts.NewConsole,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
-		pix:         make([]byte, gb.ScreenWidth*gb.ScreenHeight*4),
 		stream:      &audioStream{},
 		ignoredKeys: map[ebiten.Key]bool{},
 		ignoredPad:  map[padButton]bool{},
@@ -463,8 +462,9 @@ func (g *Game) speedBadge() string {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	frameRGBA(g.pix, g.gb, g.palette(), g.cfg.ColorCorrection)
-	g.lcd.WritePixels(g.pix)
+	if g.lcdFrame.update(g.gb, g.palette(), g.cfg.ColorCorrection) {
+		g.lcd.WritePixels(g.lcdFrame.pix)
+	}
 
 	screen.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
 	sw, sh := float64(screen.Bounds().Dx()), float64(screen.Bounds().Dy())

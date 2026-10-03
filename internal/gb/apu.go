@@ -105,13 +105,18 @@ type APU struct {
 	seqTimer int
 	seqStep  int
 
-	sampleRate  float64
-	sampleClock float64
-	accL, accR  float64
-	accN        int
-	hpL, hpR    float64
-	hpCharge    float64
-	samples     []int16
+	samplePeriod float64 // T-cycles per output sample
+	sampleClock  float64
+	accL, accR   float64
+	accN         int
+	hpL, hpR     float64
+	hpCharge     float64
+	samples      []int16
+
+	// The mixed output only changes now and then (a step of a waveform, a
+	// register write...), so it is computed again only after a change.
+	mixL, mixR float64
+	mixValid   bool
 }
 
 func newAPU(bus *Bus) *APU {
@@ -123,7 +128,7 @@ func newAPU(bus *Bus) *APU {
 // SetSampleRate changes the output rate. Frontends may nudge it slightly to
 // keep the audio buffer level stable.
 func (a *APU) SetSampleRate(rate float64) {
-	a.sampleRate = rate
+	a.samplePeriod = ClockRate / rate
 	a.hpCharge = math.Pow(0.999958, ClockRate/rate)
 }
 
@@ -158,6 +163,7 @@ func (a *APU) read(addr uint16) byte {
 }
 
 func (a *APU) write(addr uint16, v byte) {
+	a.mixValid = false
 	off := addr - 0xFF10
 	if addr >= 0xFF30 {
 		a.regs[off] = v
@@ -363,6 +369,7 @@ func (a *APU) tick(cycles int) {
 		if a.seqTimer >= 8192 {
 			a.seqTimer -= 8192
 			a.sequencerStep()
+			a.mixValid = false
 		}
 		a.clockChannels(cycles)
 	}
@@ -376,6 +383,7 @@ func (a *APU) clockChannels(cycles int) {
 		for c.timer <= 0 {
 			c.timer += a.period(i)
 			c.dutyPos = (c.dutyPos + 1) & 7
+			a.outputChanged(c)
 		}
 	}
 	w := &a.ch[2]
@@ -383,6 +391,7 @@ func (a *APU) clockChannels(cycles int) {
 	for w.timer <= 0 {
 		w.timer += a.period(2)
 		w.wavePos = (w.wavePos + 1) & 31
+		a.outputChanged(w)
 	}
 	n := &a.ch[3]
 	n.timer -= cycles
@@ -393,6 +402,15 @@ func (a *APU) clockChannels(cycles int) {
 		if n.narrow {
 			n.lfsr = n.lfsr&^(1<<6) | bit<<6
 		}
+		a.outputChanged(n)
+	}
+}
+
+// outputChanged is called when the waveform of a channel moves on, which
+// changes the mix if the channel is heard.
+func (a *APU) outputChanged(c *channel) {
+	if c.enabled && c.dac {
+		a.mixValid = false
 	}
 }
 
@@ -420,37 +438,20 @@ func (a *APU) output(i int) byte {
 }
 
 func (a *APU) mix(cycles int) {
-	var l, r float64
-	if a.on {
-		nr51 := a.regs[0x15]
-		for i := range 4 {
-			if !a.ch[i].dac {
-				continue
-			}
-			// DAC: 0..15 -> +1..-1
-			v := 1 - float64(a.output(i))/7.5
-			if nr51&(0x10<<i) != 0 {
-				l += v
-			}
-			if nr51&(1<<i) != 0 {
-				r += v
-			}
-		}
-		nr50 := a.regs[0x14]
-		l *= float64((nr50>>4)&7+1) / 8
-		r *= float64(nr50&7+1) / 8
+	if !a.mixValid {
+		a.mixL, a.mixR = a.mixChannels()
+		a.mixValid = true
 	}
-	a.accL += l
-	a.accR += r
+	a.accL += a.mixL
+	a.accR += a.mixR
 	a.accN++
 
 	a.sampleClock += float64(cycles)
-	period := ClockRate / a.sampleRate
-	if a.sampleClock < period {
+	if a.sampleClock < a.samplePeriod {
 		return
 	}
-	a.sampleClock -= period
-	l, r = a.accL/float64(a.accN)/4, a.accR/float64(a.accN)/4
+	a.sampleClock -= a.samplePeriod
+	l, r := a.accL/float64(a.accN)/4, a.accR/float64(a.accN)/4
 	a.accL, a.accR, a.accN = 0, 0, 0
 
 	// High-pass filter removing the DC offset, like the real hardware.
@@ -460,6 +461,31 @@ func (a *APU) mix(cycles int) {
 	a.hpR = r - outR*a.hpCharge
 
 	a.samples = append(a.samples, toInt16(outL), toInt16(outR))
+}
+
+// mixChannels returns the analog output of the left and right channels.
+func (a *APU) mixChannels() (l, r float64) {
+	if !a.on {
+		return 0, 0
+	}
+	nr51 := a.regs[0x15]
+	for i := range 4 {
+		if !a.ch[i].dac {
+			continue
+		}
+		// DAC: 0..15 -> +1..-1
+		v := 1 - float64(a.output(i))/7.5
+		if nr51&(0x10<<i) != 0 {
+			l += v
+		}
+		if nr51&(1<<i) != 0 {
+			r += v
+		}
+	}
+	nr50 := a.regs[0x14]
+	l *= float64((nr50>>4)&7+1) / 8
+	r *= float64(nr50&7+1) / 8
+	return l, r
 }
 
 func toInt16(v float64) int16 {

@@ -322,6 +322,7 @@ func (p *PPU) sync(c *codec) {
 }
 
 func (a *APU) sync(c *codec) {
+	a.mixValid = false
 	c.raw(a.regs[:])
 	c.bool(&a.on)
 	for i := range a.ch {

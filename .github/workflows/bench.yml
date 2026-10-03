@@ -13,8 +13,12 @@ name: Benchmarks
 #   only use the API every release has, run in both, so that releases older
 #   than the benchmarks can be measured. The report is in the summary of
 #   the run.
+# - On every release: the new release against the previous one, like a run
+#   by hand.
 on:
   pull_request: # opened, new commits pushed, reopened
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       base:
@@ -29,7 +33,10 @@ on:
         required: true
         default: "10"
 
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('Benchmarks {0} → {1}', inputs.base, inputs.head) || github.event.pull_request.title }}
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && format('Benchmarks {0} → {1}', inputs.base, inputs.head)
+  || github.event_name == 'release' && format('Benchmarks of release {0}', github.event.release.tag_name)
+  || github.event.pull_request.title }}
 
 permissions:
   contents: read
@@ -64,6 +71,10 @@ jobs:
           BASE: ${{ inputs.base }}
           HEAD: ${{ inputs.head }}
           RUNS: ${{ inputs.runs }}
+          # Release
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # resolve prints the commit of a tag, branch or commit.
           resolve() {
@@ -84,6 +95,19 @@ jobs:
               echo "note=Runs interleaved on the same GitHub runner; the pull request is measured merged into $PR_BASE_REF."
             } >> "$GITHUB_OUTPUT"
           else
+            if [ "$EVENT" = release ]; then
+              # The previous release: the last one published before this
+              # one, drafts left out.
+              BASE=$(gh api --paginate "repos/$REPO/releases" --jq '.[] | select(.draft | not) | [.published_at, .tag_name] | @tsv' |
+                sort -r | awk -F '\t' -v tag="$TAG" 'found { print $2; exit } $2 == tag { found = 1 }')
+              if [ -z "$BASE" ]; then
+                echo "::notice::$TAG is the first release: nothing to compare it with."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              HEAD=$TAG
+              RUNS=10
+            fi
             if ! [[ "$RUNS" =~ ^[1-9][0-9]?$ ]]; then
               echo "::error::runs must be a number from 1 to 99"
               exit 1
@@ -104,6 +128,7 @@ jobs:
           fi
       # About 5 minutes with 10 runs.
       - name: Run the benchmarks of both versions, interleaved
+        if: steps.versions.outputs.skip != 'true'
         env:
           HARNESS: ${{ steps.versions.outputs.harness }}
           BASE_DIR: ${{ steps.versions.outputs.base_dir }}
@@ -111,6 +136,7 @@ jobs:
           RUNS: ${{ steps.versions.outputs.runs }}
         run: tools/benchcompare.sh "$BASE_DIR" "$HEAD_DIR" "$RUNS" "$RUNNER_TEMP/bench"
       - name: Write the report
+        if: steps.versions.outputs.skip != 'true'
         env:
           BASE_LABEL: ${{ steps.versions.outputs.base_label }}
           HEAD_LABEL: ${{ steps.versions.outputs.head_label }}
@@ -120,6 +146,7 @@ jobs:
             "$RUNNER_TEMP/bench/base.txt" "$RUNNER_TEMP/bench/head.txt" > "$RUNNER_TEMP/report.md"
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        if: steps.versions.outputs.skip != 'true'
         with:
           name: benchmarks
           path: |

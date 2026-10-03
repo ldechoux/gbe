@@ -249,6 +249,10 @@ versions, ce qui permet de mesurer aussi les releases plus anciennes que les ben
 qu'une version ne sait pas faire est ignoré : le mode Game Boy Color avant v0.1.3, les
 snapshots avant v0.1.4. Le rapport est dans le résumé de l'exécution.
 
+À chaque publication d'une release, le workflow compare automatiquement la nouvelle release
+à la précédente (les brouillons sont ignorés), de la même façon. Le rapport est dans le
+résumé de l'exécution « Benchmarks of release vX.Y.Z ».
+
 La même comparaison en local, par exemple avec `main` :
 
 ```sh

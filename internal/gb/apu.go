@@ -69,8 +69,10 @@ type channel struct {
 	env       envelope
 	duty      byte // square
 	dutyPos   byte
-	wavePos   byte   // wave
+	wavePos   byte   // wave: sample played, its byte is the last one read
 	waveShift byte   // wave: 0=mute(4), 1=100%, 2=50%, 3=25%
+	waveRead  bool   // wave: a byte was read since the trigger
+	reload    int    // wave: timer value at the last read
 	lfsr      uint16 // noise
 	narrow    bool
 
@@ -166,8 +168,50 @@ func (a *APU) read(addr uint16) byte {
 	case addr < 0xFF30:
 		return 0xFF
 	}
-	return a.regs[off]
+	i, ok := a.waveRAMIndex(addr)
+	if !ok {
+		return 0xFF
+	}
+	return a.regs[0x20+i]
 }
+
+// waveRAMIndex returns the byte of the wave RAM that an access to addr
+// reaches. While channel 3 plays, it is the byte the channel last read, on
+// a CGB, and on a DMG only at the very moment it reads it (2 T-cycles):
+// otherwise reads return 0xFF and writes are lost.
+func (a *APU) waveRAMIndex(addr uint16) (int, bool) {
+	w := &a.ch[2]
+	if !w.enabled {
+		return int(addr - 0xFF30), true
+	}
+	if !a.bus.cgb && !a.waveJustRead() {
+		return 0, false
+	}
+	return int(w.wavePos / 2), true
+}
+
+// corruptWaveRAM is a DMG bug: retriggering channel 3 as it is about to
+// read a byte of the wave RAM (in the next 2 T-cycles) overwrites the first
+// byte with it, or the first four bytes with the four it belongs to.
+func (a *APU) corruptWaveRAM() {
+	wave := a.regs[0x20:0x30]
+	next := int((a.ch[2].wavePos+1)/2) & 0xF
+	if next < 4 {
+		wave[0] = wave[next]
+	} else {
+		copy(wave[:4], wave[next&^3:])
+	}
+}
+
+// waveJustRead reports whether channel 3 read a byte of the wave RAM in the
+// last 2 T-cycles (one cycle of its 2 MHz clock).
+func (a *APU) waveJustRead() bool {
+	w := &a.ch[2]
+	since := w.reload - (w.timer - a.pending)
+	return w.waveRead && since < waveReadWindow
+}
+
+const waveReadWindow = 2
 
 func (a *APU) write(addr uint16, v byte) {
 	a.mixValid = false
@@ -175,7 +219,9 @@ func (a *APU) write(addr uint16, v byte) {
 	a.untilClock = 0 // the write may change a timer: check on the next tick
 	off := addr - 0xFF10
 	if addr >= 0xFF30 {
-		a.regs[off] = v
+		if i, ok := a.waveRAMIndex(addr); ok {
+			a.regs[0x20+i] = v
+		}
 		return
 	}
 	if addr == 0xFF26 {
@@ -191,7 +237,19 @@ func (a *APU) write(addr uint16, v byte) {
 		return
 	}
 	if !a.on {
-		return // registers are read-only while powered off
+		// The registers are read-only while powered off, except for the
+		// length counters on a DMG.
+		if !a.bus.cgb {
+			switch addr {
+			case 0xFF11, 0xFF16:
+				a.ch[(addr-0xFF11)/5].length = 64 - int(v&0x3F)
+			case 0xFF1B:
+				a.ch[2].length = 256 - int(v)
+			case 0xFF20:
+				a.ch[3].length = 64 - int(v&0x3F)
+			}
+		}
+		return
 	}
 	a.regs[off] = v
 
@@ -291,6 +349,9 @@ func (a *APU) writeControl(i int, v byte, maxLen int) {
 		return
 	}
 	// Trigger.
+	if i == 2 && c.enabled && !a.bus.cgb && c.timer <= 2 {
+		a.corruptWaveRAM()
+	}
 	c.enabled = c.dac
 	if c.length == 0 {
 		c.length = maxLen
@@ -315,7 +376,11 @@ func (a *APU) writeControl(i int, v byte, maxLen int) {
 	case 1:
 		c.env.trigger()
 	case 2:
+		// The first byte is read 3 cycles of the 2 MHz clock later than
+		// the period, from the second sample on.
+		c.timer += 6
 		c.wavePos = 0
+		c.waveRead = false
 	case 3:
 		c.env.trigger()
 		c.lfsr = 0x7FFF
@@ -430,8 +495,10 @@ func (a *APU) clockChannels(cycles int) {
 	w := &a.ch[2]
 	w.timer -= cycles
 	for w.timer <= 0 {
-		w.timer += a.period(2)
+		w.reload = a.period(2)
+		w.timer += w.reload
 		w.wavePos = (w.wavePos + 1) & 31
+		w.waveRead = true
 		a.outputChanged(w)
 	}
 	n := &a.ch[3]

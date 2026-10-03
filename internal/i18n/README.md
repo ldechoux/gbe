@@ -128,6 +128,10 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `controls.cancel` | | Aide en bas de la page pendant une attente de touche ou de bouton |
 | `controls.pad_name` | `%s` nom de la manette | Bas de l'onglet Manette |
 | `controls.pad_disconnected` | | Message quand la manette est débranchée sur l'onglet Manette |
+| `controls.vibration` | | Entrée de l'onglet Manette qui active les vibrations, suivie de oui/non |
+| `controls.vibration_test` | | Entrée de l'onglet Manette qui fait vibrer la manette une demi-seconde |
+| `controls.unavailable` | | Remplace oui/non après `controls.vibration` quand la manette ne peut pas vibrer |
+| `controls.no_vibration` | | Bas de l'onglet Manette sur les entrées de vibration grisées |
 | `controls.key_used_by_button` | `%s` nom de la touche | Refus : la touche choisie pour la capture sert déjà à un bouton |
 | `controls.key_used_by_screenshot` | `%s` nom de la touche | Refus : la touche choisie pour un bouton sert déjà à la capture |
 

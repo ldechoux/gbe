@@ -48,6 +48,10 @@
     "controls.cancel": "Esc: cancel",
     "controls.pad_name": "Gamepad: %s",
     "controls.pad_disconnected": "Gamepad disconnected",
+    "controls.vibration": "Vibration",
+    "controls.vibration_test": "Test vibration",
+    "controls.unavailable": "unavailable",
+    "controls.no_vibration": "This gamepad cannot vibrate",
     "controls.key_used_by_button": "%s is already used by a button",
     "controls.key_used_by_screenshot": "%s is already used by the snapshot",
 

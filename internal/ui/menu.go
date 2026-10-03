@@ -135,8 +135,17 @@ func controlsDefaults() int   { return len(bindingNames()) + 1 }
 func controlsBack() int       { return len(bindingNames()) + 2 }
 
 // Gamepad tab layout: one entry per button and action, then these.
-func padDefaults() int { return len(bindingNames()) }
-func padBack() int     { return len(bindingNames()) + 1 }
+func padVibration() int { return len(bindingNames()) }
+func padTest() int      { return len(bindingNames()) + 1 }
+func padDefaults() int  { return len(bindingNames()) + 2 }
+func padBack() int      { return len(bindingNames()) + 3 }
+
+// padVibrates reports whether the gamepad shown on the Gamepad tab, the
+// first one, may vibrate: otherwise its vibration entries are greyed out.
+func padVibrates(g *Game) bool {
+	ids := g.pads.ids()
+	return len(ids) > 0 && g.pads.canVibrate(ids[0])
+}
 
 func (m *menu) show() {
 	*m = menu{open: true}
@@ -287,6 +296,10 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 
 func (m *menu) adjust(g *Game, delta int) {
 	if m.page == pageControls {
+		if m.tab == tabPad && m.cursor == padVibration() {
+			m.toggleVibration(g)
+			return
+		}
 		m.switchTab(g, delta)
 		return
 	}
@@ -314,6 +327,14 @@ func (m *menu) adjust(g *Game, delta int) {
 	case itemLanguage:
 		g.cycleLanguage(delta)
 		m.width = 0 // the labels change length
+	}
+}
+
+// toggleVibration turns the gamepad vibrations on or off.
+func (m *menu) toggleVibration(g *Game) {
+	if padVibrates(g) {
+		g.cfg.Vibration = !g.cfg.Vibration
+		g.saveConfig()
 	}
 }
 
@@ -346,10 +367,17 @@ func (m *menu) activate(g *Game) {
 	}
 	if m.page == pageControls && m.tab == tabPad {
 		switch {
-		case m.cursor < padDefaults():
+		case m.cursor < padVibration():
 			m.capturing = true
+		case m.cursor == padVibration():
+			m.toggleVibration(g)
+		case m.cursor == padTest():
+			if padVibrates(g) {
+				testVibration(g.pads)
+			}
 		case m.cursor == padDefaults():
 			g.cfg.Gamepad = defaultPad()
+			g.cfg.Vibration = true
 			g.saveConfig()
 		default:
 			m.backToMain()
@@ -403,8 +431,9 @@ type menuView struct {
 	title    string
 	tabs     []menuTab
 	items    []string
-	selected int    // highlighted item
-	footer   string // one line or more
+	disabled map[int]bool // items drawn greyed out
+	selected int          // highlighted item
+	footer   string       // one line or more
 }
 
 func (m *menu) view(g *Game) menuView {
@@ -416,7 +445,7 @@ func (m *menu) view(g *Game) menuView {
 			{label: l.T("controls.gamepad"), active: m.tab == tabPad, disabled: !connected},
 		}}
 		if m.tab == tabPad {
-			v.items, v.footer = m.padLines(g, name, family)
+			v.items, v.disabled, v.footer = m.padLines(g, name, family)
 		} else {
 			v.items, v.footer = m.keyboardLines(g)
 		}
@@ -431,7 +460,7 @@ func (m *menu) view(g *Game) menuView {
 	return v
 }
 
-func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, footer string) {
+func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, disabled map[int]bool, footer string) {
 	l := g.tr()
 	for i, name := range bindingNames() {
 		btn := padLabel(l, family, g.cfg.Gamepad[name])
@@ -440,7 +469,14 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 		}
 		items = append(items, fmt.Sprintf("%-8s %s", bindingLabel(l, name), btn))
 	}
-	items = append(items, l.T("controls.defaults"), l.T("controls.back"))
+	vibrates := padVibrates(g)
+	state := onOff(l, g.cfg.Vibration)
+	if !vibrates {
+		state = l.T("controls.unavailable")
+		disabled = map[int]bool{padVibration(): true, padTest(): true}
+	}
+	items = append(items, l.T("controls.vibration")+"  "+state, l.T("controls.vibration_test"),
+		l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
 		name = name[:31] + "."
 	}
@@ -450,8 +486,10 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 		footer = m.notice
 	case m.capturing:
 		footer = l.T("controls.cancel")
+	case !vibrates && disabled[m.cursor]:
+		footer = l.T("controls.no_vibration")
 	}
-	return items, footer
+	return items, disabled, footer
 }
 
 func (m *menu) keyboardLines(g *Game) (items []string, footer string) {
@@ -629,6 +667,9 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	}
 	for i, s := range items {
 		fg := pal[3]
+		if v.disabled[i] {
+			fg = pal[1] // faded: not available
+		}
 		if i == v.selected {
 			fillRect(dst, x+pad/2, ty-2*scale, w-pad, lineH, pal[2])
 			fg = pal[0]

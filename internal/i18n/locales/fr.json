@@ -48,6 +48,10 @@
     "controls.cancel": "Echap: annuler",
     "controls.pad_name": "Manette: %s",
     "controls.pad_disconnected": "Manette deconnectee",
+    "controls.vibration": "Vibrations",
+    "controls.vibration_test": "Tester la vibration",
+    "controls.unavailable": "indisponible",
+    "controls.no_vibration": "Cette manette ne peut pas vibrer",
     "controls.key_used_by_button": "%s sert deja a un bouton",
     "controls.key_used_by_screenshot": "%s sert deja a la capture",
 

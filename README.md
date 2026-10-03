@@ -163,6 +163,20 @@ Les boutons et les deux actions se redéfinissent dans l'onglet **Manette** de l
 d'onglet). Il est grisé tant qu'aucune manette n'est connectée. Les libellés affichés suivent la
 famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 
+### Vibrations
+
+Les cartouches vibrantes (Pokémon Pinball, Perfect Dark, Top Gear Rally…) font vibrer la
+manette. La force suit celle du moteur de la cartouche, que le jeu fait varier. Les autres jeux
+ne font jamais vibrer.
+
+L'entrée **Vibrations** de l'onglet Manette les active ou les coupe (activées par défaut), et
+**Tester la vibration** fait vibrer la manette une demi-seconde.
+
+gbe ne peut pas toujours savoir si une manette vibre. Il le sait sous Windows : seules les
+manettes XInput (Xbox et compatibles) y vibrent, et les entrées sont grisées pour les autres.
+Sous macOS (manettes Xbox, PlayStation, MFi) et Linux (manettes à retour de force), le test
+permet de vérifier.
+
 ## Save states
 
 - **À la fermeture** : quand on quitte (menu « Quitter » ou fermeture de la fenêtre), l'état

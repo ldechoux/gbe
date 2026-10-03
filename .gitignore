@@ -12,3 +12,4 @@
 /benchrom/*.sym
 /benchrom/*.map
 /benchrom/*.o
+/bench/testdata/

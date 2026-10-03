@@ -235,12 +235,33 @@ PR, mis à jour à chaque push : médianes, test statistique, 🟢 au-delà de 5
 au-delà de 10 % plus lent. Il est informatif : les machines de la CI sont partagées, donc
 bruitées, et il ne fait jamais échouer la PR.
 
+Le même workflow se lance aussi à la main, pour comparer deux versions quelconques : tags,
+branches ou commits. Dans l'onglet Actions de GitHub, choisir « Benchmarks » puis
+« Run workflow ». Ou en ligne de commande :
+
+```sh
+gh workflow run bench.yml -f base=v0.1.4 -f head=main
+```
+
+Les deux versions exécutent alors les mêmes benchmarks, ceux de [`bench/`](bench/bench_test.go),
+avec la même ROM de benchmark. Ces benchmarks n'utilisent que l'API présente dans toutes les
+versions, ce qui permet de mesurer aussi les releases plus anciennes que les benchmarks. Ce
+qu'une version ne sait pas faire est ignoré : le mode Game Boy Color avant v0.1.3, les
+snapshots avant v0.1.4. Le rapport est dans le résumé de l'exécution.
+
 La même comparaison en local, par exemple avec `main` :
 
 ```sh
 git worktree add /tmp/gbe-main main
 tools/benchcompare.sh /tmp/gbe-main . 10 /tmp/bench
 go run ./tools/benchreport -base main -head branche /tmp/bench/base.txt /tmp/bench/head.txt
+```
+
+Avec `HARNESS=bench`, les deux versions exécutent les benchmarks de `bench/` :
+
+```sh
+git worktree add /tmp/gbe-v0.1.4 v0.1.4
+HARNESS=bench tools/benchcompare.sh /tmp/gbe-v0.1.4 . 10 /tmp/bench
 ```
 
 Le binaire est compilé avec l'optimisation guidée par profil (PGO) : `go build` utilise

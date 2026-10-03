@@ -7,3 +7,8 @@
 /roms/
 *.state
 *.state.tmp
+
+# Benchmark ROM build by-products
+/benchrom/*.sym
+/benchrom/*.map
+/benchrom/*.o

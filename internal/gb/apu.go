@@ -105,6 +105,12 @@ type APU struct {
 	seqTimer int
 	seqStep  int
 
+	// The channel timers are only brought up to date when one of them
+	// expires, or before anything else uses them: pending T-cycles are not
+	// applied yet, and the first timer expires in untilClock T-cycles.
+	pending    int
+	untilClock int
+
 	samplePeriod float64 // T-cycles per output sample
 	sampleClock  float64
 	accL, accR   float64
@@ -164,6 +170,8 @@ func (a *APU) read(addr uint16) byte {
 
 func (a *APU) write(addr uint16, v byte) {
 	a.mixValid = false
+	a.catchUp()
+	a.untilClock = 0 // the write may change a timer: check on the next tick
 	off := addr - 0xFF10
 	if addr >= 0xFF30 {
 		a.regs[off] = v
@@ -371,9 +379,24 @@ func (a *APU) tick(cycles int) {
 			a.sequencerStep()
 			a.mixValid = false
 		}
-		a.clockChannels(cycles)
+		a.pending += cycles
+		if a.pending >= a.untilClock {
+			a.clockChannels(a.pending)
+			a.pending = 0
+			a.untilClock = min(a.ch[0].timer, a.ch[1].timer, a.ch[2].timer, a.ch[3].timer)
+		}
 	}
 	a.mix(cycles)
+}
+
+// catchUp applies the pending T-cycles to the channel timers. None of them
+// expires, so the channels stay where they are.
+func (a *APU) catchUp() {
+	if a.pending > 0 {
+		a.clockChannels(a.pending)
+		a.untilClock -= a.pending
+		a.pending = 0
+	}
 }
 
 func (a *APU) clockChannels(cycles int) {

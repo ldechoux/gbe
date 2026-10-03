@@ -21,3 +21,5 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
+
+replace github.com/hajimehoshi/ebiten/v2 => github.com/ldechoux/ebiten/v2 v2.10.5-0.20261003193841-969f06bf0d4f

@@ -167,6 +167,7 @@ func (p *PPU) tick(dots int) {
 		return
 	}
 	p.dot += dots
+	mode, ly := p.mode, p.ly
 	switch p.mode {
 	case 2:
 		if p.dot >= 80 {
@@ -203,7 +204,11 @@ func (p *PPU) tick(dots int) {
 			}
 		}
 	}
-	p.updateStat()
+	// The other inputs of the STAT line only change through write, which
+	// updates it.
+	if p.mode != mode || p.ly != ly {
+		p.updateStat()
+	}
 }
 
 func (p *PPU) tileRow(bank int, tile byte, row int, signed bool) (lo, hi byte) {

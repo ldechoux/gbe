@@ -14,6 +14,7 @@ import (
 
 func main() {
 	romPath := flag.String("rom", "", "ROM to run")
+	drop := flag.Bool("drop", false, "capture the drop screen instead, the ROMs given as arguments listed as recent games")
 	model := flag.String("model", "gb", "gb or gbc")
 	var opts ui.CaptureOptions
 	flag.StringVar(&opts.Dir, "out", "", "output directory")
@@ -24,6 +25,12 @@ func main() {
 	flag.StringVar(&opts.Language, "lang", "fr", "user interface language")
 	flag.Parse()
 
+	if *drop {
+		if err := ui.CaptureDrop(flag.Args(), opts); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	rom, err := os.ReadFile(*romPath)
 	if err != nil {
 		log.Fatal(err)

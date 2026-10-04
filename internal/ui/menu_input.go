@@ -26,11 +26,19 @@ func (a menuActions) or(b menuActions) menuActions {
 // while it is held. d is the number of ticks it has been held.
 func repeatTick(d int) bool { return d == 1 || (d > 20 && d%5 == 0) }
 
+// The keyboard state, replaced in tests.
+var (
+	keyDuration = inpututil.KeyPressDuration
+	pressedKeys = func() []ebiten.Key { return inpututil.AppendPressedKeys(nil) }
+)
+
 func pressed(k ebiten.Key) bool { return inpututil.IsKeyJustPressed(k) }
 
-func repeated(k ebiten.Key) bool { return repeatTick(inpututil.KeyPressDuration(k)) }
-
-func keyboardActions() menuActions {
+// keyboardActions reads the menu actions of the keyboard. The stale keys
+// (see Game.staleKeys) do not count: they may be held only because their
+// release was lost.
+func keyboardActions(stale map[ebiten.Key]bool) menuActions {
+	repeated := func(k ebiten.Key) bool { return !stale[k] && repeatTick(keyDuration(k)) }
 	return menuActions{
 		up:    repeated(ebiten.KeyArrowUp),
 		down:  repeated(ebiten.KeyArrowDown),

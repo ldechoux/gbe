@@ -15,7 +15,6 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/gomono"
 
-	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
 )
 
@@ -101,9 +100,10 @@ func onOff(l *i18n.Locale, on bool) string {
 	return l.T("setting.off")
 }
 
-// fullscreenLabel names the display mode: full screen or window.
-func fullscreenLabel(l *i18n.Locale) string {
-	if ebiten.IsFullscreen() {
+// fullscreenLabel names the display mode: full screen or window, or the
+// one the window switches to.
+func fullscreenLabel(l *i18n.Locale, g *Game) string {
+	if g.fullscreen() {
 		return l.T("fullscreen.on")
 	}
 	return l.T("fullscreen.off")
@@ -426,7 +426,7 @@ func (m *menu) adjustDisplay(g *Game, delta int) {
 		g.saveConfig()
 	case displayScale:
 		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
-		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
+		g.applyScale()
 		g.saveConfig()
 	case displayMonitor:
 		g.cycleMonitor(delta)
@@ -719,7 +719,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 			l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
 			l.T("menu.scale", g.cfg.Scale),
 			monitorEntry(l, g),
-			l.T("menu.fullscreen", fullscreenLabel(l)),
+			l.T("menu.fullscreen", fullscreenLabel(l, g)),
 			l.T("menu.filter", l.T("filter."+g.filter().ID)),
 			l.T("menu.ghosting", ghostingLabel(l, g.cfg.Ghosting)),
 			l.T("display.back"),

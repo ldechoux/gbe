@@ -80,8 +80,11 @@ func (g *Game) restoreMonitor() {
 }
 
 // cycleMonitor moves the window to the previous (-1) or next (1) monitor,
-// which the next launch restores.
+// which the next launch restores. It waits for a full screen switch to end.
 func (g *Game) cycleMonitor(delta int) {
+	if g.screenBusy() {
+		return // a full screen switch is under way
+	}
 	names := g.monitors.names()
 	n := len(names)
 	if n == 0 {
@@ -89,6 +92,7 @@ func (g *Game) cycleMonitor(delta int) {
 	}
 	i := (g.monitors.current() + delta%n + n) % n
 	g.monitors.use(i)
+	g.switchingScreen() // the full screen moves along
 	g.cfg.Monitor, g.cfg.MonitorIndex = names[i], i
 	g.saveConfig()
 }

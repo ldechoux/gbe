@@ -100,6 +100,20 @@ type Game struct {
 	fps      fpsCounter
 	quit     bool
 
+	// The window is left alone until screenBusyUntil (a tick), while it
+	// switches to or from the full screen (see screen.go). Then
+	// screenCheck reads the mode it ended in, and sizePending applies the
+	// scale chosen meanwhile.
+	screenBusyUntil int64
+	screenCheck     bool
+	sizePending     bool
+	// fullscreenPending asks for cfg.Fullscreen at the tick fullscreenAt.
+	fullscreenAt      int64
+	fullscreenPending bool
+	// staleKeys were held during a switch, which may have lost their
+	// release: they are ignored until it is seen (see screen.go).
+	staleKeys map[ebiten.Key]bool
+
 	rewind     rewinder
 	rumble     rumbler
 	rewindTick int      // ticks spent rewinding, which steps back every other tick
@@ -172,6 +186,9 @@ func Run(opts Options) error {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	g.restoreMonitor()
 	ebiten.SetFullscreen(cfg.Fullscreen)
+	if cfg.Fullscreen {
+		g.switchingScreen()
+	}
 	ebiten.SetTPS(60)
 
 	err = ebiten.RunGame(g)
@@ -186,14 +203,6 @@ func (g *Game) filter() *scaler.Filter { return &scaler.Filters[scaler.Index(g.c
 func (g *Game) cycleFilter(delta int) {
 	n := len(scaler.Filters)
 	g.cfg.Filter = scaler.Filters[(scaler.Index(g.cfg.Filter)+delta%n+n)%n].ID
-	g.saveConfig()
-}
-
-// toggleFullscreen switches between the window and the full screen, which
-// the next launch restores.
-func (g *Game) toggleFullscreen() {
-	g.cfg.Fullscreen = !ebiten.IsFullscreen()
-	ebiten.SetFullscreen(g.cfg.Fullscreen)
 	g.saveConfig()
 }
 
@@ -415,10 +424,11 @@ func (g *Game) Update() error {
 	if g.cfg.Screenshot.justPressed() && g.gb != nil {
 		g.screenshot()
 	}
+	g.settleScreen()
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		g.toggleFullscreen()
 	}
-	g.actions = keyboardActions().or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
+	g.actions = keyboardActions(g.staleKeys).or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
 	if g.menu.open {
 		g.rumble.stop(g.pads) // the game is paused
 		g.menu.update(g)

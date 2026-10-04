@@ -17,6 +17,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -106,6 +108,7 @@ func buildPage(repo string, all []Release) page {
 		if r.Draft {
 			continue
 		}
+		r.BodyHTML = newTabLinks(r.BodyHTML)
 		p.Releases = append(p.Releases, r)
 		if p.Latest == nil && !r.Prerelease {
 			latest := r
@@ -135,6 +138,30 @@ func buildPage(repo string, all []Release) page {
 		}
 	}
 	return p
+}
+
+var (
+	anchorTag = regexp.MustCompile(`<a\b[^>]*>`)
+	relAttr   = regexp.MustCompile(`\brel="([^"]*)"`)
+)
+
+// newTabLinks makes the links of release notes open in a new tab, like the
+// other links of the page that leave it: target="_blank", and rel="noopener"
+// added to the rel GitHub may already give them (e.g. "nofollow").
+func newTabLinks(html string) string {
+	return anchorTag.ReplaceAllStringFunc(html, func(tag string) string {
+		if !strings.Contains(tag, `href="http`) || strings.Contains(tag, "target=") {
+			return tag
+		}
+		if m := relAttr.FindStringSubmatch(tag); m != nil {
+			if !slices.Contains(strings.Fields(m[1]), "noopener") {
+				tag = strings.Replace(tag, m[0], `rel="`+strings.TrimSpace(m[1]+" noopener")+`"`, 1)
+			}
+		} else {
+			tag = `<a rel="noopener"` + tag[len("<a"):]
+		}
+		return `<a target="_blank"` + tag[len("<a"):]
+	})
 }
 
 func copyFile(dst, src string) error {

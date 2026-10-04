@@ -112,6 +112,10 @@ note doit se suffire à elle-même : ne pas renvoyer à une note plus ancienne, 
 plus détaillée sur le site. Si l'utilisateur change le nombre de notes détaillées, modifier
 `detailedReleases` et son test dans `tools/sitegen`, puis ce paragraphe.
 
+Les liens d'une note s'ouvrent dans un nouvel onglet sur le site, comme tous les liens qui
+quittent la page : `tools/sitegen` leur ajoute `target="_blank"` et `rel="noopener"`
+(`newTabLinks`). La note s'écrit donc en Markdown ordinaire, sans HTML pour ses liens.
+
 ## 4. Relire
 
 Avant de créer le brouillon :

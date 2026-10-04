@@ -78,6 +78,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée de la page Affichage qui active la colorisation des jeux DMG (appliquée par Réinitialiser), absente pour les jeux Game Boy Color et avec `-model` |
 | `setting.on` | | Réglage activé |
 | `setting.off` | | Réglage désactivé |
+| `menu.recent` | | Entrée qui ouvre la page Jeux récents (grisée tant qu'aucun jeu n'a été lancé) |
 | `menu.display` | | Entrée qui ouvre la page Affichage |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
@@ -131,6 +132,46 @@ Ses entrées réutilisent les libellés `menu.palette` (ou `menu.colors`), `menu
 `01` mois, `2006` année, `15` heure, `04` minutes. Exemple : `02/01/2006 a 15:04` donne
 `27/09/2026 a 11:30`. Le reste du texte (`a`, `at`) est recopié tel quel, à condition de ne
 contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interpréterait.
+
+### `drop.*` — écran d'accueil (lancé sans ROM)
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `drop.title` | | Invite à déposer une ROM sur la fenêtre |
+| `drop.formats` | | Formats acceptés, sous l'invite |
+| `drop.hint` | | Aide en bas de l'écran : comment ouvrir le menu |
+| `drop.recent` | | Titre de la liste des derniers jeux lancés, sous l'invite |
+| `drop.hint_recent` | | Aide en bas de l'écran quand la liste des derniers jeux est affichée : comment lancer un jeu et ouvrir le menu |
+
+### `switch.*` — page Nouveau jeu (une ROM déposée pendant une partie)
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `switch.title` | | Titre de la page |
+| `switch.launch` | `%s` titre du jeu déposé | Entrée qui lance le jeu déposé |
+| `switch.keep` | | Entrée qui garde la partie en cours |
+| `switch.footer` | | Bas de la page : la partie en cours sera sauvegardée avant de changer de jeu |
+
+### `recent.*` — page Jeux récents (menu Pause)
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `recent.title` | | Titre de la page |
+| `recent.current` | `%s` titre du jeu | Le jeu de la liste qui est en cours |
+| `recent.back` | | Entrée qui revient au menu Pause |
+| `recent.footer` | | Bas de la page : la partie en cours sera sauvegardée avant de changer de jeu |
+
+### `error.*` — fichier déposé qui ne peut pas être lancé (notification)
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `error.not_rom_ext` | `%s` nom du fichier | L'extension n'est ni `.gb`, ni `.gbc`, ni `.zip` |
+| `error.folder` | | Un dossier a été déposé |
+| `error.zip_empty` | | L'archive zip ne contient aucune ROM |
+| `error.not_gb` | | Le fichier est trop petit ou trop gros pour une ROM |
+| `error.unsupported_cart` | `%s` type de cartouche, en hexadécimal (`0x22`) | La cartouche utilise un contrôleur (MBC) non émulé |
+| `error.recent_missing` | `%s` titre du jeu | Le jeu choisi dans la liste des derniers jeux n'existe plus : il est retiré de la liste |
+| `error.unreadable` | `%s` nom du fichier | Le fichier ne peut pas être lu (ou la boot ROM est invalide) |
 
 ### `controls.*` — page Contrôles
 
@@ -187,6 +228,8 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `toast.state_restored` | | L'état a été rechargé |
 | `toast.screenshot` | `%s` nom du fichier | Capture d'écran enregistrée |
 | `toast.screenshot_failed` | `%s` erreur | La capture d'écran a échoué |
+| `toast.game_loaded` | `%s` titre du jeu | Un jeu déposé sur la fenêtre a démarré |
+| `toast.same_game` | | Le jeu déposé est celui en cours |
 | `toast.restart_failed` | `%s` erreur | Le redémarrage dans le mode choisi a échoué |
 
 ### `title.*` — titre de la fenêtre

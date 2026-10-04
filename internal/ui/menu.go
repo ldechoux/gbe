@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -28,7 +29,9 @@ const (
 	pageMain menuPage = iota
 	pageControls
 	pageDisplay
-	pageStart // shown at launch when a save state exists
+	pageStart  // shown at launch when a save state exists
+	pageSwitch // shown when a game is dropped on the window during another
+	pageRecent // the last games played, to launch one
 )
 
 // Start page entries.
@@ -38,9 +41,17 @@ const (
 	startItems
 )
 
+// Switch page entries.
+const (
+	switchLaunch = iota
+	switchKeep
+	switchItems
+)
+
 // Main page entries.
 const (
 	itemResume = iota
+	itemRecent
 	itemDisplay
 	itemControls
 	itemVolume
@@ -174,6 +185,32 @@ func (m *menu) showStart() {
 	*m = menu{open: true, page: pageStart}
 }
 
+// showSwitch asks whether to launch the game dropped on the window
+// (Game.pending) or to keep playing.
+func (m *menu) showSwitch() {
+	*m = menu{open: true, page: pageSwitch}
+}
+
+// keepPlaying forgets the dropped game. The game in progress goes on, or, if
+// the player had not chosen yet, the resume prompt comes back.
+func (m *menu) keepPlaying(g *Game) {
+	g.pending = nil
+	if !g.started {
+		m.showStart()
+		return
+	}
+	m.open = false
+}
+
+// mainDisabled reports whether the main page entry i is greyed out: those
+// about the game, while there is none.
+func mainDisabled(g *Game, i int) bool {
+	if i == itemRecent {
+		return len(g.cfg.Recent) == 0
+	}
+	return g.gb == nil && (i == itemSaveState || i == itemLoadState || i == itemReset)
+}
+
 // displayEntries lists the entries of the display page shown for this game:
 // the colorization setting only applies to DMG games.
 func displayEntries(g *Game) []int {
@@ -190,7 +227,11 @@ func displayEntries(g *Game) []int {
 // the cursor is the entry itself (displayPalette...), whichever are hidden.
 func (m *menu) move(g *Game, delta int) {
 	if m.page != pageDisplay {
-		m.cursor = (m.cursor + m.itemCount() + delta) % m.itemCount()
+		n := m.itemCount(g)
+		m.cursor = (m.cursor + n + delta) % n
+		for m.page == pageMain && mainDisabled(g, m.cursor) {
+			m.cursor = (m.cursor + n + delta) % n
+		}
 		return
 	}
 	entries := displayEntries(g)
@@ -198,7 +239,7 @@ func (m *menu) move(g *Game, delta int) {
 	m.cursor = entries[(i+len(entries)+delta)%len(entries)]
 }
 
-func (m *menu) itemCount() int {
+func (m *menu) itemCount(g *Game) int {
 	switch m.page {
 	case pageControls:
 		if m.tab == tabPad {
@@ -209,6 +250,10 @@ func (m *menu) itemCount() int {
 		return displayItems
 	case pageStart:
 		return startItems
+	case pageSwitch:
+		return switchItems
+	case pageRecent:
+		return len(g.cfg.Recent) + 1 // and Back
 	}
 	return mainItems
 }
@@ -216,8 +261,11 @@ func (m *menu) itemCount() int {
 // backToMain leaves a page opened from the main one, back on its entry.
 func (m *menu) backToMain() {
 	cursor := itemControls
-	if m.page == pageDisplay {
+	switch m.page {
+	case pageDisplay:
 		cursor = itemDisplay
+	case pageRecent:
+		cursor = itemRecent
 	}
 	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, cursor, "", 0
 }
@@ -240,13 +288,19 @@ func (m *menu) update(g *Game) {
 	a := g.actions
 	switch {
 	case a.toggle:
-		if m.page != pageStart {
+		switch m.page {
+		case pageStart: // a choice is required
+		case pageSwitch:
+			m.keepPlaying(g)
+		default:
 			m.open = false
 		}
 	case a.back:
 		switch m.page {
 		case pageStart: // a choice is required
-		case pageControls, pageDisplay:
+		case pageSwitch:
+			m.keepPlaying(g)
+		case pageControls, pageDisplay, pageRecent:
 			m.backToMain()
 		default:
 			m.open = false
@@ -394,6 +448,25 @@ func (m *menu) switchTab(g *Game, delta int) {
 }
 
 func (m *menu) activate(g *Game) {
+	if m.page == pageSwitch {
+		if m.cursor == switchLaunch && g.pending != nil {
+			g.switchGame(g.pending) // opens the resume prompt, or closes the menu
+		} else {
+			m.keepPlaying(g)
+		}
+		return
+	}
+	if m.page == pageMain && mainDisabled(g, m.cursor) {
+		return
+	}
+	if m.page == pageRecent {
+		if m.cursor >= len(g.cfg.Recent) {
+			m.backToMain()
+		} else {
+			g.playRecent(m.cursor) // closes the menu once launched
+		}
+		return
+	}
 	if m.page == pageStart {
 		m.open = false
 		switch {
@@ -450,6 +523,8 @@ func (m *menu) activate(g *Game) {
 		m.open = false
 	case itemVolume, itemSpeed, itemLanguage:
 		m.adjust(g, 1)
+	case itemRecent:
+		m.page, m.cursor, m.width = pageRecent, 0, 0
 	case itemDisplay:
 		m.page, m.cursor, m.width = pageDisplay, displayPalette, 0
 	case itemControls:
@@ -504,8 +579,18 @@ func (m *menu) view(g *Game) menuView {
 	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
-	if m.page == pageDisplay {
+	switch m.page {
+	case pageDisplay:
 		v.selected = slices.Index(displayEntries(g), m.cursor)
+	case pageMain:
+		for i := range items {
+			if mainDisabled(g, i) {
+				if v.disabled == nil {
+					v.disabled = map[int]bool{}
+				}
+				v.disabled[i] = true
+			}
+		}
 	}
 	return v
 }
@@ -583,6 +668,33 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("start.title"), []string{l.T("start.resume"), l.T("start.fresh")}, footer
 	}
+	if m.page == pageSwitch {
+		name := ""
+		if g.pending != nil {
+			name = g.pending.Title
+			if name == "" {
+				name = filepath.Base(g.pending.Path)
+			}
+		}
+		if g.started {
+			footer = l.T("switch.footer")
+		}
+		return l.T("switch.title"), []string{l.T("switch.launch", name), l.T("switch.keep")}, footer
+	}
+	if m.page == pageRecent {
+		for _, r := range g.cfg.Recent {
+			name := recentName(r)
+			if sameFile(r.Path, g.romPath) {
+				name = l.T("recent.current", name)
+			}
+			items = append(items, name)
+		}
+		items = append(items, l.T("recent.back"))
+		if g.gb != nil && g.started {
+			footer = l.T("recent.footer")
+		}
+		return l.T("recent.title"), items, footer
+	}
 	if m.page == pageDisplay {
 		labels := []string{
 			paletteLabel(l, g),
@@ -599,6 +711,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	}
 	items = []string{
 		l.T("menu.resume"),
+		l.T("menu.recent"),
 		l.T("menu.display"),
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),

@@ -48,6 +48,15 @@ type Config struct {
 	// CompatPalettes is the palette chosen for a colorized DMG game, by
 	// title (see compatPaletteID). Absent: the one the boot ROM picks.
 	CompatPalettes map[string]string `json:"compat_palettes"`
+	// Recent are the last games played, the latest first, which the drop
+	// screen offers to launch again (see maxRecent).
+	Recent []RecentGame `json:"recent"`
+}
+
+// RecentGame is a game of Config.Recent.
+type RecentGame struct {
+	Path  string `json:"path"`  // absolute
+	Title string `json:"title"` // from the cartridge header
 }
 
 // Ghosting modes (Config.Ghosting), in the order of the menu.
@@ -186,6 +195,11 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.Vibration = *loaded.Vibration
 	}
 	cfg.Ghosting, cfg.Fullscreen = loadGhosting(loaded.Ghosting), loaded.Fullscreen
+	for _, r := range loaded.Recent {
+		if r.Path != "" && len(cfg.Recent) < maxRecent {
+			cfg.Recent = append(cfg.Recent, r)
+		}
+	}
 	for title, id := range loaded.CompatPalettes {
 		if compatPaletteIndex(id) != gb.CompatAuto {
 			cfg.CompatPalettes[title] = id

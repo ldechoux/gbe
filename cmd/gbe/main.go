@@ -3,18 +3,16 @@ package main
 
 import (
 	"encoding/binary"
-	"errors"
 	"flag"
 	"fmt"
 	"image/png"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui"
 	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
@@ -23,7 +21,7 @@ import (
 var version = "dev"
 
 func main() {
-	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument)")
+	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument; without one, the window waits for a ROM dropped on it)")
 	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
 	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
@@ -45,23 +43,12 @@ func main() {
 	if *romPath == "" && flag.NArg() > 0 {
 		*romPath = flag.Arg(0)
 	}
-	if *romPath == "" {
+	if *romPath == "" && *frames > 0 {
 		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb|game.gbc|game.zip")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
 
-	rom, entry, err := readROM(*romPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if entry != "" {
-		log.Printf("%s: %s", *romPath, entry)
-	}
-	cart, err := gb.NewCartridge(rom)
-	if err != nil {
-		log.Fatal(err)
-	}
 	model, err := parseModel(*modelName)
 	if err != nil {
 		log.Fatal(err)
@@ -77,72 +64,36 @@ func main() {
 	if err != nil {
 		log.Printf("config %s: %v (using defaults)", configPath, err)
 	}
-	preferred := gb.ResolveModel(cart, model)
-	if model == gb.ModelAuto && !cart.ColorSupported() && cfg.ColorizeDMG {
-		preferred = gb.ModelCGB // a Game Boy Color colorizes DMG games (opt-in)
-	}
-	base := romBase(*romPath)
-	savePath, statePath := base+".sav", base+".state"
-	if cart.Battery {
-		if data, err := os.ReadFile(savePath); err == nil {
-			cart.LoadSaveData(data)
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			log.Printf("reading save: %v", err)
-		}
-	}
+	opts := rom.Options{Model: model, BootROM: *biosPath, Colorize: cfg.ColorizeDMG, Fresh: *frames > 0}
 
-	newConsole := func(model gb.Model) (*gb.GameBoy, error) {
-		path := *biosPath
-		if path == "" {
-			path = "bios/gb_bios.bin"
-			if model == gb.ModelCGB {
-				path = "bios/gbc_bios.bin"
-			}
+	// Without a ROM, the window asks for one to be dropped on it.
+	var game *rom.Game
+	if *romPath != "" {
+		if game, err = rom.Open(*romPath, opts); err != nil {
+			log.Fatal(err)
 		}
-		var boot []byte
-		if path != "none" {
-			var err error
-			if boot, err = os.ReadFile(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return nil, err
-			}
-		}
-		return gb.NewModel(cart, boot, model)
-	}
-
-	// Left to auto, the console starts in the hardware mode of the save
-	// state, which could not be resumed otherwise (e.g. after colorizing DMG
-	// games). The menu goes to the preferred one when the player starts over
-	// or resets.
-	launch := preferred
-	if data, err := os.ReadFile(statePath); err == nil && model == gb.ModelAuto && *frames == 0 {
-		if m, err := gb.StateModel(data); err == nil && (m == gb.ModelDMG || m == gb.ModelCGB) {
-			launch = m
-		}
-	}
-	console, err := newConsole(launch)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	if *frames > 0 {
-		if err := runHeadless(console, *frames, *inputs, *shot, *wav); err != nil {
+		if err := runHeadless(game.Console, *frames, *inputs, *shot, *wav); err != nil {
 			log.Fatal(err)
 		}
 		return
 	}
 
 	if err := ui.Run(ui.Options{
-		GameBoy:    console,
-		Title:      cart.Title,
-		SavePath:   savePath,
-		StatePath:  statePath,
+		Game:       game,
 		ConfigPath: configPath,
 		Scale:      *scale,
 		Filter:     *filterName,
 
 		ScreenshotDir: *shotDir,
-		AutoModel:     model == gb.ModelAuto,
-		NewConsole:    newConsole,
+		// A dropped game opens with the same -model and -bios.
+		Open: func(path string, colorize bool) (*rom.Game, error) {
+			o := opts
+			o.Colorize, o.Strict = colorize, true
+			return rom.Open(path, o)
+		},
 	}); err != nil {
 		log.Fatal(err)
 	}
@@ -160,17 +111,6 @@ func parseModel(name string) (gb.Model, error) {
 		return gb.ModelCGB, nil
 	}
 	return 0, fmt.Errorf("unknown model %q (want auto, gb or gbc)", name)
-}
-
-// romBase is the ROM path without its .gb, .gbc or .zip extension, to which
-// the save files extensions are appended: the saves of a zipped ROM sit next
-// to the archive, which is never written.
-func romBase(path string) string {
-	ext := filepath.Ext(path)
-	if isROMName(path) || strings.EqualFold(ext, ".zip") {
-		return strings.TrimSuffix(path, ext)
-	}
-	return path
 }
 
 type press struct {

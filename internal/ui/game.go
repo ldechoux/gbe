@@ -19,6 +19,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
+	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
@@ -29,21 +30,18 @@ const (
 
 // Options configures Run.
 type Options struct {
-	GameBoy    *gb.GameBoy
-	Title      string
-	SavePath   string // battery save file
-	StatePath  string // save state, written on exit and offered on launch
+	// Game runs at launch; nil shows a screen asking for a ROM to be
+	// dropped on the window. Its save state is written on exit and offered
+	// on launch.
+	Game       *rom.Game
 	ConfigPath string // "" for DefaultConfigPath()
 	Scale      int    // 0 to use the configured scale
 	Filter     string // "" to use the configured filter (see scaler.Filters)
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
 	ScreenshotDir string
-	// AutoModel is set when the hardware was left to auto: the settings then
-	// decide it (a DMG game is colorized or not), and NewConsole builds the
-	// console again when they change. GameBoy may still run in the other
-	// mode, that of its save state, so it can be resumed (see cmd/gbe).
-	AutoModel  bool
-	NewConsole func(gb.Model) (*gb.GameBoy, error)
+	// Open opens a game dropped on the window, colorize being the setting
+	// of the menu (see rom.Options).
+	Open func(path string, colorize bool) (*rom.Game, error)
 }
 
 // Game implements ebiten.Game.
@@ -56,10 +54,20 @@ type Game struct {
 	stateTime time.Time // modification time of the save state, if any
 	started   bool      // false while the resume prompt is shown
 	title     string
+	romPath   string // the file the game was opened from
 	shotDir   string
 
-	autoModel  bool                                // see Options
-	newConsole func(gb.Model) (*gb.GameBoy, error) // same
+	// autoModel is set when the hardware was left to auto: the settings
+	// then decide it (a DMG game is colorized or not), and newConsole builds
+	// the console again when they change. gb may still run in the other
+	// mode, that of its save state, so it can be resumed (see rom.Open).
+	autoModel  bool
+	newConsole func(gb.Model) (*gb.GameBoy, error)
+
+	open    func(path string, colorize bool) (*rom.Game, error) // see Options
+	pending *rom.Game                                           // dropped, waiting for the player's choice (pageSwitch)
+
+	recentCursor int // the recent game selected on the drop screen
 
 	lcd      *ebiten.Image
 	lcdFrame lcdFrame        // the frame in lcd
@@ -128,15 +136,10 @@ func Run(opts Options) error {
 		opts.ScreenshotDir = DefaultScreenshotDir()
 	}
 	g := &Game{
-		gb:          opts.GameBoy,
 		cfg:         cfg,
 		cfgPath:     cfgPath,
-		savePath:    opts.SavePath,
-		statePath:   opts.StatePath,
-		title:       opts.Title,
 		shotDir:     opts.ScreenshotDir,
-		autoModel:   opts.AutoModel,
-		newConsole:  opts.NewConsole,
+		open:        opts.Open,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream:      &audioStream{},
@@ -144,8 +147,6 @@ func Run(opts Options) error {
 		ignoredPad:  map[padButton]bool{},
 		pads:        &ebitenPads{},
 	}
-
-	g.keepPrevious() // nothing to blend with yet
 
 	ctx := audio.NewContext(sampleRate)
 	g.player, err = ctx.NewPlayer(g.stream)
@@ -156,25 +157,20 @@ func Run(opts Options) error {
 	g.player.SetVolume(cfg.Volume)
 	g.player.Play()
 
-	if fi, err := os.Stat(g.statePath); g.statePath != "" && err == nil {
-		g.stateTime = fi.ModTime()
-		g.menu.showStart()
-	} else {
-		g.started = true
+	// With a game, the title gets its name, and the frame rate every
+	// fpsRefreshInterval (see Update).
+	ebiten.SetWindowTitle("gbe")
+	g.pruneRecent()
+	if opts.Game != nil {
+		g.startGame(opts.Game)
 	}
-
-	// Updated with the frame rate every fpsRefreshInterval (see Update).
-	ebiten.SetWindowTitle(windowTitle(g.tr(), opts.Title, 0, !g.started))
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetFullscreen(cfg.Fullscreen)
 	ebiten.SetTPS(60)
 
 	err = ebiten.RunGame(g)
-	if g.started {
-		g.saveState() // so the next launch can resume
-	}
-	g.saveBattery()
+	g.closeGame() // so the next launch can resume
 	return err
 }
 
@@ -223,7 +219,7 @@ func (g *Game) saveConfig() {
 }
 
 func (g *Game) saveBattery() {
-	if !g.gb.Cart.Dirty() || g.savePath == "" {
+	if g.gb == nil || !g.gb.Cart.Dirty() || g.savePath == "" {
 		return
 	}
 	if err := os.WriteFile(g.savePath, g.gb.Cart.SaveData(), 0o644); err != nil {
@@ -405,10 +401,13 @@ func (g *Game) Update() error {
 		g.rumble.stop(g.pads)
 		return ebiten.Termination
 	}
-	if g.fps.update(time.Now()) {
+	if fsys := ebiten.DroppedFiles(); fsys != nil {
+		g.drop(fsys)
+	}
+	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}
-	if g.cfg.Screenshot.justPressed() {
+	if g.cfg.Screenshot.justPressed() && g.gb != nil {
 		g.screenshot()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
@@ -428,7 +427,11 @@ func (g *Game) Update() error {
 		return nil
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyP) && !g.cfg.bound(ebiten.KeyP) {
-		g.cyclePalette(1)
+		g.cyclePalette(1) // also colors the drop screen
+	}
+	if g.gb == nil {
+		g.updateDropScreen() // waiting for a ROM, dropped or recent
+		return nil
 	}
 
 	for k := range g.ignoredKeys {
@@ -510,6 +513,9 @@ func (g *Game) advance(fast, rewind bool) {
 // out of it (rewind, load, reset), it drops the ghost of an unrelated
 // frame: the previous frame is the current one.
 func (g *Game) keepPrevious() {
+	if g.gb == nil {
+		return
+	}
 	g.prevShades, g.prevColors = *g.gb.Framebuffer(), *g.gb.ColorFramebuffer()
 	g.prevColor = g.gb.IsCGB()
 }
@@ -532,6 +538,10 @@ func (g *Game) speedBadge() string {
 
 // drawFrame draws the last frame of the console on dst, with the filter.
 func (g *Game) drawFrame(dst *ebiten.Image) {
+	if g.gb == nil {
+		g.drawDropScreen(dst)
+		return
+	}
 	pal, correct := g.palette(), g.cfg.ColorCorrection
 	fr := scaler.Frame{
 		Image: g.lcd,

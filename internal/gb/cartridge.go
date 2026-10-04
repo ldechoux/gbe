@@ -42,12 +42,23 @@ type Cartridge struct {
 	motorTime  uint64 // T-cycles the motor ran since the last count
 }
 
+// ErrROMTooSmall is returned for a file too short to hold a cartridge header.
+var ErrROMTooSmall = errors.New("rom too small")
+
+// CartridgeTypeError is returned for a cartridge whose MBC (header byte
+// 0x0147) is not emulated.
+type CartridgeTypeError byte
+
+func (e CartridgeTypeError) Error() string {
+	return fmt.Sprintf("unsupported cartridge type 0x%02X", byte(e))
+}
+
 var ramSizes = map[byte]int{0: 0, 1: 0x800, 2: 0x2000, 3: 0x8000, 4: 0x20000, 5: 0x10000}
 
 // NewCartridge parses the ROM header and sets up the matching MBC.
 func NewCartridge(rom []byte) (*Cartridge, error) {
 	if len(rom) < 0x150 {
-		return nil, errors.New("rom too small")
+		return nil, ErrROMTooSmall
 	}
 	c := &Cartridge{
 		Type: rom[0x147],
@@ -98,7 +109,7 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 		c.Battery = c.Type == 0x1B || c.Type == 0x1E
 		c.rumble = c.Type >= 0x1C
 	default:
-		return nil, fmt.Errorf("unsupported cartridge type 0x%02X", c.Type)
+		return nil, CartridgeTypeError(c.Type)
 	}
 	c.ram = make([]byte, ramSize)
 	return c, nil

@@ -32,13 +32,15 @@ func frameRGBA(dst []byte, src frameSource, pal *Palette, correct bool) {
 		for i, c := range pal.Colors {
 			shades[i] = packRGBA(c.R, c.G, c.B)
 		}
-		for i, s := range src.shades {
+		// Ranged over as a slice: the array pointer, from a struct, would
+		// otherwise be checked for nil at every pixel.
+		for i, s := range src.shades[:] {
 			binary.LittleEndian.PutUint32(dst[i*4:], shades[s&3])
 		}
 		return
 	}
-	lut := colorLUT(correct)
-	for i, c := range src.colors {
+	lut := colorLUT(correct)[:] // same for the table
+	for i, c := range src.colors[:] {
 		binary.LittleEndian.PutUint32(dst[i*4:], lut[c&0x7FFF])
 	}
 }

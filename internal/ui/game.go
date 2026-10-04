@@ -352,9 +352,10 @@ func (g *Game) restart() {
 	g.gb = console
 }
 
-// screenshot saves the current frame as a PNG, drawn like on the screen
-// (filter and ghosting) at the scale of the window, without the menu and
-// the notifications.
+// screenshot saves the screen as a PNG at the scale of the window: the
+// frame drawn with the filter and ghosting, and the menu when it is open
+// (to show it, on the project site for instance), without the
+// notifications.
 func (g *Game) screenshot() {
 	img := g.renderFrame(g.cfg.Scale)
 	path, err := saveScreenshot(g.shotDir, g.title, img, time.Now())
@@ -513,13 +514,17 @@ func (g *Game) drawFrame(dst *ebiten.Image) {
 }
 
 // renderFrame returns the last frame of the console drawn with the filter,
-// each Game Boy pixel taking scale x scale pixels.
+// each Game Boy pixel taking scale x scale pixels, and the menu over it
+// when it is open.
 func (g *Game) renderFrame(scale int) *image.RGBA {
 	scale = max(1, scale)
 	img := image.NewRGBA(image.Rect(0, 0, gb.ScreenWidth*scale, gb.ScreenHeight*scale))
 	dst := ebiten.NewImage(img.Rect.Dx(), img.Rect.Dy())
 	defer dst.Deallocate()
 	g.drawFrame(dst)
+	if g.menu.open {
+		g.menu.draw(dst, g)
+	}
 	dst.ReadPixels(img.Pix)
 	return img
 }

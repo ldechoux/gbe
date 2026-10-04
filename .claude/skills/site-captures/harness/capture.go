@@ -7,11 +7,13 @@ package ui
 import (
 	"image/png"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/rom"
 )
 
 // CaptureOptions describes one console's captures.
@@ -75,9 +77,57 @@ func Capture(console *gb.GameBoy, opts CaptureOptions) error {
 	cfg.Scale = opts.Scale
 	cfg.Filter = opts.Filter
 	cfg.Language = opts.Language
+	// A game played before: the Recent games entry of the menu is enabled,
+	// as for any player but the very first time.
+	cfg.Recent = []RecentGame{{Path: opts.Dir + "/played.gb", Title: "PLAYED"}}
 	g := &Game{gb: console, cfg: cfg, cfgPath: opts.Dir + "/config.json", title: "capture", shotDir: opts.Dir,
 		lcd: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight), stream: &audioStream{},
 		ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{}, pads: &ebitenPads{}, started: true}
 	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
 	return ebiten.RunGame(&captureGame{Game: g, opts: opts})
+}
+
+// dropCapture saves the drop screen, shown when gbe runs without a ROM.
+type dropCapture struct {
+	*Game
+	opts CaptureOptions
+}
+
+func (d *dropCapture) Update() error {
+	f, err := os.Create(d.opts.Dir + "/drop_screen.png")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := png.Encode(f, d.renderFrame(d.cfg.Scale)); err != nil {
+		return err
+	}
+	return ebiten.Termination
+}
+
+// CaptureDrop saves drop_screen.png in opts.Dir: the drop screen, its recent
+// games being roms (the first one selected), named by their header title
+// as gbe shows them. The palette is the default one; there is no filter
+// without a game.
+func CaptureDrop(roms []string, opts CaptureOptions) error {
+	cfg := DefaultConfig()
+	cfg.Scale = opts.Scale
+	cfg.Language = opts.Language
+	for _, path := range roms {
+		game, err := rom.Open(path, rom.Options{BootROM: "none", Fresh: true})
+		if err != nil {
+			return err
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		cfg.Recent = append(cfg.Recent, RecentGame{Path: abs, Title: game.Title})
+	}
+	g := &Game{cfg: cfg, cfgPath: opts.Dir + "/config.json", shotDir: opts.Dir,
+		lcd: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight), lcdPrev: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
+		stream: &audioStream{}, ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{},
+		pads: &ebitenPads{}, monitors: &ebitenMonitors{}}
+	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
+	return ebiten.RunGame(&dropCapture{Game: g, opts: opts})
 }

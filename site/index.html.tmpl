@@ -23,6 +23,7 @@
       <a href="#captures">Captures</a>
       <a href="#telecharger">Télécharger</a>
       <a href="#notes">Notes de version</a>
+      <a href="#credits">Crédits</a>
       <a href="https://github.com/{{.Repo}}">GitHub</a>
     </nav>
   </div>
@@ -307,6 +308,61 @@
   {{else}}
   <p class="section-lead">Pas encore de version publiée.</p>
   {{end}}
+  {{with .Older}}
+  <h3 class="subhead">Versions précédentes</h3>
+  <p class="section-lead">Leurs notes de version sont sur GitHub.</p>
+  <ul class="older-releases">
+    {{range .}}
+    <li><a href="{{.HTMLURL}}">{{.TagName}}</a> <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time></li>
+    {{end}}
+  </ul>
+  {{end}}
+</section>
+
+<section id="credits" class="wrap">
+  <h2>Crédits</h2>
+  <p class="section-lead">gbe s'appuie sur des projets libres et sur le travail de la communauté Game Boy. Merci à leurs auteurs.</p>
+  <h3 class="subhead">Bibliothèques</h3>
+  <div class="grid features credits">
+    <article class="card">
+      <h3><a href="https://ebitengine.org">Ebitengine</a></h3>
+      <p>Le moteur de jeu 2D en Go de Hajime Hoshi : fenêtre, rendu sur la carte graphique et shaders Kage des filtres, son, clavier et manettes. Avec <a href="https://github.com/ebitengine/oto">Oto</a> pour le son et <a href="https://github.com/ebitengine/purego">purego</a>, qui permet de se passer de cgo.</p>
+    </article>
+    <article class="card">
+      <h3><a href="https://go.dev">Go</a></h3>
+      <p>Le langage dans lequel gbe est écrit, de bout en bout.</p>
+    </article>
+  </div>
+  <h3 class="subhead">Inspirations</h3>
+  <div class="grid features credits">
+    <article class="card">
+      <h3><a href="https://sameboy.github.io">SameBoy</a></h3>
+      <p>L'émulateur Game Boy de Lior Halphon, réputé pour sa précision. gbe lui doit les palettes de sa boot ROM couleur libre, pour coloriser les jeux Game Boy, et le modèle de sa rémanence. Il sert aussi de référence pour valider l'image et le son. <a href="https://github.com/LIJI32/SameBoy">Code source</a>.</p>
+    </article>
+    <article class="card">
+      <h3>Algorithmes des filtres</h3>
+      <p><a href="https://casual-effects.com/research/McGuire2021PixelArt/">MMPX</a>, de Morgan McGuire et Mara Gagiu (2021), et <a href="https://www.scale2x.it">Scale2x et Scale3x</a>, d'Andrea Mazzoleni pour AdvanceMAME.</p>
+    </article>
+    <article class="card">
+      <h3><a href="https://github.com/higan-emu/higan">higan</a></h3>
+      <p>L'émulateur de byuu, d'où vient la formule de correction des couleurs de la Game Boy Color, qui retrouve le rendu plus pâle de son écran.</p>
+    </article>
+  </div>
+  <h3 class="subhead">Tests et outils</h3>
+  <div class="grid features credits">
+    <article class="card">
+      <h3><a href="https://github.com/retrio/gb-test-roms">Tests de blargg</a></h3>
+      <p>Les ROMs de test de Shay Green (blargg), qui vérifient le processeur, les timings et le son : gbe les réussit en Game Boy et en Game Boy Color.</p>
+    </article>
+    <article class="card">
+      <h3><a href="https://github.com/mattcurrie/dmg-acid2">dmg-acid2</a> et <a href="https://github.com/mattcurrie/cgb-acid2">cgb-acid2</a></h3>
+      <p>Les ROMs de test de Matt Currie pour l'affichage, que gbe rend au pixel près.</p>
+    </article>
+    <article class="card">
+      <h3><a href="https://rgbds.gbdev.io">RGBDS</a></h3>
+      <p>L'assembleur Game Boy de la communauté gbdev, avec lequel est construite la ROM de test de gbe.</p>
+    </article>
+  </div>
 </section>
 
 </main>

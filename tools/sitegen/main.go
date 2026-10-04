@@ -56,10 +56,15 @@ type page struct {
 	Repo      string
 	Latest    *Release
 	Platforms []Platform
-	Releases  []Release
+	Releases  []Release // the latest ones, shown with their notes
+	Older     []Release // the others, linked to their GitHub page
 	Palettes  []ui.Palette
 	Built     string
 }
+
+// detailedReleases is how many releases, the newest, the page shows with
+// their notes: the others are only linked, to keep the page short.
+const detailedReleases = 3
 
 var platforms = []Platform{
 	{ID: "macos", Name: "macOS", Note: "Binaire non signé : au premier lancement, clic droit > Ouvrir."},
@@ -106,6 +111,9 @@ func buildPage(repo string, all []Release) page {
 			latest := r
 			p.Latest = &latest
 		}
+	}
+	if len(p.Releases) > detailedReleases {
+		p.Releases, p.Older = p.Releases[:detailedReleases], p.Releases[detailedReleases:]
 	}
 	if p.Latest == nil {
 		return p

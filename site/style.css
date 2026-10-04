@@ -208,6 +208,12 @@ nav a:hover { color: var(--accent); }
 .shots img { display: block; width: 100%; height: auto; border: var(--px) solid var(--line); }
 .shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
+/* Drop screen, in the quick start */
+/* The width of a column of .shots (3 columns, 24px apart), centered. */
+.drop-shot { width: calc((100% - 48px) / 3); margin: 0 auto 24px; }
+.drop-shot img { display: block; width: 100%; height: auto; border: var(--px) solid var(--line); }
+.drop-shot figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
 /* Downloads */
 .downloads { grid-template-columns: repeat(3, 1fr); }
 .download ul { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
@@ -269,6 +275,7 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
   nav { gap: 12px; }
   nav a { font-size: 13px; }
   .features, .shots, .downloads, .lcd-shots { grid-template-columns: 1fr; }
+  .drop-shot { width: 100%; }
   .palettes { grid-template-columns: repeat(2, 1fr); }
   .bezel { padding: 12px 14px 16px; }
   .console-color { margin-top: 24px; }

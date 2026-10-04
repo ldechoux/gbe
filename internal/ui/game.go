@@ -421,7 +421,7 @@ func (g *Game) Update() error {
 	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}
-	if g.cfg.Screenshot.justPressed() && g.gb != nil {
+	if g.cfg.Screenshot.justPressed() {
 		g.screenshot()
 	}
 	g.settleScreen()

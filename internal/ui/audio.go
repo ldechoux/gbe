@@ -31,6 +31,14 @@ func (s *audioStream) push(samples []int16) {
 	}
 }
 
+// reset drops the queued audio, and the last frame repeated on underrun:
+// they belong to the game left.
+func (s *audioStream) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.buf, s.last = s.buf[:0], [2]int16{}
+}
+
 // buffered returns the number of queued stereo frames.
 func (s *audioStream) buffered() int {
 	s.mu.Lock()

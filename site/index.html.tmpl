@@ -78,7 +78,7 @@
     </article>
     <article class="card">
       <h3>Cartouches</h3>
-      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5, en <code>.gb</code> ou <code>.gbc</code>. Une archive <code>.zip</code> se lance telle quelle : la ROM est décompressée en mémoire et l'archive n'est jamais modifiée. Les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
+      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5. Une ROM <code>.gb</code>, <code>.gbc</code> ou compressée en <code>.zip</code> se lance en ligne de commande, ou en la déposant sur la fenêtre. L'archive n'est jamais modifiée, et les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
     </article>
     <article class="card">
       <h3>Save states et retour arrière</h3>
@@ -277,6 +277,7 @@
 
   <h3 class="subhead">Démarrage rapide</h3>
   <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code><code>./gbe mon-jeu.zip</code></pre>
+  <p class="section-lead">Ou lance <code>./gbe</code> sans argument, puis dépose une ROM sur la fenêtre : l'écran d'accueil propose aussi les derniers jeux lancés, à relancer à la manette. Déposée pendant une partie, une ROM peut remplacer le jeu en cours, qui est sauvegardé pour être repris plus tard.</p>
   <table class="keys">
     <thead><tr><th>Touche</th><th>Action</th></tr></thead>
     <tbody>

@@ -62,9 +62,11 @@ func TestMenuNavigation(t *testing.T) {
 		{"start", pageStart, tabKeyboard, startItems},
 		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
 		{"gamepad", pageControls, tabPad, len(bindingNames()) + 4}, // vibration, test, defaults, back
+		{"recent", pageRecent, tabKeyboard, 3},                     // two games and back
 	} {
 		m := menu{page: c.page, tab: c.tab}
-		if got := m.itemCount(); got != c.want {
+		g := &Game{cfg: &Config{Recent: make([]RecentGame, 2)}}
+		if got := m.itemCount(g); got != c.want {
 			t.Errorf("%s page: %d entries, want %d", c.name, got, c.want)
 		}
 	}

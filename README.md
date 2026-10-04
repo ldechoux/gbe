@@ -66,6 +66,30 @@ ROM `.gb` ou `.gbc` de l'archive est décompressée en mémoire, et les sauvegar
 (`Tetris_DX.sav`, `Tetris_DX.state`) sont enregistrées à côté de l'archive, qui n'est
 jamais modifiée.
 
+### Glisser-déposer une ROM
+
+On peut aussi déposer une ROM (`.gb`, `.gbc` ou `.zip`) sur la fenêtre de gbe :
+
+- **Lancé sans ROM** (`gbe`, ou un double-clic sur le binaire), gbe ouvre un écran qui
+  invite à déposer une ROM. Le jeu démarre dès qu'on la dépose. Le menu (Échap, ou
+  Start+Select à la manette) reste disponible pour régler l'affichage, les contrôles ou la
+  langue, et P change la palette.
+- **Les 5 derniers jeux lancés** sont proposés sur ce même écran : on en choisit un avec
+  ↑/↓ (ou la croix) et on le lance avec Entrée (ou A). En cours de partie, la même liste est
+  dans la page « Jeux récents » du menu. C'est utile à la manette, sur une TV, où l'on ne
+  peut pas déposer de fichier. Un jeu qui n'existe plus est retiré de la liste.
+- **Pendant une partie**, la page « Nouveau jeu » demande s'il faut lancer le jeu déposé ou
+  continuer à jouer. Avant de changer de jeu, la partie en cours est sauvegardée comme en
+  quittant (save state et sauvegarde de la cartouche) : on la retrouvera en rouvrant ce jeu.
+- **Les sauvegardes** d'un jeu déposé sont enregistrées à côté de la ROM, comme en ligne de
+  commande. Si ce jeu a un save state, gbe propose de reprendre la partie.
+- **Les options** `-model` et `-bios` s'appliquent aussi aux jeux déposés.
+
+Si le fichier ne peut pas être lancé, un message l'explique et la partie en cours continue :
+fichier qui n'est pas une ROM, dossier, archive sans ROM, cartouche non supportée (avec son
+type, par exemple `0x22`), fichier illisible. Si plusieurs fichiers sont déposés, gbe lance
+la première ROM.
+
 Options utiles :
 
 | Option | Rôle |
@@ -92,8 +116,9 @@ Options utiles :
 | F11 | Plein écran (retenu au prochain lancement ; aussi dans la page Affichage, entrée « Mode ») |
 
 Le menu permet de régler le volume, la vitesse de l'avance rapide et la langue, de
-sauvegarder ou recharger l'état, de réinitialiser la console ou de quitter. Deux pages
-regroupent les autres réglages :
+sauvegarder ou recharger l'état, de réinitialiser la console ou de quitter. Sa page **Jeux
+récents** relance l'un des 5 derniers jeux (la partie en cours est sauvegardée d'abord).
+Deux pages regroupent les autres réglages :
 
 - **Affichage** : la palette (10 palettes monochromes, aperçu en direct ; dans un jeu Game
   Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran

@@ -78,8 +78,14 @@ echo "existing:      ${existing:-none}"
 echo "compare:       https://github.com/$repo/compare/$last...$version"
 echo
 
+# Pull requests merged since: merge commits ("Merge pull request #N"), and
+# squash or rebase merges, whose commit subject ends with "(#N)".
+squashed='\(#([0-9]+)\)$'
 echo "== Pull requests merged since $last"
-prs=$(git log --merges --format=%s "$last..origin/main" | sed -nE 's/^Merge pull request #([0-9]+).*/\1/p' | sort -n)
+prs=$( {
+	git log --merges --format=%s "$last..origin/main" | sed -nE 's/^Merge pull request #([0-9]+).*/\1/p'
+	git log --first-parent --no-merges --format=%s "$last..origin/main" | sed -nE "s/.*$squashed/\1/p"
+} | sort -nu)
 if [[ -z $prs ]]; then
 	echo "(none)"
 fi
@@ -89,7 +95,7 @@ done
 echo
 
 echo "== Commits on main outside pull requests since $last"
-git log --first-parent --no-merges --format='%h %s' "$last..origin/main" || true
+git log --first-parent --no-merges --format='%h %s' "$last..origin/main" | grep -vE "$squashed" || true
 echo
 
 echo "== Save state format"

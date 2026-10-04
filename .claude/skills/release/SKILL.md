@@ -28,7 +28,8 @@ redéploiement du site (`pages.yml`).
   jour (étape 5) plutôt qu'en créer un second. Si `existing` vaut `published`, s'arrêter.
 
 Le script affiche aussi :
-- les pull requests mergées depuis la dernière release ;
+- les pull requests mergées depuis la dernière release, avec un commit de merge ou en
+  squash (le titre du commit se termine alors par `(#N)`) ;
 - les commits poussés sur `main` hors pull request ;
 - le format des save states (`stateVersion` dans `internal/gb/state.go`) ;
 - les fichiers modifiés.

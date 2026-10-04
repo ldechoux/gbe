@@ -45,6 +45,32 @@ func TestBuildPage(t *testing.T) {
 	}
 }
 
+// Only the latest releases are shown with their notes; the others are
+// linked.
+func TestBuildPageOlderReleases(t *testing.T) {
+	var releases []Release
+	for _, tag := range []string{"v0.5.0", "v0.4.0", "v0.3.1", "v0.3.0", "v0.2.0"} {
+		releases = append(releases, Release{TagName: tag, PublishedAt: time.Now()})
+	}
+	releases = append([]Release{{TagName: "v0.6.0", Draft: true}}, releases...)
+	p := buildPage("o/r", releases)
+	tags := func(rs []Release) (out []string) {
+		for _, r := range rs {
+			out = append(out, r.TagName)
+		}
+		return out
+	}
+	if got := tags(p.Releases); !slices.Equal(got, []string{"v0.5.0", "v0.4.0", "v0.3.1"}) {
+		t.Errorf("detailed releases %v", got)
+	}
+	if got := tags(p.Older); !slices.Equal(got, []string{"v0.3.0", "v0.2.0"}) {
+		t.Errorf("older releases %v", got)
+	}
+	if p.Latest == nil || p.Latest.TagName != "v0.5.0" {
+		t.Errorf("latest %+v", p.Latest)
+	}
+}
+
 func TestFrenchDate(t *testing.T) {
 	if got := frenchDate(time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)); got != "1 août 2026" {
 		t.Fatal(got)

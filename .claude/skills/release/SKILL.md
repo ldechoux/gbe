@@ -104,6 +104,14 @@ S'il n'y a aucun changement, le dire et ne rien créer.
 Les fonctionnalités expérimentales sont présentées comme telles, avec la même formulation
 que le README.
 
+**Sur le site** : la section « Notes de version » de https://ldechoux.github.io/gbe/
+affiche en détail les notes des **trois dernières releases publiées**. Les précédentes n'y
+sont qu'un lien vers leur page GitHub. `tools/sitegen` applique cette règle à chaque
+redéploiement (constante `detailedReleases`), donc rien n'est à modifier à la main. Une
+note doit se suffire à elle-même : ne pas renvoyer à une note plus ancienne, qui ne sera
+plus détaillée sur le site. Si l'utilisateur change le nombre de notes détaillées, modifier
+`detailedReleases` et son test dans `tools/sitegen`, puis ce paragraphe.
+
 ## 4. Relire
 
 Avant de créer le brouillon :
@@ -144,7 +152,9 @@ Donner à l'utilisateur :
 - les points à savoir :
   - le tag est créé à la publication, sur le commit ciblé ;
   - les binaires n'apparaissent qu'après la publication ;
-  - les benchmarks et le redéploiement du site se lancent au même moment.
+  - les benchmarks et le redéploiement du site se lancent au même moment. Sur le site, la
+    nouvelle note devient l'une des trois notes détaillées, et la plus ancienne des trois
+    passe dans la liste des versions précédentes.
 
 Ne jamais publier la release, même si l'utilisateur semble pressé : il publie lui-même
 depuis GitHub. Après la publication, s'il le demande, suivre les workflows

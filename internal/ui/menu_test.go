@@ -58,6 +58,7 @@ func TestMenuNavigation(t *testing.T) {
 		want int
 	}{
 		{"main", pageMain, tabKeyboard, mainItems},
+		{"display", pageDisplay, tabKeyboard, displayItems},
 		{"start", pageStart, tabKeyboard, startItems},
 		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
 		{"gamepad", pageControls, tabPad, len(bindingNames()) + 4}, // vibration, test, defaults, back
@@ -84,6 +85,12 @@ func TestMenuBackAndToggle(t *testing.T) {
 	m.update(g)
 	if !m.open || m.page != pageMain || m.cursor != itemControls || m.notice != "" || m.width != 0 {
 		t.Errorf("Back on the controls page: %+v, want the main page on Controls", *m)
+	}
+
+	*m = menu{open: true, page: pageDisplay, cursor: displayFilter, width: 99}
+	m.update(g)
+	if !m.open || m.page != pageMain || m.cursor != itemDisplay || m.width != 0 {
+		t.Errorf("Back on the display page: %+v, want the main page on Display", *m)
 	}
 
 	m.showStart()
@@ -124,9 +131,21 @@ func TestMenuActivateMain(t *testing.T) {
 	}
 
 	m.show()
-	ok(itemPalette) // OK cycles like Right
+	m.width = 50
+	ok(itemDisplay)
+	if m.page != pageDisplay || m.cursor != displayPalette || m.width != 0 {
+		t.Errorf("Display: %+v", *m)
+	}
+	if title, items, _ := m.lines(g); title != "DISPLAY" || items[len(items)-1] != "Back" {
+		t.Errorf("display page: %q %q", title, items)
+	}
+	ok(displayPalette) // OK cycles like Right
 	if g.cfg.Palette != Palettes[1].ID {
 		t.Errorf("palette %q, want %q", g.cfg.Palette, Palettes[1].ID)
+	}
+	ok(displayBack)
+	if m.page != pageMain || m.cursor != itemDisplay || !m.open {
+		t.Errorf("Back entry: %+v, want the main page on Display", *m)
 	}
 
 	m.show()
@@ -234,49 +253,64 @@ func TestMenuAdjust(t *testing.T) {
 		}
 		m.update(g)
 	}
+	m.page = pageDisplay
+	adjustDisplay := func(cursor, delta int) {
+		m.cursor = cursor
+		if delta < 0 {
+			g.actions = menuActions{left: true}
+		} else {
+			g.actions = menuActions{right: true}
+		}
+		m.update(g)
+	}
 
-	adjust(itemPalette, -1)
+	adjustDisplay(displayPalette, -1)
 	if g.cfg.Palette != Palettes[len(Palettes)-1].ID {
 		t.Errorf("Left on the first palette: %q, want the last one", g.cfg.Palette)
 	}
-	adjust(itemPalette, 1)
+	adjustDisplay(displayPalette, 1)
 	if g.cfg.Palette != Palettes[0].ID {
 		t.Errorf("Right on the last palette: %q, want the first one", g.cfg.Palette)
 	}
 
 	g.cfg.Scale = maxScale
-	adjust(itemScale, 1)
+	adjustDisplay(displayScale, 1)
 	if g.cfg.Scale != maxScale {
 		t.Errorf("scale %d, want clamped to %d", g.cfg.Scale, maxScale)
 	}
 	g.cfg.Scale = 1
-	adjust(itemScale, -1)
+	adjustDisplay(displayScale, -1)
 	if g.cfg.Scale != 1 {
 		t.Errorf("scale %d, want clamped to 1", g.cfg.Scale)
 	}
-	adjust(itemScale, 1)
+	adjustDisplay(displayScale, 1)
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.Scale != 2 {
 		t.Errorf("saved scale %d, want 2", cfg.Scale)
 	}
 
-	adjust(itemFilter, -1)
+	adjustDisplay(displayFilter, -1)
 	if last := scaler.Filters[len(scaler.Filters)-1].ID; g.cfg.Filter != last {
 		t.Errorf("Left on the first filter: %q, want the last one", g.cfg.Filter)
 	}
-	adjust(itemFilter, 1)
-	adjust(itemFilter, 1)
+	adjustDisplay(displayFilter, 1)
+	adjustDisplay(displayFilter, 1)
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.Filter != scaler.Filters[1].ID {
 		t.Errorf("saved filter %q, want %q", cfg.Filter, scaler.Filters[1].ID)
 	}
-	if got := entryLabel(g, itemFilter); got != "Filter    < Sharp >" {
+	if got := displayLabel(g, displayFilter); got != "Filter    < Sharp >" {
 		t.Errorf("filter entry %q", got)
 	}
-	adjust(itemGhosting, 1)
-	if cfg, _ := LoadConfig(g.cfgPath); !cfg.Ghosting || entryLabel(g, itemGhosting) != "Ghosting  < on >" {
-		t.Errorf("ghosting not turned on: %q", entryLabel(g, itemGhosting))
+	adjustDisplay(displayGhosting, 1)
+	if cfg, _ := LoadConfig(g.cfgPath); !cfg.Ghosting || displayLabel(g, displayGhosting) != "Ghosting  < on >" {
+		t.Errorf("ghosting not turned on: %q", displayLabel(g, displayGhosting))
+	}
+	before := *g.cfg
+	adjustDisplay(displayBack, 1) // not adjustable
+	if g.cfg.Palette != before.Palette || g.cfg.Scale != before.Scale || g.cfg.Filter != before.Filter || m.page != pageDisplay {
+		t.Error("Right on Back did something")
 	}
 
-	before := *g.cfg
+	m.show()
 	adjust(itemResume, 1) // not adjustable
 	if g.cfg.Palette != before.Palette || g.cfg.Scale != before.Scale {
 		t.Error("Right on Resume changed the settings")

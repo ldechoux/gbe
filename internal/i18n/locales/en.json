@@ -11,6 +11,7 @@
     "menu.colorize": "Colorize  < %s >",
     "setting.on": "on",
     "setting.off": "off",
+    "menu.display": "Display...",
     "menu.controls": "Controls...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Scale     < x%d >",
@@ -33,6 +34,9 @@
     "menu.footer_color": "P: colors   F11: full screen",
     "menu.footer_pending": "Reset to apply the settings",
     "menu.footer_color_pad": "P: colors  F11: full screen  Start+Select: menu",
+
+    "display.title": "DISPLAY",
+    "display.back": "Back",
 
     "start.title": "GAME IN PROGRESS",
     "start.resume": "Resume the game",

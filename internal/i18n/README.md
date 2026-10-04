@@ -82,6 +82,10 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de la page Affichage : taille de la fenêtre |
+| `menu.monitor` | `%d` numéro de l'écran (à partir de 1), `%s` son nom | Entrée de la page Affichage, visible avec au moins deux écrans : l'écran où s'ouvre la fenêtre, par exemple une TV en AirPlay |
+| `menu.fullscreen` | `%s` `fullscreen.on` ou `fullscreen.off` | Entrée de la page Affichage : passe du plein écran à la fenêtre, comme F11, y compris à la manette |
+| `fullscreen.on` | | Mode d'affichage : plein écran |
+| `fullscreen.off` | | Mode d'affichage : fenêtre |
 | `menu.filter` | `%s` nom du filtre (`filter.*`) | Entrée de la page Affichage : choix du filtre |
 | `filter.nearest` | | Filtre par défaut : pixels carrés, agrandis d'un facteur entier |
 | `filter.sharp` | | Filtre qui remplit l'écran avec des pixels nets, bords adoucis sur un pixel de l'écran |
@@ -107,7 +111,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 ### `display.*` — page Affichage
 
 Ses entrées réutilisent les libellés `menu.palette` (ou `menu.colors`), `menu.colorize`,
-`menu.scale`, `menu.filter` et `menu.ghosting`, et l'aide en bas du menu Pause.
+`menu.scale`, `menu.monitor`, `menu.fullscreen`, `menu.filter` et `menu.ghosting`, et l'aide en bas du menu Pause.
 
 | Clé | Paramètres | Usage |
 |---|---|---|

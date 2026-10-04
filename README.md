@@ -89,7 +89,7 @@ Options utiles :
 | Échap | Menu (pause) |
 | P | Palette suivante (sur une DMG, ou palette GBC d'un jeu DMG colorisé), ou correction des couleurs dans un jeu Game Boy Color (si P n'est pas assigné à un bouton) |
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
-| F11 | Plein écran (retenu au prochain lancement) |
+| F11 | Plein écran (retenu au prochain lancement ; aussi dans la page Affichage, entrée « Mode ») |
 
 Le menu permet de régler le volume, la vitesse de l'avance rapide et la langue, de
 sauvegarder ou recharger l'état, de réinitialiser la console ou de quitter. Deux pages
@@ -98,8 +98,9 @@ regroupent les autres réglages :
 - **Affichage** : la palette (10 palettes monochromes, aperçu en direct ; dans un jeu Game
   Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
   d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc ; pour un jeu DMG
-  colorisé, voir ci-dessous), la colorisation des jeux DMG, l'échelle de la fenêtre, le
-  filtre d'affichage et la rémanence.
+  colorisé, voir ci-dessous), la colorisation des jeux DMG, l'échelle de la fenêtre, l'écran
+  où elle s'ouvre (voir [Jouer sur la TV](#jouer-sur-la-tv)), le plein écran ou la fenêtre,
+  le filtre d'affichage et la rémanence.
 - **Contrôles** : chaque touche se redéfinit (Entrée sur un bouton puis appuyer sur la
   nouvelle touche ; en cas de conflit, les deux touches sont échangées).
 
@@ -150,6 +151,34 @@ Les deux images mélangées sont toujours consécutives, même en avance rapide.
 fait en lumière linéaire, pour que les sprites transparents ne paraissent pas trop sombres,
 et après le filtre, qui voit des images nettes. Comme sur l'écran d'origine, les éléments en
 mouvement laissent un léger halo.
+
+## Jouer sur la TV
+
+On joue sur l'ordinateur, de préférence à la manette, et l'image et le son s'affichent sur la
+TV.
+
+**Sans câble, avec une Apple TV (Mac uniquement)** : macOS fait de l'Apple TV un second
+écran, et gbe s'y affiche comme sur n'importe quel écran. Le retard reste assez faible pour
+jouer.
+
+1. Centre de contrôle > Recopie de l'écran > choisir l'Apple TV, en mode « Utiliser comme
+   écran séparé ». Le son part vers l'Apple TV.
+2. Dans gbe, ouvrir le menu (Échap, ou Start+Select à la manette), puis la page Affichage :
+   - **Ecran** choisit l'écran où s'affiche gbe, ici l'Apple TV. L'entrée n'apparaît
+     qu'avec au moins deux écrans, et la liste se met à jour quand on active la recopie
+     après avoir lancé gbe ;
+   - **Mode** passe en plein écran, comme F11, mais aussi à la manette.
+
+gbe retient l'écran et le mode : au lancement suivant, il s'ouvre directement sur la TV, ou
+sur l'écran principal si la TV n'est plus là. Le filtre LCD et l'échelle se règlent comme sur
+un grand écran (voir [Affichage](#affichage-grands-écrans)).
+
+**Avec un câble HDMI**, sur tous les systèmes : les mêmes entrées Ecran et Mode envoient gbe
+sur la TV, sans retard ajouté.
+
+gbe ne diffuse pas lui-même en AirPlay : la recopie d'écran d'AirPlay est chiffrée par un
+procédé propre à Apple, et les autres modes d'AirPlay ont plusieurs secondes de retard, trop
+pour jouer. La diffusion vers un Chromecast est à l'étude.
 
 ## Jeux DMG en couleurs
 

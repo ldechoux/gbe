@@ -176,7 +176,7 @@ func TestColorizeEntryShown(t *testing.T) {
 	}
 
 	c := withModes(withColorGameBoy(t, newTestGame(t, newFakePads())))
-	if displayLabel(c, displayColorize) != "" || len(displayEntries(c)) != displayItems-1 {
+	if displayLabel(c, displayColorize) != "" || len(displayEntries(c)) != displayItems-2 { // nor Monitor, with one monitor
 		t.Error("entry shown for a Game Boy Color game")
 	}
 }

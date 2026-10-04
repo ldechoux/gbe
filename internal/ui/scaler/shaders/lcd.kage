@@ -29,10 +29,12 @@ func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
 	dot := cover(f.x, h.x, g, 1-g) * cover(f.y, h.y, g, 1-g)
 	gap := mix(c, Gap, 0.35)
 	if Color > 0.5 {
-		// One stripe per component; the others shine through a bit.
+		// One stripe per component; the others shine through. The stripes
+		// average to 1 and the gap is faint, so the picture keeps its
+		// brightness: the grid of the Game Boy Color is discreet.
 		stripes := vec3(cover(f.x, h.x, 0, 1.0/3), cover(f.x, h.x, 1.0/3, 2.0/3), cover(f.x, h.x, 2.0/3, 1))
-		c *= mix(vec3(1), 0.75+0.45*stripes, strength)
-		gap = c * 0.5
+		c *= mix(vec3(1), 0.92+0.24*stripes, strength)
+		gap = c * 0.8
 	}
 	return vec4(mix(c, gap, (1-dot)*strength), 1)
 }

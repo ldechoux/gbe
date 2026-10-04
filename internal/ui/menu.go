@@ -772,14 +772,22 @@ func drawBox(dst *ebiten.Image, msg string, p *Palette, topRight bool) {
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	scale := math.Max(1, math.Floor(sh/300))
 	pad := 4 * scale
-	w := text.Advance(msg, menuFace)*scale + 2*pad
-	h := 13*scale + 2*pad
+	// Too wide for the screen, the message goes on several lines.
+	lines := wrapText(msg, (sw-4*pad)/scale)
+	width := 0.0
+	for _, line := range lines {
+		width = math.Max(width, advance(line))
+	}
+	w := width*scale + 2*pad
+	h := float64(len(lines))*13*scale + 2*pad
 	x, y := pad, sh-h-pad
 	if topRight {
 		x, y = sw-w-pad, pad
 	}
 	fillRect(dst, x, y, w, h, p.Colors[3])
-	drawText(dst, msg, x+pad, y+pad, scale, p.Colors[0])
+	for i, line := range lines {
+		drawText(dst, line, x+pad, y+pad+float64(i)*13*scale, scale, p.Colors[0])
+	}
 }
 
 func fillRect(dst *ebiten.Image, x, y, w, h float64, c color.Color) {
@@ -806,34 +814,13 @@ func drawText(dst *ebiten.Image, s string, x, y, scale float64, c color.Color) {
 func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	pal := g.menuPalette().Colors
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
-	scale := math.Max(1, math.Floor(sh/300))
 
 	v := m.view(g)
-	title, items := v.title, v.items
-	footer := strings.Split(v.footer, "\n")
-	lineH := 16 * scale
-	pad := 10 * scale
-	tabGap := 2 * text.Advance(" ", menuFace) // space between tabs, before scaling
-	width := 0.0
-	for _, s := range footer {
-		width = math.Max(width, text.Advance(s, menuFace))
-	}
-	for _, s := range append([]string{title}, items...) {
-		width = math.Max(width, text.Advance("  "+s, menuFace))
-	}
-	tabsW := 0.0
-	for _, t := range v.tabs {
-		tabsW += text.Advance(" "+t.label+" ", menuFace) + tabGap
-	}
-	width = math.Max(width, tabsW)
-	width = math.Max(width, m.width)
-	m.width = width
-	w := width*scale + 2*pad
-	h := float64(len(items)+len(footer)+2)*lineH + 2*pad
-	if len(v.tabs) > 0 {
-		h += lineH * 1.5
-	}
-	x, y := math.Round((sw-w)/2), math.Round((sh-h)/2)
+	l := layoutMenu(v, m.width, sw, sh)
+	m.width = l.width
+	scale, lineH, pad := l.scale, l.lineH, l.pad
+	x, y, w, h := l.x, l.y, l.w, l.h
+	tabGap := 2 * advance(" ") // space between tabs, before scaling
 
 	shadow := pal[3]
 	shadow.A = 0xB0
@@ -842,13 +829,13 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 	fillRect(dst, x, y, w, h, pal[0])
 
 	ty := y + pad
-	drawText(dst, title, x+pad, ty, scale, pal[3])
+	drawText(dst, v.title, x+pad, ty, scale, pal[3])
 	ty += lineH * 1.5
 	if len(v.tabs) > 0 {
 		tx := x + pad
 		for _, t := range v.tabs {
 			label := " " + t.label + " "
-			tw := text.Advance(label, menuFace) * scale
+			tw := advance(label) * scale
 			fg := pal[3]
 			switch {
 			case t.active:
@@ -863,12 +850,12 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 		fillRect(dst, x+pad/2, ty+lineH-scale, w-pad, scale, pal[3]) // underline the tab bar
 		ty += lineH * 1.5
 	}
-	for i, s := range items {
+	for i, s := range l.items {
 		fg := pal[3]
-		if v.disabled[i] {
+		if v.disabled[l.first+i] {
 			fg = pal[1] // faded: not available
 		}
-		if i == v.selected {
+		if i == l.selected {
 			fillRect(dst, x+pad/2, ty-2*scale, w-pad, lineH, pal[2])
 			fg = pal[0]
 			s = "> " + s
@@ -876,10 +863,26 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 			s = "  " + s
 		}
 		drawText(dst, s, x+pad, ty, scale, fg)
+		// More entries above or below: a small arrow at the right.
+		if (i == 0 && l.above) || (i == len(l.items)-1 && l.below) {
+			drawScrollArrow(dst, x+w-pad/2-5*scale, ty+3*scale, scale, i == 0, fg)
+		}
 		ty += lineH
 	}
-	for _, line := range footer {
+	for _, line := range l.footer {
 		drawText(dst, line, x+pad, ty+lineH*0.5, scale, pal[2])
 		ty += lineH
+	}
+}
+
+// drawScrollArrow draws a small triangle pointing up or down, 5 pixels
+// wide at scale 1, from (x, y).
+func drawScrollArrow(dst *ebiten.Image, x, y, scale float64, up bool, c color.Color) {
+	for row := range 3 {
+		r := float64(row)
+		if up {
+			r = 2 - r
+		}
+		fillRect(dst, x+r*scale, y+float64(row)*scale+2*scale, (5-2*r)*scale, scale, c)
 	}
 }

@@ -155,7 +155,11 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	}
 	hintH := float64(len(hintLines)) * 16 * hintScale
 
-	textH := 13*titleScale + 6*u + 13*textScale
+	// Too wide even at scale 1 (x1 without HiDPI), the title goes on
+	// several lines.
+	titleLines := wrapText(title, (sw-2*margin)/titleScale)
+	titleH := float64(len(titleLines)) * 13 * titleScale
+	textH := titleH + 6*u + 13*textScale
 	avail := sh - hintH - 3*margin
 	if len(recent) > 0 {
 		// In a tiny window (x1 without HiDPI), only the games that fit,
@@ -180,8 +184,10 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 		cartridgeArt.draw(dst, math.Round((sw-22*s)/2), y+13*s, s, pal)
 	}
 	y += artH
-	center(title, y, titleScale, pal.Colors[3])
-	y += 13*titleScale + 6*u
+	for i, line := range titleLines {
+		center(line, y+float64(i)*13*titleScale, titleScale, pal.Colors[3])
+	}
+	y += titleH + 6*u
 	center(formats, y, textScale, pal.Colors[2])
 	y += 13 * textScale
 

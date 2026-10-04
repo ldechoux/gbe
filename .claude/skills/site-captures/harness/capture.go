@@ -5,6 +5,9 @@ package ui
 // It must never be committed there.
 
 import (
+	"fmt"
+	"image"
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -14,6 +17,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/rom"
+	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
 // CaptureOptions describes one console's captures.
@@ -130,4 +134,53 @@ func CaptureDrop(roms []string, opts CaptureOptions) error {
 		pads: &ebitenPads{}, monitors: &ebitenMonitors{}}
 	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
 	return ebiten.RunGame(&dropCapture{Game: g, opts: opts})
+}
+
+// filterCapture renders an image through every display filter.
+type filterCapture struct {
+	src   image.Image
+	color bool
+	gap   color.RGBA
+	w, h  int
+	dir   string
+	err   error
+}
+
+func (f *filterCapture) Update() error {
+	src := ebiten.NewImageFromImage(f.src)
+	for _, filter := range scaler.Filters {
+		dst := ebiten.NewImage(f.w, f.h)
+		var p scaler.Pipeline
+		p.Draw(dst, &filter, scaler.Frame{Image: src, Changed: true, Color: f.color, Gap: f.gap})
+		img := image.NewRGBA(image.Rect(0, 0, f.w, f.h))
+		dst.ReadPixels(img.Pix)
+		out, err := os.Create(fmt.Sprintf("%s/%s.png", f.dir, filter.ID))
+		if err != nil {
+			f.err = err
+			return ebiten.Termination
+		}
+		err = png.Encode(out, img)
+		out.Close()
+		if err != nil {
+			f.err = err
+			return ebiten.Termination
+		}
+	}
+	return ebiten.Termination
+}
+
+func (f *filterCapture) Draw(*ebiten.Image)         {}
+func (f *filterCapture) Layout(w, h int) (int, int) { return w, h }
+
+// CaptureFilters saves <filter id>.png in dir for every display filter: src
+// (a 160x144 frame) drawn at w x h, as the window draws it. color is the
+// Game Boy Color mode of the LCD filter, gap the color between the dots of
+// its DMG grid.
+func CaptureFilters(src image.Image, colorMode bool, gap color.RGBA, w, h int, dir string) error {
+	ebiten.SetWindowSize(gb.ScreenWidth*2, gb.ScreenHeight*2)
+	f := &filterCapture{src: src, color: colorMode, gap: gap, w: w, h: h, dir: dir}
+	if err := ebiten.RunGame(f); err != nil {
+		return err
+	}
+	return f.err
 }

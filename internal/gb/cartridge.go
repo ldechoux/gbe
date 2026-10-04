@@ -65,11 +65,16 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 		CGB:  rom[0x143],
 	}
 	// The title is 16 bytes long on DMG games, 15 when 0x0143 is a CGB flag.
-	// It ends at the first NUL: later games follow it with a manufacturer
-	// code ("DK COUNTRY\x00BDDE"), which is not part of the title.
+	// Later Game Boy Color games shorten it to 11 bytes, followed by a
+	// 4-character manufacturer code (0x013F-0x0142), which is not part of
+	// the title: after a NUL ("DK COUNTRY\x00BDDE"), or right after an 11
+	// characters long title ("POKEMONPINB" + "VPHP").
 	title := rom[0x134:0x144]
 	if c.ColorSupported() {
 		title = rom[0x134:0x143]
+		if hasManufacturerCode(rom) {
+			title = rom[0x134:0x13F]
+		}
 	}
 	if i := bytes.IndexByte(title, 0); i >= 0 {
 		title = title[:i]
@@ -113,6 +118,26 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 	}
 	c.ram = make([]byte, ramSize)
 	return c, nil
+}
+
+// hasManufacturerCode reports whether a Game Boy Color header holds a
+// manufacturer code. The cartridges that have one use the new licensee code
+// (0x014B = 0x33), and the code is 4 uppercase letters or digits, starting
+// with the type of cartridge and ending with its region, both letters
+// ("VPHP", "AZ8P"). A 15 characters long title would rather have a space
+// or a digit there, and a shorter one the NULs that pad it.
+func hasManufacturerCode(rom []byte) bool {
+	if rom[0x14B] != 0x33 {
+		return false
+	}
+	code := rom[0x13F:0x143]
+	letter := func(b byte) bool { return b >= 'A' && b <= 'Z' }
+	for _, b := range code {
+		if !letter(b) && (b < '0' || b > '9') {
+			return false
+		}
+	}
+	return letter(code[0]) && letter(code[3])
 }
 
 // ColorSupported reports whether the game uses the Game Boy Color features.

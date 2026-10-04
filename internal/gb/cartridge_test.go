@@ -586,3 +586,37 @@ func TestPokemonPinballRumble(t *testing.T) {
 	}
 	t.Logf("the motor ran during %d of 1500 frames", shaking)
 }
+
+// The titles of real Game Boy Color headers: an 11 characters long title
+// is followed by a manufacturer code, which is not part of it.
+func TestCGBTitles(t *testing.T) {
+	for _, c := range []struct {
+		header   string // 0x0134-0x0143
+		licensee byte   // 0x014B
+		want     string
+	}{
+		{"POKEMONPINBVPHP\x80", 0x33, "POKEMONPINB"},
+		{"ALONE IN THBIDP\xC0", 0x33, "ALONE IN TH"},
+		{"ZELDA NAYRUAZ8P\xC0", 0x33, "ZELDA NAYRU"},
+		{"ZELDA DIN\x00\x00AZ7P\xC0", 0x33, "ZELDA DIN"},
+		{"WARIOLAND3\x00AW8A\xC0", 0x33, "WARIOLAND3"},
+		{"TETRIS DX\x00\x00\x00\x00\x00\x00\x80", 0x33, "TETRIS DX"},
+		// 15 characters long titles, without a manufacturer code.
+		{"POKEMON CRYSTAL\xC0", 0x01, "POKEMON CRYSTAL"},
+		{"SUPER GAME 1998\x80", 0x33, "SUPER GAME 1998"},
+		{"A GAME FOR YOU \x80", 0x33, "A GAME FOR YOU"},
+		// DMG games: 16 bytes, whatever the licensee.
+		{"SUPER MARIOLAND\x00", 0x01, "SUPER MARIOLAND"},
+	} {
+		rom := make([]byte, 0x8000)
+		copy(rom[0x134:], c.header)
+		rom[0x14B] = c.licensee
+		cart, err := NewCartridge(rom)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cart.Title != c.want {
+			t.Errorf("header %q (licensee %02X): title %q, want %q", c.header, c.licensee, cart.Title, c.want)
+		}
+	}
+}

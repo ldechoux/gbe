@@ -39,6 +39,10 @@ git grep -ohE 'https?://[A-Za-z0-9./_~%-]+' -- '*.go' '*.kage' '*.md' 'benchrom/
 	grep -E '^https?://[^/]+\.' | grep -vE 'ldechoux|localhost|example' | sort -u
 echo
 
+echo "== Links of the Credits section without target=\"_blank\" rel=\"noopener\" (should be none)"
+section | grep -oE '<a [^>]*>' | grep -v 'target="_blank" rel="noopener"' || echo "(none)"
+echo
+
 echo "== Links of the Credits section"
 section | grep -oE 'href="https?://[^"]+"' | sed 's/href="//; s/"$//' | sort -u |
 	while read -r url; do

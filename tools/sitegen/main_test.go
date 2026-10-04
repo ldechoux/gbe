@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,6 +69,27 @@ func TestBuildPageOlderReleases(t *testing.T) {
 	}
 	if p.Latest == nil || p.Latest.TagName != "v0.5.0" {
 		t.Errorf("latest %+v", p.Latest)
+	}
+}
+
+// The links of the release notes open in a new tab, like the other links
+// that leave the page.
+func TestNewTabLinks(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{`<a href="https://x.io" rel="nofollow">x</a>`, `<a target="_blank" href="https://x.io" rel="nofollow noopener">x</a>`},
+		{`<a class="commit-link" href="https://github.com/o/r/commit/1">1</a>`, `<a target="_blank" rel="noopener" class="commit-link" href="https://github.com/o/r/commit/1">1</a>`},
+		{`<a href="#notes">here</a>`, `<a href="#notes">here</a>`},
+		{`<a href="https://x.io" target="_self">x</a>`, `<a href="https://x.io" target="_self">x</a>`},
+		{`<a href="https://x.io" rel="noopener">x</a>`, `<a target="_blank" href="https://x.io" rel="noopener">x</a>`},
+		{`<p>no link</p>`, `<p>no link</p>`},
+	} {
+		if got := newTabLinks(c.in); got != c.want {
+			t.Errorf("newTabLinks(%s)\n got %s\nwant %s", c.in, got, c.want)
+		}
+	}
+	p := buildPage("o/r", []Release{{TagName: "v1", BodyHTML: `<a href="https://x.io">x</a>`}})
+	if !strings.Contains(p.Releases[0].BodyHTML, `target="_blank"`) {
+		t.Errorf("release notes links: %s", p.Releases[0].BodyHTML)
 	}
 }
 

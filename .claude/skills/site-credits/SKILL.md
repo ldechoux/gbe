@@ -58,8 +58,8 @@ Chaque carte suit ce modèle, dans le `<div class="grid features credits">` de s
 
 ```html
 <article class="card">
-  <h3><a href="https://projet.example">Nom du projet</a></h3>
-  <p>Ce que c'est, et son auteur. Ce que gbe lui doit, concrètement. <a href="https://depot.example">Code source</a>.</p>
+  <h3><a target="_blank" rel="noopener" href="https://projet.example">Nom du projet</a></h3>
+  <p>Ce que c'est, et son auteur. Ce que gbe lui doit, concrètement. <a target="_blank" rel="noopener" href="https://depot.example">Code source</a>.</p>
 </article>
 ```
 
@@ -81,7 +81,10 @@ Chaque carte suit ce modèle, dans le `<div class="grid features credits">` de s
   la structure change.
 
 **Les liens** :
-- `candidates.sh` les vérifie, et chacun doit répondre 200.
+- Comme tous les liens du site qui le quittent, chaque lien s'ouvre dans un nouvel
+  onglet, avec `target="_blank" rel="noopener"`. Seuls les ancres de la page (`#…`) et les
+  boutons de téléchargement n'en ont pas.
+- `candidates.sh` les vérifie : chacun doit répondre 200 et avoir ces attributs.
 - Une page qui se charge en JavaScript ne montre pas son contenu à curl ni à WebFetch :
   confirmer alors par une recherche web que l'URL est bien la bonne, par exemple la page
   des auteurs de MMPX.

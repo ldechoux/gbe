@@ -24,7 +24,7 @@
       <a href="#telecharger">Télécharger</a>
       <a href="#notes">Notes de version</a>
       <a href="#credits">Crédits</a>
-      <a href="https://github.com/{{.Repo}}">GitHub</a>
+      <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">GitHub</a>
     </nav>
   </div>
 </header>
@@ -38,7 +38,7 @@
     <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, pour jouer, sous macOS, Linux ou Windows.</p>
     <div class="actions">
       <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
-      <a class="btn" href="https://github.com/{{.Repo}}">Code source</a>
+      <a target="_blank" rel="noopener" class="btn" href="https://github.com/{{.Repo}}">Code source</a>
     </div>
   </div>
   <div class="consoles" data-carousel aria-roledescription="carrousel" aria-label="Les deux consoles émulées">
@@ -253,7 +253,7 @@
 <section id="telecharger" class="wrap">
   <h2>Télécharger</h2>
   {{with .Latest}}
-  <p class="section-lead">Dernière version : <a href="{{.HTMLURL}}"><strong>{{.TagName}}</strong></a>, publiée le {{date .PublishedAt}}.</p>
+  <p class="section-lead">Dernière version : <a target="_blank" rel="noopener" href="{{.HTMLURL}}"><strong>{{.TagName}}</strong></a>, publiée le {{date .PublishedAt}}.</p>
   {{end}}
   {{if .Platforms}}
   <div class="grid downloads">
@@ -270,7 +270,7 @@
     {{end}}
   </div>
   {{else}}
-  <p class="section-lead">Aucun binaire publié pour le moment. Voir les <a href="https://github.com/{{.Repo}}/releases">releases GitHub</a>.</p>
+  <p class="section-lead">Aucun binaire publié pour le moment. Voir les <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}/releases">releases GitHub</a>.</p>
   {{end}}
 
   <h3 class="subhead">Démarrage rapide</h3>
@@ -298,7 +298,7 @@
   {{range .Releases}}
   <article class="card release">
     <header class="release-head">
-      <h3><a href="{{.HTMLURL}}">{{.TagName}}</a></h3>
+      <h3><a target="_blank" rel="noopener" href="{{.HTMLURL}}">{{.TagName}}</a></h3>
       <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time>
       {{if .Prerelease}}<span class="tag">pré-version</span>{{end}}
     </header>
@@ -313,7 +313,7 @@
   <p class="section-lead">Leurs notes de version sont sur GitHub.</p>
   <ul class="older-releases">
     {{range .}}
-    <li><a href="{{.HTMLURL}}">{{.TagName}}</a> <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time></li>
+    <li><a target="_blank" rel="noopener" href="{{.HTMLURL}}">{{.TagName}}</a> <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time></li>
     {{end}}
   </ul>
   {{end}}
@@ -325,45 +325,45 @@
   <h3 class="subhead">Bibliothèques</h3>
   <div class="grid features credits">
     <article class="card">
-      <h3><a href="https://ebitengine.org">Ebitengine</a></h3>
-      <p>Le moteur de jeu 2D en Go de Hajime Hoshi : fenêtre, rendu sur la carte graphique et shaders Kage des filtres, son, clavier et manettes. Avec <a href="https://github.com/ebitengine/oto">Oto</a> pour le son et <a href="https://github.com/ebitengine/purego">purego</a>, qui permet de se passer de cgo.</p>
+      <h3><a target="_blank" rel="noopener" href="https://ebitengine.org">Ebitengine</a></h3>
+      <p>Le moteur de jeu 2D en Go de Hajime Hoshi : fenêtre, rendu sur la carte graphique et shaders Kage des filtres, son, clavier et manettes. Avec <a target="_blank" rel="noopener" href="https://github.com/ebitengine/oto">Oto</a> pour le son et <a target="_blank" rel="noopener" href="https://github.com/ebitengine/purego">purego</a>, qui permet de se passer de cgo.</p>
     </article>
     <article class="card">
-      <h3><a href="https://go.dev">Go</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://go.dev">Go</a></h3>
       <p>Le langage dans lequel gbe est écrit, de bout en bout.</p>
     </article>
   </div>
   <h3 class="subhead">Inspirations</h3>
   <div class="grid features credits">
     <article class="card">
-      <h3><a href="https://sameboy.github.io">SameBoy</a></h3>
-      <p>L'émulateur Game Boy de Lior Halphon, réputé pour sa précision. gbe lui doit les palettes de sa boot ROM couleur libre, pour coloriser les jeux Game Boy, et le modèle de sa rémanence. Il sert aussi de référence pour valider l'image et le son. <a href="https://github.com/LIJI32/SameBoy">Code source</a>.</p>
+      <h3><a target="_blank" rel="noopener" href="https://sameboy.github.io">SameBoy</a></h3>
+      <p>L'émulateur Game Boy de Lior Halphon, réputé pour sa précision. gbe lui doit les palettes de sa boot ROM couleur libre, pour coloriser les jeux Game Boy, et le modèle de sa rémanence. Il sert aussi de référence pour valider l'image et le son. <a target="_blank" rel="noopener" href="https://github.com/LIJI32/SameBoy">Code source</a>.</p>
     </article>
     <article class="card">
       <h3>Algorithmes des filtres</h3>
-      <p><a href="https://casual-effects.com/research/McGuire2021PixelArt/">MMPX</a>, de Morgan McGuire et Mara Gagiu (2021), et <a href="https://www.scale2x.it">Scale2x et Scale3x</a>, d'Andrea Mazzoleni pour AdvanceMAME.</p>
+      <p><a target="_blank" rel="noopener" href="https://casual-effects.com/research/McGuire2021PixelArt/">MMPX</a>, de Morgan McGuire et Mara Gagiu (2021), et <a target="_blank" rel="noopener" href="https://www.scale2x.it">Scale2x et Scale3x</a>, d'Andrea Mazzoleni pour AdvanceMAME.</p>
     </article>
     <article class="card">
-      <h3><a href="https://github.com/higan-emu/higan">higan</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://github.com/higan-emu/higan">higan</a></h3>
       <p>L'émulateur de byuu, d'où vient la formule de correction des couleurs de la Game Boy Color, qui retrouve le rendu plus pâle de son écran.</p>
     </article>
     <article class="card">
-      <h3><a href="https://bgb.bircd.org">BGB</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://bgb.bircd.org">BGB</a></h3>
       <p>L'émulateur et débogueur Game Boy de beware. gbe reprend sa palette « BGB » et le format de l'horloge MBC3 de ses sauvegardes : les <code>.sav</code> de Pokémon Or et Argent restent compatibles.</p>
     </article>
   </div>
   <h3 class="subhead">Tests et outils</h3>
   <div class="grid features credits">
     <article class="card">
-      <h3><a href="https://github.com/retrio/gb-test-roms">Tests de blargg</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://github.com/retrio/gb-test-roms">Tests de blargg</a></h3>
       <p>Les ROMs de test de Shay Green (blargg), qui vérifient le processeur, les timings et le son : gbe les réussit en Game Boy et en Game Boy Color.</p>
     </article>
     <article class="card">
-      <h3><a href="https://github.com/mattcurrie/dmg-acid2">dmg-acid2</a> et <a href="https://github.com/mattcurrie/cgb-acid2">cgb-acid2</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://github.com/mattcurrie/dmg-acid2">dmg-acid2</a> et <a target="_blank" rel="noopener" href="https://github.com/mattcurrie/cgb-acid2">cgb-acid2</a></h3>
       <p>Les ROMs de test de Matt Currie pour l'affichage, que gbe rend au pixel près.</p>
     </article>
     <article class="card">
-      <h3><a href="https://rgbds.gbdev.io">RGBDS</a></h3>
+      <h3><a target="_blank" rel="noopener" href="https://rgbds.gbdev.io">RGBDS</a></h3>
       <p>L'assembleur Game Boy de la communauté gbdev, avec lequel est construite la ROM de test de gbe.</p>
     </article>
   </div>
@@ -373,7 +373,7 @@
 
 <footer class="footer">
   <div class="wrap">
-    <p>gbe · <a href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · page mise à jour le {{.Built}}</p>
+    <p>gbe · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · page mise à jour le {{.Built}}</p>
     <p class="note">Game Boy est une marque de Nintendo. gbe est un projet indépendant, sans lien avec Nintendo.</p>
   </div>
 </footer>

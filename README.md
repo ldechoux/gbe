@@ -112,8 +112,9 @@ des boutons (lignes « Avance » et « Arriere »).
 Le raccourci de capture se change dans la même page Contrôles : sélectionner « Capture »,
 puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
 enregistrées à la taille de la fenêtre (échelle choisie), avec la palette, le filtre
-d'affichage et la rémanence courants (sans le menu ni les notifications), sous la
-forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatement.
+d'affichage et la rémanence courants, et le menu s'il est ouvert (mais sans les
+notifications), sous la forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré
+immédiatement.
 
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de
 disposition de clavier. Le menu affiche leur nom selon la disposition active (AZERTY, QWERTZ…).

@@ -91,17 +91,36 @@ func source(name string) ([]byte, error) {
 	return []byte(header + string(common) + "\n" + string(body)), nil
 }
 
+// GhostMode is how a frame is blended with the previous one.
+type GhostMode int
+
+const (
+	GhostOff GhostMode = iota
+	// GhostSimple shows both frames equally.
+	GhostSimple
+	// GhostAccurate weighs them by 1/3 and 2/3, alternately from one line
+	// to the next and from one frame to the next, as the lines of the LCD
+	// fade unevenly. It is the accurate frame blending of SameBoy.
+	GhostAccurate
+)
+
 // Frame is the picture to draw.
 type Frame struct {
 	Image *ebiten.Image // the LCD, at the resolution of the Game Boy
 	// Changed is set when Image changed since the last Draw: the passes
 	// run again.
 	Changed bool
-	// Ghost blends each frame with the previous one, like the slow LCD of
-	// the console did: games relied on it to make flickering sprites look
-	// transparent. Advance is set when the console produced a new frame
-	// since the last Draw.
-	Ghost, Advance bool
+	// Ghost blends Image with Prev, the frame the console produced just
+	// before it, like the slow LCD of the console did: games relied on it
+	// to make flickering sprites look transparent. The frames are blended
+	// in linear light, after the filter, which sees clean frames. Prev and
+	// PrevChanged are like Image and Changed.
+	Ghost       GhostMode
+	Prev        *ebiten.Image
+	PrevChanged bool
+	// Odd is the parity of the frame, which alternates the weights of the
+	// lines in GhostAccurate.
+	Odd bool
 	// Color is set for a Game Boy Color picture, which the LCD filter draws
 	// with red, green and blue stripes.
 	Color bool
@@ -114,11 +133,25 @@ type Frame struct {
 // intermediate images between frames. The zero value is ready to use.
 type Pipeline struct {
 	shaders map[string]*ebiten.Shader
-	images  []*ebiten.Image // output of each pass
-	filter  string          // filter whose output images holds
+	filter  string // filter whose passes cur and prev hold
+	cur     passes // the passes of the current frame
+	prev    passes // and those of the previous frame, when ghosting
+}
 
-	ghost    [2]*ebiten.Image // the blended frame, and the previous frame
-	ghosting bool             // ghost holds the previous frame
+// passes holds the output of each pass of a filter for one frame.
+type passes struct {
+	images []*ebiten.Image
+	valid  bool // the images hold the passes of the last source
+}
+
+// reset drops the images, for a filter with n passes.
+func (ps *passes) reset(n int) {
+	for _, img := range ps.images {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	ps.images, ps.valid = make([]*ebiten.Image, n), false
 }
 
 // shader returns the compiled shader name. The shaders are embedded and
@@ -156,29 +189,23 @@ func sized(img **ebiten.Image, w, h int) *ebiten.Image {
 
 // Draw draws fr to dst, centered and scaled to fit, with filter f.
 func (p *Pipeline) Draw(dst *ebiten.Image, f *Filter, fr Frame) {
-	src := fr.Image
-	changed := fr.Changed || p.filter != f.ID
-	if fr.Ghost {
-		src = p.blend(src, fr.Advance)
-		changed = changed || fr.Advance
-	} else {
-		p.ghosting = false
+	if p.filter != f.ID {
+		p.cur.reset(len(f.Passes))
+		p.prev.reset(len(f.Passes))
+		p.filter = f.ID
 	}
-	if changed {
-		src = p.run(f, src)
-	} else if len(f.Passes) > 0 {
-		src = p.images[len(f.Passes)-1]
+	src := p.run(&p.cur, f, fr.Image, fr.Changed)
+	var prev *ebiten.Image
+	if fr.Ghost != GhostOff && fr.Prev != nil {
+		prev = p.run(&p.prev, f, fr.Prev, fr.PrevChanged)
 	}
 
 	sw, sh := float64(dst.Bounds().Dx()), float64(dst.Bounds().Dy())
 	lw, lh := float64(fr.Image.Bounds().Dx()), float64(fr.Image.Bounds().Dy())
 	x, y, scale := Placement(sw, sh, lw, lh, f.Final == "")
-	if f.Final == "" {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(scale, scale)
-		op.GeoM.Translate(x, y)
-		dst.DrawImage(src, op)
-		return
+	final := f.Final
+	if final == "" {
+		final = "nearest"
 	}
 	w, h := src.Bounds().Dx(), src.Bounds().Dy()
 	sx, sy := math.Round(lw*scale)/float64(w), math.Round(lh*scale)/float64(h)
@@ -186,58 +213,50 @@ func (p *Pipeline) Draw(dst *ebiten.Image, f *Filter, fr Frame) {
 	op.GeoM.Scale(sx, sy)
 	op.GeoM.Translate(x, y)
 	op.Images[0] = src
+	ghost := float32(0)
+	if prev != nil {
+		op.Images[1] = prev
+		ghost = float32(fr.Ghost)
+	}
 	gap := func(v uint8) float32 { return float32(v) / 0xFF }
-	color := float32(0)
-	if fr.Color {
-		color = 1
-	}
 	op.Uniforms = map[string]any{
-		"Scale": []float32{float32(sx), float32(sy)},
-		"Color": color,
-		"Gap":   []float32{gap(fr.Gap.R), gap(fr.Gap.G), gap(fr.Gap.B)},
+		"Scale":      []float32{float32(sx), float32(sy)},
+		"Color":      flag(fr.Color),
+		"Gap":        []float32{gap(fr.Gap.R), gap(fr.Gap.G), gap(fr.Gap.B)},
+		"Ghost":      ghost,
+		"Odd":        flag(fr.Odd),
+		"LineHeight": float32(float64(h) / lh),
 	}
-	dst.DrawRectShader(w, h, p.shader(f.Final), op)
+	dst.DrawRectShader(w, h, p.shader(final), op)
 }
 
-// run runs the passes of f on src, and returns the last output.
-func (p *Pipeline) run(f *Filter, src *ebiten.Image) *ebiten.Image {
-	if p.filter != f.ID {
-		for _, img := range p.images {
-			img.Deallocate()
-		}
-		p.images = make([]*ebiten.Image, len(f.Passes))
-		p.filter = f.ID
+func flag(b bool) float32 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// run runs the passes of f on src, unless ps already holds them (the source
+// did not change), and returns the last output, or src without passes.
+func (p *Pipeline) run(ps *passes, f *Filter, src *ebiten.Image, changed bool) *ebiten.Image {
+	if len(f.Passes) == 0 {
+		return src
+	}
+	if ps.valid && !changed {
+		return ps.images[len(ps.images)-1]
 	}
 	for i, pass := range f.Passes {
 		w, h := src.Bounds().Dx(), src.Bounds().Dy()
-		out := sized(&p.images[i], w*pass.Factor, h*pass.Factor)
+		out := sized(&ps.images[i], w*pass.Factor, h*pass.Factor)
 		op := &ebiten.DrawRectShaderOptions{Blend: ebiten.BlendCopy}
 		op.GeoM.Scale(float64(pass.Factor), float64(pass.Factor))
 		op.Images[0] = src
 		out.DrawRectShader(w, h, p.shader(pass.Shader), op)
 		src = out
 	}
+	ps.valid = true
 	return src
-}
-
-// blend returns src blended with the previous frame, which advance
-// replaces with src.
-func (p *Pipeline) blend(src *ebiten.Image, advance bool) *ebiten.Image {
-	w, h := src.Bounds().Dx(), src.Bounds().Dy()
-	out, prev := sized(&p.ghost[0], w, h), sized(&p.ghost[1], w, h)
-	if !p.ghosting { // nothing to blend with yet
-		prev.DrawImage(src, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
-		out.DrawImage(src, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
-		p.ghosting = true
-		return out
-	}
-	if advance {
-		op := &ebiten.DrawRectShaderOptions{Blend: ebiten.BlendCopy}
-		op.Images[0], op.Images[1] = src, prev
-		out.DrawRectShader(w, h, p.shader("ghost"), op)
-		prev.DrawImage(src, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
-	}
-	return out
 }
 
 // Placement returns where to draw a w x h picture on a sw x sh screen:
@@ -254,7 +273,7 @@ func Placement(sw, sh, w, h float64, integer bool) (x, y, scale float64) {
 
 // shaderNames lists the shaders of the filters, for the tests.
 func shaderNames() []string {
-	names := []string{"ghost"}
+	names := []string{"nearest"}
 	for _, f := range Filters {
 		for _, p := range f.Passes {
 			names = append(names, p.Shader)

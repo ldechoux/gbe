@@ -89,7 +89,9 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `filter.scale2x` | | Filtre Scale2x (nom de l'algorithme) |
 | `filter.scale3x` | | Filtre Scale3x (nom de l'algorithme) |
 | `filter.mmpx` | | Filtre MMPX (nom de l'algorithme) |
-| `menu.ghosting` | `%s` `setting.on` ou `setting.off` | Entrée de la page Affichage qui active la rémanence : chaque image se mélange à la précédente, comme sur l'écran LCD |
+| `menu.ghosting` | `%s` `setting.off`, `ghosting.simple` ou `ghosting.accurate` | Entrée de la page Affichage qui règle la rémanence : chaque image se mélange à la précédente, comme sur l'écran LCD |
+| `ghosting.simple` | | Rémanence simple : l'image et la précédente à parts égales |
+| `ghosting.accurate` | | Rémanence fidèle à l'écran LCD : poids alternés d'une ligne à l'autre (comme SameBoy) |
 | `menu.fast_forward` | `%d` vitesse (2 à 8) | Entrée de réglage de la vitesse de l'avance rapide |
 | `menu.language` | `%s` valeur `name` de la langue | Entrée de choix de la langue |
 | `menu.save_state` | | Entrée qui sauvegarde l'état de la partie |

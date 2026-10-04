@@ -61,11 +61,20 @@ type Game struct {
 	autoModel  bool                                // see Options
 	newConsole func(gb.Model) (*gb.GameBoy, error) // same
 
-	lcd        *ebiten.Image
-	lcdFrame   lcdFrame        // the frame in lcd
-	video      scaler.Pipeline // draws lcd on the screen
-	drawnFrame int             // frame shown by the last Draw
-	menu       menu
+	lcd      *ebiten.Image
+	lcdFrame lcdFrame        // the frame in lcd
+	video    scaler.Pipeline // draws lcd on the screen
+	menu     menu
+
+	// The frame the console produced just before its current one, which
+	// ghosting blends with it (see keepPrevious), and the parity of the
+	// current one.
+	prevShades [screenPixels]byte
+	prevColors [screenPixels]uint16
+	prevColor  bool
+	lcdPrev    *ebiten.Image
+	prevFrame  lcdFrame // the frame in lcdPrev
+	oddFrame   bool
 
 	stream *audioStream
 	player *audio.Player
@@ -129,11 +138,14 @@ func Run(opts Options) error {
 		autoModel:   opts.AutoModel,
 		newConsole:  opts.NewConsole,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
+		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream:      &audioStream{},
 		ignoredKeys: map[ebiten.Key]bool{},
 		ignoredPad:  map[padButton]bool{},
 		pads:        &ebitenPads{},
 	}
+
+	g.keepPrevious() // nothing to blend with yet
 
 	ctx := audio.NewContext(sampleRate)
 	g.player, err = ctx.NewPlayer(g.stream)
@@ -291,6 +303,7 @@ func (g *Game) loadState() bool {
 	}
 	if err == nil {
 		g.rewind.clear() // that history belongs to the abandoned game
+		g.keepPrevious() // and so does the previous frame
 	}
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -338,6 +351,7 @@ func (g *Game) colorizable() bool {
 // for. The cartridge, and so its battery RAM, is kept.
 func (g *Game) restart() {
 	g.rewind.clear()
+	defer g.keepPrevious() // the previous frame belongs to the abandoned game
 	if !g.modePending() {
 		g.gb.Reset()
 		return
@@ -459,6 +473,7 @@ func (g *Game) advance(fast, rewind bool) {
 		// is queued, so the stream repeats its last frame, which is silent.
 		if g.rewindTick%2 == 0 {
 			g.rewind.step(g.gb)
+			g.keepPrevious() // no ghost of the frame stepped back from
 		}
 		g.rewindTick++
 		return
@@ -474,14 +489,34 @@ func (g *Game) advance(fast, rewind bool) {
 	// instead of piling up.
 	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()) / float64(n))
 	rumble := 0.0
-	for range n {
+	for i := range n {
+		if i == n-1 {
+			g.keepPrevious() // the frame before the one shown
+		}
 		g.gb.RunFrame()
+		g.oddFrame = !g.oddFrame
 		g.fps.frame()
 		g.rewind.record(g.gb)
 		rumble += g.gb.Rumble()
 	}
 	g.stream.push(g.gb.APU.DrainSamples())
 	g.rumble.update(g.pads, g.cfg.Vibration, rumble/float64(n))
+}
+
+// keepPrevious keeps the current frame of the console as the previous one,
+// which ghosting blends with the next. Kept in the emulation loop rather
+// than at drawing time, the two frames are always consecutive, however many
+// frames a tick runs (fast forward, or several updates per draw). Called
+// out of it (rewind, load, reset), it drops the ghost of an unrelated
+// frame: the previous frame is the current one.
+func (g *Game) keepPrevious() {
+	g.prevShades, g.prevColors = *g.gb.Framebuffer(), *g.gb.ColorFramebuffer()
+	g.prevColor = g.gb.IsCGB()
+}
+
+// previous is the frame kept by keepPrevious.
+func (g *Game) previous() frameSource {
+	return frameSource{g.prevColor, &g.prevShades, &g.prevColors}
 }
 
 // speedBadge is the indicator shown while fast forwarding or rewinding.
@@ -497,20 +532,25 @@ func (g *Game) speedBadge() string {
 
 // drawFrame draws the last frame of the console on dst, with the filter.
 func (g *Game) drawFrame(dst *ebiten.Image) {
-	changed := g.lcdFrame.update(g.gb, g.palette(), g.cfg.ColorCorrection)
-	if changed {
+	pal, correct := g.palette(), g.cfg.ColorCorrection
+	fr := scaler.Frame{
+		Image: g.lcd,
+		Ghost: ghostMode(g.cfg.Ghosting),
+		Odd:   g.oddFrame,
+		Color: g.colorMode(),
+		Gap:   pal.Colors[0],
+	}
+	if fr.Changed = g.lcdFrame.update(consoleFrame(g.gb), pal, correct); fr.Changed {
 		g.lcd.WritePixels(g.lcdFrame.pix)
 	}
+	if fr.Ghost != scaler.GhostOff {
+		if fr.PrevChanged = g.prevFrame.update(g.previous(), pal, correct); fr.PrevChanged {
+			g.lcdPrev.WritePixels(g.prevFrame.pix)
+		}
+		fr.Prev = g.lcdPrev
+	}
 	dst.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
-	g.video.Draw(dst, g.filter(), scaler.Frame{
-		Image:   g.lcd,
-		Changed: changed,
-		Ghost:   g.cfg.Ghosting,
-		Advance: g.frame != g.drawnFrame,
-		Color:   g.colorMode(),
-		Gap:     g.palette().Colors[0],
-	})
-	g.drawnFrame = g.frame
+	g.video.Draw(dst, g.filter(), fr)
 }
 
 // renderFrame returns the last frame of the console drawn with the filter,

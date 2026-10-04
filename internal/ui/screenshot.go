@@ -26,7 +26,7 @@ func DefaultScreenshotDir() string {
 // block.
 func Screenshot(console *gb.GameBoy, pal *Palette, correct bool, scale int) *image.RGBA {
 	pix := make([]byte, gb.ScreenWidth*gb.ScreenHeight*4)
-	frameRGBA(pix, console, pal, correct)
+	frameRGBA(pix, consoleFrame(console), pal, correct)
 	return scaleImage(pix, scale)
 }
 

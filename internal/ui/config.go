@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -25,8 +26,9 @@ type Config struct {
 	Scale    int    `json:"scale"`
 	// Filter draws the picture on the screen (see scaler.Filters).
 	Filter string `json:"filter"`
-	// Ghosting blends each frame with the previous one, like the LCD.
-	Ghosting   bool                  `json:"ghosting"`
+	// Ghosting blends each frame with the previous one, like the LCD (see
+	// ghostingModes).
+	Ghosting   string                `json:"ghosting"`
 	Fullscreen bool                  `json:"fullscreen"`
 	Volume     float64               `json:"volume"`
 	Keys       map[string]ebiten.Key `json:"keys"` // button or action name -> key
@@ -46,6 +48,41 @@ type Config struct {
 	// CompatPalettes is the palette chosen for a colorized DMG game, by
 	// title (see compatPaletteID). Absent: the one the boot ROM picks.
 	CompatPalettes map[string]string `json:"compat_palettes"`
+}
+
+// Ghosting modes (Config.Ghosting), in the order of the menu.
+const (
+	ghostingOff      = "off"
+	ghostingSimple   = "simple"
+	ghostingAccurate = "accurate"
+)
+
+var ghostingModes = []string{ghostingOff, ghostingSimple, ghostingAccurate}
+
+// ghostMode is the scaler mode of a Config.Ghosting value.
+func ghostMode(mode string) scaler.GhostMode {
+	switch mode {
+	case ghostingSimple:
+		return scaler.GhostSimple
+	case ghostingAccurate:
+		return scaler.GhostAccurate
+	}
+	return scaler.GhostOff
+}
+
+// loadGhosting reads the ghosting setting of a config file: one of
+// ghostingModes, or true (simple) and false (off) from the versions with an
+// on/off setting. Anything else is off.
+func loadGhosting(raw json.RawMessage) string {
+	var on bool
+	if json.Unmarshal(raw, &on) == nil && on {
+		return ghostingSimple
+	}
+	var mode string
+	if json.Unmarshal(raw, &mode) == nil && slices.Contains(ghostingModes, mode) {
+		return mode
+	}
+	return ghostingOff
 }
 
 // Emulator actions held like the Game Boy buttons, bound in Keys and
@@ -94,6 +131,7 @@ func DefaultConfig() *Config {
 		Language:         i18n.Default,
 		Scale:            4,
 		Filter:           scaler.Filters[0].ID,
+		Ghosting:         ghostingOff,
 		Volume:           0.8,
 		Keys:             defaultKeys(),
 		Gamepad:          defaultPad(),
@@ -129,6 +167,8 @@ func LoadConfig(path string) (*Config, error) {
 		ColorCorrection *bool   `json:"color_correction"` // same
 		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
 		Vibration       *bool   `json:"vibration"`        // same
+		// A string, or a boolean before the ghosting modes: on was simple.
+		Ghosting json.RawMessage `json:"ghosting"`
 	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
@@ -145,7 +185,7 @@ func LoadConfig(path string) (*Config, error) {
 	if loaded.Vibration != nil {
 		cfg.Vibration = *loaded.Vibration
 	}
-	cfg.Ghosting, cfg.Fullscreen = loaded.Ghosting, loaded.Fullscreen
+	cfg.Ghosting, cfg.Fullscreen = loadGhosting(loaded.Ghosting), loaded.Fullscreen
 	for title, id := range loaded.CompatPalettes {
 		if compatPaletteIndex(id) != gb.CompatAuto {
 			cfg.CompatPalettes[title] = id

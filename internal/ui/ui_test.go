@@ -23,7 +23,7 @@ func TestConfigRoundTrip(t *testing.T) {
 	cfg.Scale = 3
 	cfg.Volume = 0.5
 	cfg.Filter = "mmpx"
-	cfg.Ghosting = true
+	cfg.Ghosting = ghostingAccurate
 	cfg.Fullscreen = true
 	cfg.Bind(gb.ButtonA.String(), ebiten.KeyK)
 	if err := cfg.Save(path); err != nil {
@@ -33,7 +33,7 @@ func TestConfigRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Palette != "amber" || got.Scale != 3 || got.Volume != 0.5 || got.Filter != "mmpx" || !got.Ghosting || !got.Fullscreen {
+	if got.Palette != "amber" || got.Scale != 3 || got.Volume != 0.5 || got.Filter != "mmpx" || got.Ghosting != ghostingAccurate || !got.Fullscreen {
 		t.Fatalf("loaded %+v", got)
 	}
 	for _, b := range gb.Buttons {

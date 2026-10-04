@@ -42,7 +42,7 @@ func TestFrameRGBA(t *testing.T) {
 			if c%screenPixels != screenPixels-1 && c != 1<<15-1 {
 				continue
 			}
-			frameRGBA(dst, console, &Palettes[0], correct)
+			frameRGBA(dst, consoleFrame(console), &Palettes[0], correct)
 			for i, v := range fb {
 				r, g, b := rgb555(v, correct)
 				if got, want := dst[i*4:i*4+4], []byte{r, g, b, 0xFF}; !bytes.Equal(got, want) {
@@ -53,7 +53,7 @@ func TestFrameRGBA(t *testing.T) {
 	}
 	console := frameConsole(t, false)
 	for _, pal := range Palettes {
-		frameRGBA(dst, console, &pal, false)
+		frameRGBA(dst, consoleFrame(console), &pal, false)
 		for i, s := range console.Framebuffer() {
 			c := pal.Colors[s]
 			if got, want := dst[i*4:i*4+4], []byte{c.R, c.G, c.B, 0xFF}; !bytes.Equal(got, want) {
@@ -90,11 +90,11 @@ func TestLCDFrameUpdate(t *testing.T) {
 		if s.change != nil {
 			s.change()
 		}
-		if got := f.update(s.console, s.pal, s.correct); got != s.want {
+		if got := f.update(consoleFrame(s.console), s.pal, s.correct); got != s.want {
 			t.Errorf("%s: update reported %v", s.what, got)
 		}
 		want := make([]byte, screenPixels*4)
-		frameRGBA(want, s.console, s.pal, s.correct)
+		frameRGBA(want, consoleFrame(s.console), s.pal, s.correct)
 		if !bytes.Equal(f.pix, want) {
 			t.Errorf("%s: wrong pixels", s.what)
 		}
@@ -105,7 +105,7 @@ func benchFrameRGBA(b *testing.B, color, correct bool) {
 	console := frameConsole(b, color)
 	dst := make([]byte, gb.ScreenWidth*gb.ScreenHeight*4)
 	for b.Loop() {
-		frameRGBA(dst, console, &Palettes[0], correct)
+		frameRGBA(dst, consoleFrame(console), &Palettes[0], correct)
 	}
 }
 

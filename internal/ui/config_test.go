@@ -98,3 +98,25 @@ func TestAudioStreamOverflow(t *testing.T) {
 		t.Errorf("after overflow: %d frames, want %d", got, targetFill)
 	}
 }
+
+// Before the ghosting modes, the setting was on or off: on meant simple.
+func TestLoadGhosting(t *testing.T) {
+	for _, c := range []struct{ json, want string }{
+		{`true`, ghostingSimple},
+		{`false`, ghostingOff},
+		{`"accurate"`, ghostingAccurate},
+		{`"simple"`, ghostingSimple},
+		{`"nope"`, ghostingOff},
+		{`3`, ghostingOff},
+	} {
+		path := filepath.Join(t.TempDir(), "config.json")
+		os.WriteFile(path, []byte(`{"ghosting": `+c.json+`}`), 0o644)
+		cfg, err := LoadConfig(path)
+		if err != nil || cfg.Ghosting != c.want {
+			t.Errorf("ghosting %s: %q (%v), want %q", c.json, cfg.Ghosting, err, c.want)
+		}
+	}
+	if cfg, _ := LoadConfig(filepath.Join(t.TempDir(), "missing.json")); cfg.Ghosting != ghostingOff {
+		t.Errorf("default ghosting %q", cfg.Ghosting)
+	}
+}

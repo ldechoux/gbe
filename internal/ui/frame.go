@@ -9,24 +9,43 @@ import (
 
 const screenPixels = gb.ScreenWidth * gb.ScreenHeight
 
-// frameRGBA writes the last frame of the console into dst as RGBA pixels.
-// DMG shades go through pal; Game Boy Color frames are RGB555, optionally
-// adjusted to look like the original screen (see correctColor).
-func frameRGBA(dst []byte, console *gb.GameBoy, pal *Palette, correct bool) {
+// frameSource is a frame of the console: its DMG shades or, in Game Boy
+// Color mode, its RGB555 colors.
+type frameSource struct {
+	color  bool
+	shades *[screenPixels]byte
+	colors *[screenPixels]uint16
+}
+
+// consoleFrame is the last complete frame of the console.
+func consoleFrame(console *gb.GameBoy) frameSource {
+	return frameSource{console.IsCGB(), console.Framebuffer(), console.ColorFramebuffer()}
+}
+
+// frameRGBA writes src into dst as RGBA pixels. DMG shades go through pal;
+// Game Boy Color frames are RGB555, optionally adjusted to look like the
+// original screen (see correctColor).
+func frameRGBA(dst []byte, src frameSource, pal *Palette, correct bool) {
 	dst = dst[:screenPixels*4]
-	if !console.IsCGB() {
+	if !src.color {
 		var shades [4]uint32
 		for i, c := range pal.Colors {
 			shades[i] = packRGBA(c.R, c.G, c.B)
 		}
-		for i, s := range console.Framebuffer() {
+		// Ranged over as a slice: the array pointer, from a struct, would
+		// otherwise be checked for nil at every pixel.
+		for i, s := range src.shades[:] {
 			binary.LittleEndian.PutUint32(dst[i*4:], shades[s&3])
 		}
 		return
 	}
-	lut := colorLUT(correct)
-	for i, c := range console.ColorFramebuffer() {
-		binary.LittleEndian.PutUint32(dst[i*4:], lut[c&0x7FFF])
+	// Two pixels per iteration, stored at once: the loop is short enough
+	// for its speed to depend on where it lands in memory otherwise.
+	lut := colorLUT(correct)[:] // same for the table
+	colors := src.colors[:]
+	for i := 0; i < screenPixels-1; i += 2 {
+		px := uint64(lut[colors[i]&0x7FFF]) | uint64(lut[colors[i+1]&0x7FFF])<<32
+		binary.LittleEndian.PutUint64(dst[i*4:i*4+8], px)
 	}
 }
 
@@ -94,15 +113,14 @@ type lcdFrame struct {
 	correct bool
 }
 
-// update converts the last frame of the console into pix, unless it is the
-// one already there. It reports whether pix changed.
-func (f *lcdFrame) update(console *gb.GameBoy, pal *Palette, correct bool) bool {
-	color := console.IsCGB()
-	same := f.valid && f.color == color
-	if color {
-		same = same && f.correct == correct && f.colors == *console.ColorFramebuffer()
+// update converts src into pix, unless it is the frame already there. It
+// reports whether pix changed.
+func (f *lcdFrame) update(src frameSource, pal *Palette, correct bool) bool {
+	same := f.valid && f.color == src.color
+	if src.color {
+		same = same && f.correct == correct && f.colors == *src.colors
 	} else {
-		same = same && f.pal == *pal && f.shades == *console.Framebuffer()
+		same = same && f.pal == *pal && f.shades == *src.shades
 	}
 	if same {
 		return false
@@ -110,12 +128,12 @@ func (f *lcdFrame) update(console *gb.GameBoy, pal *Palette, correct bool) bool 
 	if f.pix == nil {
 		f.pix = make([]byte, screenPixels*4)
 	}
-	frameRGBA(f.pix, console, pal, correct)
-	f.valid, f.color, f.pal, f.correct = true, color, *pal, correct
-	if color {
-		f.colors = *console.ColorFramebuffer()
+	frameRGBA(f.pix, src, pal, correct)
+	f.valid, f.color, f.pal, f.correct = true, src.color, *pal, correct
+	if src.color {
+		f.colors = *src.colors
 	} else {
-		f.shades = *console.Framebuffer()
+		f.shades = *src.shades
 	}
 	return true
 }

@@ -182,3 +182,95 @@ func TestMenuFastForward(t *testing.T) {
 		t.Errorf("controls lines %q, %q", v.items[ff], v.items[ff+1])
 	}
 }
+
+// frameProgram changes BGP once per frame, in VBlank: the screen shows a
+// new shade at every frame, cycling through four.
+var frameProgram = []byte{
+	0xF0, 0x44, // loop: LDH A,(LY)
+	0xFE, 0x90, //       CP 144
+	0x20, 0xFA, //       JR NZ,loop
+	0x04,       //       INC B
+	0x78,       //       LD A,B
+	0xE0, 0x47, //       LDH (BGP),A
+	0xF0, 0x44, // wait: LDH A,(LY)
+	0xFE, 0x90, //       CP 144
+	0x28, 0xFA, //       JR Z,wait
+	0x18, 0xEE, //       JR loop
+}
+
+func newFrameGame(t *testing.T) *Game {
+	t.Helper()
+	g := withGameBoy(t, newTestGame(t, newFakePads()), frameProgram...)
+	g.stream = &audioStream{}
+	return g
+}
+
+// The frame ghosting blends with is the one the console produced just
+// before the current one, however many frames a tick runs.
+func TestAdvanceKeepsPreviousFrame(t *testing.T) {
+	g := newFrameGame(t)
+	g.cfg.FastForwardSpeed = 4
+	g.advance(false, false)
+	for _, c := range []struct {
+		name   string
+		fast   bool
+		frames int
+	}{
+		{"normal", false, 1},
+		{"fast forward", true, 4},
+	} {
+		start := g.gb.Snapshot(nil)
+		for range c.frames - 1 {
+			g.gb.RunFrame()
+		}
+		want := *g.gb.Framebuffer()
+		g.gb.RunFrame()
+		last := *g.gb.Framebuffer()
+		if err := g.gb.Restore(start); err != nil {
+			t.Fatal(err)
+		}
+		if want == last {
+			t.Fatalf("%s: the program must change every frame", c.name)
+		}
+
+		odd := g.oddFrame
+		g.advance(c.fast, false)
+		if *g.gb.Framebuffer() != last || g.prevShades != want {
+			t.Errorf("%s: the previous frame is not the one just before the current one", c.name)
+		}
+		if g.oddFrame != (odd != (c.frames%2 == 1)) {
+			t.Errorf("%s: parity %v after %d frames from %v", c.name, g.oddFrame, c.frames, odd)
+		}
+	}
+}
+
+// Out of the emulation loop, the previous frame becomes the current one:
+// no ghost of a frame from before a rewind, a load or a reset.
+func TestPreviousFrameReset(t *testing.T) {
+	g := newFrameGame(t)
+	same := func() bool { return g.prevShades == *g.gb.Framebuffer() }
+	for range rewindEvery + 1 {
+		g.advance(false, false)
+	}
+	if same() {
+		t.Fatal("the previous frame must differ from the current one")
+	}
+	g.advance(false, true)
+	if !same() {
+		t.Error("rewind: the previous frame must be the current one")
+	}
+
+	g.advance(false, false)
+	g.saveState()
+	g.advance(false, false)
+	g.loadState()
+	if !same() {
+		t.Error("load: the previous frame must be the current one")
+	}
+
+	g.advance(false, false)
+	g.restart()
+	if !same() {
+		t.Error("reset: the previous frame must be the current one")
+	}
+}

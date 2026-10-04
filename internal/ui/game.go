@@ -4,6 +4,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
 	"io/fs"
 	"log"
@@ -351,9 +352,11 @@ func (g *Game) restart() {
 	g.gb = console
 }
 
-// screenshot saves the current frame, scaled like the window, as a PNG.
+// screenshot saves the current frame as a PNG, drawn like on the screen
+// (filter and ghosting) at the scale of the window, without the menu and
+// the notifications.
 func (g *Game) screenshot() {
-	img := Screenshot(g.gb, g.palette(), g.cfg.ColorCorrection, g.cfg.Scale)
+	img := g.renderFrame(g.cfg.Scale)
 	path, err := saveScreenshot(g.shotDir, g.title, img, time.Now())
 	if err != nil {
 		log.Printf("screenshot: %v", err)
@@ -491,14 +494,14 @@ func (g *Game) speedBadge() string {
 	return ""
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
+// drawFrame draws the last frame of the console on dst, with the filter.
+func (g *Game) drawFrame(dst *ebiten.Image) {
 	changed := g.lcdFrame.update(g.gb, g.palette(), g.cfg.ColorCorrection)
 	if changed {
 		g.lcd.WritePixels(g.lcdFrame.pix)
 	}
-
-	screen.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
-	g.video.Draw(screen, g.filter(), scaler.Frame{
+	dst.Fill(color.RGBA{0x10, 0x10, 0x10, 0xFF})
+	g.video.Draw(dst, g.filter(), scaler.Frame{
 		Image:   g.lcd,
 		Changed: changed,
 		Ghost:   g.cfg.Ghosting,
@@ -507,6 +510,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		Gap:     g.palette().Colors[0],
 	})
 	g.drawnFrame = g.frame
+}
+
+// renderFrame returns the last frame of the console drawn with the filter,
+// each Game Boy pixel taking scale x scale pixels.
+func (g *Game) renderFrame(scale int) *image.RGBA {
+	scale = max(1, scale)
+	img := image.NewRGBA(image.Rect(0, 0, gb.ScreenWidth*scale, gb.ScreenHeight*scale))
+	dst := ebiten.NewImage(img.Rect.Dx(), img.Rect.Dy())
+	defer dst.Deallocate()
+	g.drawFrame(dst)
+	dst.ReadPixels(img.Pix)
+	return img
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	g.drawFrame(screen)
 
 	if g.menu.open {
 		g.menu.draw(screen, g)

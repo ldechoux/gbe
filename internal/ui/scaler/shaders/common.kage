@@ -1,5 +1,11 @@
 // Helpers inserted in every shader, after its header (see source).
 
+// Ghosting, set by Pipeline.Draw for the final pass only: the passes before
+// it see clean frames, since these uniforms are then 0.
+var Ghost float      // a GhostMode: 0 off, 1 simple, 2 accurate
+var Odd float        // 1 for an odd frame
+var LineHeight float // pixels of image 0 per line of the Game Boy
+
 // pos returns the position of a fragment in image 0, in pixels from its
 // top-left corner: pixel (i, j) spans [i, i+1) x [j, j+1).
 func pos(srcPos vec2) vec2 {
@@ -7,10 +13,31 @@ func pos(srcPos vec2) vec2 {
 }
 
 // fetch returns pixel p of image 0, the nearest one inside it when p is
-// out of bounds.
+// out of bounds. While ghosting, it is blended with the same pixel of
+// image 1, the previous frame.
 func fetch(p vec2) vec4 {
 	p = clamp(floor(p), vec2(0), imageSrc0Size()-1)
-	return imageSrc0UnsafeAt(imageSrc0Origin() + p + 0.5)
+	at := imageSrc0Origin() + p + 0.5
+	c := imageSrc0UnsafeAt(at)
+	if Ghost == 0 {
+		return c
+	}
+	return vec4(ghost(c.rgb, imageSrc1UnsafeAtFromSrc0Pos(at).rgb, p.y), 1)
+}
+
+// ghost blends the current color c with the previous one, as SameBoy does:
+// in linear light, half and half, or by 1/3 and 2/3 alternately from one
+// line of the Game Boy to the next, the order swapping at each frame.
+func ghost(c, prev vec3, y float) vec3 {
+	ratio := 0.5 // weight of the previous frame
+	if Ghost > 1.5 {
+		ratio = 2.0 / 3
+		if mod(floor(y/LineHeight), 2) == Odd {
+			ratio = 1.0 / 3
+		}
+	}
+	const gamma = 2.2
+	return pow(mix(pow(c, vec3(gamma)), pow(prev, vec3(gamma)), ratio), vec3(1/gamma))
 }
 
 // same reports whether two pixels have the same color.

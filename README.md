@@ -137,13 +137,19 @@ Les filtres à base d'algorithme agrandissent d'abord l'image d'un facteur fixe 
 fois qu'elle change, puis la passe « Net » l'étend à l'écran : leur coût ne dépend pas de la
 résolution de l'écran, et le jeu reste à 60 images par seconde en 4K.
 
-L'entrée « Rémanence » de la page Affichage mélange chaque image à la précédente, comme l'écran LCD de la console,
-lent à réagir : certains jeux faisaient clignoter des sprites d'une image à l'autre pour les
-rendre transparents. Elle se combine à tous les filtres.
+L'entrée « Rémanence » de la page Affichage mélange chaque image à la précédente, comme
+l'écran LCD de la console, lent à réagir : certains jeux faisaient clignoter des sprites d'une
+image à l'autre pour les rendre transparents. Elle se combine à tous les filtres, et suit le
+modèle de SameBoy :
 
-> **Expérimental** : la rémanence est encore imparfaite (simple mélange à parts égales de
-> deux images successives, qui laisse un halo sur les éléments en mouvement) et sera améliorée
-> plus tard.
+- **Simple** : l'image et la précédente à parts égales.
+- **Fidèle** : les poids alternent d'une ligne à l'autre (un tiers, deux tiers), et l'ordre
+  s'inverse à chaque image, comme sur l'écran LCD. Un sprite qui clignote reste stable.
+
+Les deux images mélangées sont toujours consécutives, même en avance rapide. Le mélange se
+fait en lumière linéaire, pour que les sprites transparents ne paraissent pas trop sombres,
+et après le filtre, qui voit des images nettes. Comme sur l'écran d'origine, les éléments en
+mouvement laissent un léger halo.
 
 ## Jeux DMG en couleurs
 

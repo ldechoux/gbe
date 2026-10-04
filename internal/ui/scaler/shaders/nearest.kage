@@ -1,0 +1,7 @@
+// Nearest neighbor: each pixel becomes a solid square, at the integer scale
+// that Placement gives the default filter. A shader rather than DrawImage,
+// so that ghosting blends it like the other filters.
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	return fetch(pos(srcPos))
+}

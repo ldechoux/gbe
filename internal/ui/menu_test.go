@@ -300,9 +300,19 @@ func TestMenuAdjust(t *testing.T) {
 	if got := displayLabel(g, displayFilter); got != "Filter    < Sharp >" {
 		t.Errorf("filter entry %q", got)
 	}
-	adjustDisplay(displayGhosting, 1)
-	if cfg, _ := LoadConfig(g.cfgPath); !cfg.Ghosting || displayLabel(g, displayGhosting) != "Ghosting  < on >" {
-		t.Errorf("ghosting not turned on: %q", displayLabel(g, displayGhosting))
+	for _, want := range []string{"simple", "accurate", "off"} {
+		adjustDisplay(displayGhosting, 1)
+		if cfg, _ := LoadConfig(g.cfgPath); cfg.Ghosting != want {
+			t.Errorf("Right on Ghosting: saved %q, want %q", cfg.Ghosting, want)
+		}
+	}
+	adjustDisplay(displayGhosting, -1) // from off, wraps around
+	if g.cfg.Ghosting != ghostingAccurate || displayLabel(g, displayGhosting) != "Ghosting  < accurate >" {
+		t.Errorf("Left on Ghosting off: %q, entry %q", g.cfg.Ghosting, displayLabel(g, displayGhosting))
+	}
+	g.cfg.Ghosting = ghostingOff
+	if got := displayLabel(g, displayGhosting); got != "Ghosting  < off >" {
+		t.Errorf("ghosting off entry %q", got)
 	}
 	before := *g.cfg
 	adjustDisplay(displayBack, 1) // not adjustable

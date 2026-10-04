@@ -23,6 +23,8 @@
     "filter.scale2x": "Scale2x",
     "filter.scale3x": "Scale3x",
     "filter.mmpx": "MMPX",
+    "ghosting.simple": "simple",
+    "ghosting.accurate": "fidele",
     "menu.fast_forward": "Avance    < x%d >",
     "menu.language": "Langue    < %s >",
     "menu.save_state": "Sauvegarder l'etat",

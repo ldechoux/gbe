@@ -88,6 +88,14 @@ func onOff(l *i18n.Locale, on bool) string {
 	return l.T("setting.off")
 }
 
+// ghostingLabel names a ghosting mode in language l.
+func ghostingLabel(l *i18n.Locale, mode string) string {
+	if mode == ghostingOff {
+		return l.T("setting.off")
+	}
+	return l.T("ghosting." + mode)
+}
+
 // bindingLabel names a Game Boy button or an action (see bindingNames) in
 // language l.
 func bindingLabel(l *i18n.Locale, name string) string {
@@ -355,7 +363,9 @@ func (m *menu) adjustDisplay(g *Game, delta int) {
 	case displayFilter:
 		g.cycleFilter(delta)
 	case displayGhosting:
-		g.cfg.Ghosting = !g.cfg.Ghosting
+		n := len(ghostingModes)
+		i := slices.Index(ghostingModes, g.cfg.Ghosting)
+		g.cfg.Ghosting = ghostingModes[(i+delta%n+n)%n]
 		g.saveConfig()
 	}
 }
@@ -579,7 +589,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 			l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
 			l.T("menu.scale", g.cfg.Scale),
 			l.T("menu.filter", l.T("filter."+g.filter().ID)),
-			l.T("menu.ghosting", onOff(l, g.cfg.Ghosting)),
+			l.T("menu.ghosting", ghostingLabel(l, g.cfg.Ghosting)),
 			l.T("display.back"),
 		}
 		for _, e := range displayEntries(g) {

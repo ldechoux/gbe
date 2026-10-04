@@ -27,6 +27,7 @@ type menuPage int
 const (
 	pageMain menuPage = iota
 	pageControls
+	pageDisplay
 	pageStart // shown at launch when a save state exists
 )
 
@@ -40,13 +41,9 @@ const (
 // Main page entries.
 const (
 	itemResume = iota
-	itemPalette
-	itemColorize
+	itemDisplay
 	itemControls
 	itemVolume
-	itemScale
-	itemFilter
-	itemGhosting
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -56,7 +53,18 @@ const (
 	mainItems
 )
 
-// paletteLabel is the palette entry of the main page. In Game Boy Color mode
+// Display page entries.
+const (
+	displayPalette = iota
+	displayColorize
+	displayScale
+	displayFilter
+	displayGhosting
+	displayBack
+	displayItems
+)
+
+// paletteLabel is the palette entry of the display page. In Game Boy Color mode
 // it switches the color correction instead, except for colorized DMG games,
 // which have the palettes of the CGB boot ROM.
 func paletteLabel(l *i18n.Locale, g *Game) string {
@@ -158,26 +166,26 @@ func (m *menu) showStart() {
 	*m = menu{open: true, page: pageStart}
 }
 
-// mainEntries lists the entries of the main page shown for this game: the
-// colorization setting only applies to DMG games.
-func mainEntries(g *Game) []int {
-	entries := make([]int, 0, mainItems)
-	for i := range mainItems {
-		if i != itemColorize || g.colorizable() {
+// displayEntries lists the entries of the display page shown for this game:
+// the colorization setting only applies to DMG games.
+func displayEntries(g *Game) []int {
+	entries := make([]int, 0, displayItems)
+	for i := range displayItems {
+		if i != displayColorize || g.colorizable() {
 			entries = append(entries, i)
 		}
 	}
 	return entries
 }
 
-// move goes to the previous (-1) or next (1) entry. On the main page, the
-// cursor is the entry itself (itemResume...), whichever are hidden.
+// move goes to the previous (-1) or next (1) entry. On the display page,
+// the cursor is the entry itself (displayPalette...), whichever are hidden.
 func (m *menu) move(g *Game, delta int) {
-	if m.page != pageMain {
+	if m.page != pageDisplay {
 		m.cursor = (m.cursor + m.itemCount() + delta) % m.itemCount()
 		return
 	}
-	entries := mainEntries(g)
+	entries := displayEntries(g)
 	i := max(0, slices.Index(entries, m.cursor))
 	m.cursor = entries[(i+len(entries)+delta)%len(entries)]
 }
@@ -189,15 +197,21 @@ func (m *menu) itemCount() int {
 			return padBack() + 1
 		}
 		return controlsBack() + 1
+	case pageDisplay:
+		return displayItems
 	case pageStart:
 		return startItems
 	}
 	return mainItems
 }
 
-// backToMain leaves the controls page.
+// backToMain leaves a page opened from the main one, back on its entry.
 func (m *menu) backToMain() {
-	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, itemControls, "", 0
+	cursor := itemControls
+	if m.page == pageDisplay {
+		cursor = itemDisplay
+	}
+	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, cursor, "", 0
 }
 
 // update reacts to this tick's actions (see menuActions); captures read the
@@ -224,7 +238,7 @@ func (m *menu) update(g *Game) {
 	case a.back:
 		switch m.page {
 		case pageStart: // a choice is required
-		case pageControls:
+		case pageControls, pageDisplay:
 			m.backToMain()
 		default:
 			m.open = false
@@ -305,28 +319,18 @@ func (m *menu) adjust(g *Game, delta int) {
 		m.switchTab(g, delta)
 		return
 	}
+	if m.page == pageDisplay {
+		m.adjustDisplay(g, delta)
+		return
+	}
 	if m.page != pageMain {
 		return
 	}
 	switch m.cursor {
-	case itemPalette:
-		g.cyclePalette(delta)
-	case itemColorize:
-		g.cfg.ColorizeDMG = !g.cfg.ColorizeDMG // applied by Reset (see the footer)
-		g.saveConfig()
 	case itemVolume:
 		v := math.Round(g.cfg.Volume*10) + float64(delta)
 		g.cfg.Volume = max(0, min(10, v)) / 10
 		g.player.SetVolume(g.cfg.Volume)
-		g.saveConfig()
-	case itemScale:
-		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
-		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
-		g.saveConfig()
-	case itemFilter:
-		g.cycleFilter(delta)
-	case itemGhosting:
-		g.cfg.Ghosting = !g.cfg.Ghosting
 		g.saveConfig()
 	case itemSpeed:
 		g.cfg.FastForwardSpeed = max(minFastForward, min(maxFastForward, g.cfg.FastForwardSpeed+delta))
@@ -334,6 +338,25 @@ func (m *menu) adjust(g *Game, delta int) {
 	case itemLanguage:
 		g.cycleLanguage(delta)
 		m.width = 0 // the labels change length
+	}
+}
+
+func (m *menu) adjustDisplay(g *Game, delta int) {
+	switch m.cursor {
+	case displayPalette:
+		g.cyclePalette(delta)
+	case displayColorize:
+		g.cfg.ColorizeDMG = !g.cfg.ColorizeDMG // applied by Reset (see the footer)
+		g.saveConfig()
+	case displayScale:
+		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
+		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
+		g.saveConfig()
+	case displayFilter:
+		g.cycleFilter(delta)
+	case displayGhosting:
+		g.cfg.Ghosting = !g.cfg.Ghosting
+		g.saveConfig()
 	}
 }
 
@@ -391,6 +414,14 @@ func (m *menu) activate(g *Game) {
 		}
 		return
 	}
+	if m.page == pageDisplay {
+		if m.cursor == displayBack {
+			m.backToMain()
+		} else {
+			m.adjust(g, 1) // OK cycles like Right
+		}
+		return
+	}
 	if m.page == pageControls {
 		switch {
 		case m.cursor <= controlsScreenshot():
@@ -407,8 +438,10 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemPalette, itemColorize, itemVolume, itemScale, itemFilter, itemGhosting, itemSpeed, itemLanguage:
+	case itemVolume, itemSpeed, itemLanguage:
 		m.adjust(g, 1)
+	case itemDisplay:
+		m.page, m.cursor, m.width = pageDisplay, displayPalette, 0
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
 	case itemSaveState:
@@ -461,8 +494,8 @@ func (m *menu) view(g *Game) menuView {
 	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
-	if m.page == pageMain {
-		v.selected = slices.Index(mainEntries(g), m.cursor)
+	if m.page == pageDisplay {
+		v.selected = slices.Index(displayEntries(g), m.cursor)
 	}
 	return v
 }
@@ -540,15 +573,25 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("start.title"), []string{l.T("start.resume"), l.T("start.fresh")}, footer
 	}
-	labels := []string{
+	if m.page == pageDisplay {
+		labels := []string{
+			paletteLabel(l, g),
+			l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
+			l.T("menu.scale", g.cfg.Scale),
+			l.T("menu.filter", l.T("filter."+g.filter().ID)),
+			l.T("menu.ghosting", onOff(l, g.cfg.Ghosting)),
+			l.T("display.back"),
+		}
+		for _, e := range displayEntries(g) {
+			items = append(items, labels[e])
+		}
+		return l.T("display.title"), items, mainFooter(g)
+	}
+	items = []string{
 		l.T("menu.resume"),
-		paletteLabel(l, g),
-		l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
+		l.T("menu.display"),
 		l.T("menu.controls"),
 		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
-		l.T("menu.scale", g.cfg.Scale),
-		l.T("menu.filter", l.T("filter."+g.filter().ID)),
-		l.T("menu.ghosting", onOff(l, g.cfg.Ghosting)),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),
@@ -556,9 +599,13 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.reset"),
 		l.T("menu.quit"),
 	}
-	for _, e := range mainEntries(g) {
-		items = append(items, labels[e])
-	}
+	return l.T("menu.title"), items, mainFooter(g)
+}
+
+// mainFooter is the footer of the main and display pages: the keyboard
+// shortcuts, or the reminder to reset while a setting waits for it.
+func mainFooter(g *Game) string {
+	l := g.tr()
 	key := "menu.footer"
 	if g.colorMode() && !g.compat() {
 		key = "menu.footer_color" // P toggles the color correction
@@ -566,11 +613,10 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 	if len(g.pads.ids()) > 0 {
 		key += "_pad"
 	}
-	footer = l.T(key)
 	if g.modePending() {
-		footer = l.T("menu.footer_pending") // e.g. after changing the colorization
+		return l.T("menu.footer_pending") // e.g. after changing the colorization
 	}
-	return l.T("menu.title"), items, footer
+	return l.T(key)
 }
 
 // drawToast shows msg in a small box at the bottom-left of the screen.

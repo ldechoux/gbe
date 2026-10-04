@@ -11,6 +11,7 @@
     "menu.colorize": "Coloriser < %s >",
     "setting.on": "oui",
     "setting.off": "non",
+    "menu.display": "Affichage...",
     "menu.controls": "Controles...",
     "menu.volume": "Volume    < %d%% >",
     "menu.scale": "Echelle   < x%d >",
@@ -33,6 +34,9 @@
     "menu.footer_color": "P: couleurs   F11: plein ecran",
     "menu.footer_pending": "Reinitialiser pour appliquer",
     "menu.footer_color_pad": "P: couleurs  F11: plein ecran  Start+Select: menu",
+
+    "display.title": "AFFICHAGE",
+    "display.back": "Retour",
 
     "start.title": "PARTIE EN COURS",
     "start.resume": "Reprendre la partie",

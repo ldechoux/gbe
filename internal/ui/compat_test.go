@@ -137,8 +137,16 @@ func withModes(g *Game) *Game {
 
 // entryLabel is the label of a main page entry.
 func entryLabel(g *Game, item int) string {
-	_, items, _ := g.menu.lines(g)
-	if i := slices.Index(mainEntries(g), item); i >= 0 {
+	m := menu{page: pageMain}
+	_, items, _ := m.lines(g)
+	return items[item]
+}
+
+// displayLabel is the label of a display page entry, "" when it is hidden.
+func displayLabel(g *Game, item int) string {
+	m := menu{page: pageDisplay}
+	_, items, _ := m.lines(g)
+	if i := slices.Index(displayEntries(g), item); i >= 0 {
 		return items[i]
 	}
 	return ""
@@ -147,29 +155,28 @@ func entryLabel(g *Game, item int) string {
 func TestColorizeEntryShown(t *testing.T) {
 	g := withModes(withCompatGameBoy(t, newTestGame(t, newFakePads())))
 	g.cfg.ColorizeDMG = true
-	if entryLabel(g, itemColorize) != "Colorize  < on >" {
-		t.Errorf("DMG game left to auto: entry %q", entryLabel(g, itemColorize))
+	if displayLabel(g, displayColorize) != "Colorize  < on >" {
+		t.Errorf("DMG game left to auto: entry %q", displayLabel(g, displayColorize))
 	}
 
 	g.autoModel = false // -model dmg or cgb decides
-	if entryLabel(g, itemColorize) != "" {
+	if displayLabel(g, displayColorize) != "" {
 		t.Error("entry shown although -model forces the hardware")
 	}
-	g.menu.show()
-	g.menu.cursor = itemPalette
+	g.menu = menu{open: true, page: pageDisplay, cursor: displayPalette}
 	g.actions = menuActions{down: true}
 	g.menu.update(g)
-	if g.menu.cursor != itemControls || g.menu.view(g).selected != 2 {
+	if g.menu.cursor != displayScale || g.menu.view(g).selected != 1 {
 		t.Errorf("Down skips the hidden entry: cursor %d, selected %d", g.menu.cursor, g.menu.view(g).selected)
 	}
 	g.actions = menuActions{up: true}
 	g.menu.update(g)
-	if g.menu.cursor != itemPalette {
+	if g.menu.cursor != displayPalette {
 		t.Errorf("Up skips the hidden entry: cursor %d", g.menu.cursor)
 	}
 
 	c := withModes(withColorGameBoy(t, newTestGame(t, newFakePads())))
-	if entryLabel(c, itemColorize) != "" || len(mainEntries(c)) != mainItems-1 {
+	if displayLabel(c, displayColorize) != "" || len(displayEntries(c)) != displayItems-1 {
 		t.Error("entry shown for a Game Boy Color game")
 	}
 }
@@ -185,10 +192,15 @@ func TestResetAppliesColorize(t *testing.T) {
 		g.actions = menuActions{ok: true}
 		m.update(g)
 	}
+	colorize := func() {
+		*m = menu{open: true, page: pageDisplay, cursor: displayColorize}
+		g.actions = menuActions{ok: true}
+		m.update(g)
+	}
 
-	press(itemColorize)
-	if g.cfg.ColorizeDMG || entryLabel(g, itemColorize) != "Colorize  < off >" {
-		t.Fatalf("entry: %v %q", g.cfg.ColorizeDMG, entryLabel(g, itemColorize))
+	colorize()
+	if g.cfg.ColorizeDMG || displayLabel(g, displayColorize) != "Colorize  < off >" {
+		t.Fatalf("entry: %v %q", g.cfg.ColorizeDMG, displayLabel(g, displayColorize))
 	}
 	if cfg, _ := LoadConfig(g.cfgPath); cfg.ColorizeDMG {
 		t.Error("setting not saved")
@@ -199,12 +211,16 @@ func TestResetAppliesColorize(t *testing.T) {
 	if _, _, footer := m.lines(g); footer != l.T("menu.footer_pending") {
 		t.Errorf("footer %q, want the reset hint", footer)
 	}
-	press(itemColorize)
+	m.backToMain()
+	if _, _, footer := m.lines(g); footer != l.T("menu.footer_pending") {
+		t.Errorf("main page footer %q, want the reset hint", footer)
+	}
+	colorize()
 	if g.modePending() {
 		t.Error("back to the running mode: nothing pending")
 	}
 
-	press(itemColorize)
+	colorize()
 	press(itemReset)
 	if g.gb.IsCGB() || g.modePending() {
 		t.Fatal("reset must apply the setting: DMG")
@@ -212,7 +228,7 @@ func TestResetAppliesColorize(t *testing.T) {
 	if _, _, footer := m.lines(g); footer != l.T("menu.footer") {
 		t.Errorf("footer after reset %q", footer)
 	}
-	press(itemColorize)
+	colorize()
 	press(itemReset)
 	if !g.gb.Compat() {
 		t.Fatal("reset must apply the setting: colorized")

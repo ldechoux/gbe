@@ -70,25 +70,26 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 |---|---|---|
 | `menu.title` | | Titre du menu Pause |
 | `menu.resume` | | Entrée qui ferme le menu et reprend le jeu |
-| `menu.palette` | `%s` nom de la palette | Entrée de choix de la palette (pour un jeu DMG colorisé : `colors.auto` ou une combinaison de boutons, comme `Gauche+B`) |
-| `menu.colors` | `%s` `colors.corrected` ou `colors.raw` | Remplace `menu.palette` en mode Game Boy Color : active la correction des couleurs |
+| `menu.palette` | `%s` nom de la palette | Entrée de la page Affichage : choix de la palette (pour un jeu DMG colorisé : `colors.auto` ou une combinaison de boutons, comme `Gauche+B`) |
+| `menu.colors` | `%s` `colors.corrected` ou `colors.raw` | Page Affichage : remplace `menu.palette` en mode Game Boy Color : active la correction des couleurs |
 | `colors.corrected` | | Couleurs ajustées pour ressembler à l'écran de la Game Boy Color |
 | `colors.raw` | | Couleurs telles que le jeu les définit, sans correction |
 | `colors.auto` | | Palette qu'une Game Boy Color choisit d'après le titre d'un jeu DMG |
-| `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée qui active la colorisation des jeux DMG (appliquée par Réinitialiser), absente pour les jeux Game Boy Color et avec `-model` |
+| `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée de la page Affichage qui active la colorisation des jeux DMG (appliquée par Réinitialiser), absente pour les jeux Game Boy Color et avec `-model` |
 | `setting.on` | | Réglage activé |
 | `setting.off` | | Réglage désactivé |
+| `menu.display` | | Entrée qui ouvre la page Affichage |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
-| `menu.scale` | `%d` facteur d'échelle | Entrée de réglage de la taille de la fenêtre |
-| `menu.filter` | `%s` nom du filtre (`filter.*`) | Entrée de choix du filtre d'affichage |
+| `menu.scale` | `%d` facteur d'échelle | Entrée de la page Affichage : taille de la fenêtre |
+| `menu.filter` | `%s` nom du filtre (`filter.*`) | Entrée de la page Affichage : choix du filtre |
 | `filter.nearest` | | Filtre par défaut : pixels carrés, agrandis d'un facteur entier |
 | `filter.sharp` | | Filtre qui remplit l'écran avec des pixels nets, bords adoucis sur un pixel de l'écran |
 | `filter.lcd` | | Filtre qui imite la grille de l'écran d'origine |
 | `filter.scale2x` | | Filtre Scale2x (nom de l'algorithme) |
 | `filter.scale3x` | | Filtre Scale3x (nom de l'algorithme) |
 | `filter.mmpx` | | Filtre MMPX (nom de l'algorithme) |
-| `menu.ghosting` | `%s` `setting.on` ou `setting.off` | Entrée qui active la rémanence : chaque image se mélange à la précédente, comme sur l'écran LCD |
+| `menu.ghosting` | `%s` `setting.on` ou `setting.off` | Entrée de la page Affichage qui active la rémanence : chaque image se mélange à la précédente, comme sur l'écran LCD |
 | `menu.fast_forward` | `%d` vitesse (2 à 8) | Entrée de réglage de la vitesse de l'avance rapide |
 | `menu.language` | `%s` valeur `name` de la langue | Entrée de choix de la langue |
 | `menu.save_state` | | Entrée qui sauvegarde l'état de la partie |
@@ -100,6 +101,16 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.footer_color` | | `menu.footer` en mode Game Boy Color, où P règle la correction des couleurs |
 | `menu.footer_pending` | | Remplace l'aide en bas du menu tant que le mode de la console (colorisé ou non) diffère du réglage : Réinitialiser l'applique |
 | `menu.footer_color_pad` | | `menu.footer_pad` en mode Game Boy Color |
+
+### `display.*` — page Affichage
+
+Ses entrées réutilisent les libellés `menu.palette` (ou `menu.colors`), `menu.colorize`,
+`menu.scale`, `menu.filter` et `menu.ghosting`, et l'aide en bas du menu Pause.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `display.title` | | Titre de la page |
+| `display.back` | | Entrée qui revient au menu Pause |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 

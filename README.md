@@ -91,14 +91,17 @@ Options utiles :
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
 | F11 | Plein écran (retenu au prochain lancement) |
 
-Le menu permet de changer la palette (10 palettes monochromes, aperçu en direct ; dans un
-jeu Game Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
-d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc ; pour un jeu DMG
-colorisé, voir ci-dessous), d'activer ou non la colorisation des jeux DMG, de
-redéfinir chaque touche (Entrée sur un bouton puis appuyer sur la nouvelle touche ; en cas
-de conflit, les deux touches sont échangées), de régler le volume, l'échelle, le filtre
-d'affichage, la rémanence, la vitesse de l'avance rapide et la langue, de réinitialiser la
-console ou de quitter.
+Le menu permet de régler le volume, la vitesse de l'avance rapide et la langue, de
+sauvegarder ou recharger l'état, de réinitialiser la console ou de quitter. Deux pages
+regroupent les autres réglages :
+
+- **Affichage** : la palette (10 palettes monochromes, aperçu en direct ; dans un jeu Game
+  Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
+  d'origine, plus pâle, et le menu s'affiche toujours en noir et blanc ; pour un jeu DMG
+  colorisé, voir ci-dessous), la colorisation des jeux DMG, l'échelle de la fenêtre, le
+  filtre d'affichage et la rémanence.
+- **Contrôles** : chaque touche se redéfinit (Entrée sur un bouton puis appuyer sur la
+  nouvelle touche ; en cas de conflit, les deux touches sont échangées).
 
 Pendant l'avance rapide, le son est accéléré lui aussi. Le rembobinage recule deux fois plus
 vite que le jeu n'avance, sans son, et s'arrête sur la plus ancienne image gardée (10 s de jeu,
@@ -117,9 +120,9 @@ disposition de clavier. Le menu affiche leur nom selon la disposition active (AZ
 
 ## Affichage (grands écrans)
 
-L'entrée « Filtre » du menu choisit comment l'image de 160×144 pixels est agrandie. Tous les
-filtres tournent sur la carte graphique (shaders Kage), et l'image reste centrée avec ses
-proportions :
+L'entrée « Filtre » de la page Affichage du menu choisit comment l'image de 160×144 pixels
+est agrandie. Tous les filtres tournent sur la carte graphique (shaders Kage), et l'image
+reste centrée avec ses proportions :
 
 | Filtre | Rendu |
 |---|---|
@@ -133,7 +136,7 @@ Les filtres à base d'algorithme agrandissent d'abord l'image d'un facteur fixe 
 fois qu'elle change, puis la passe « Net » l'étend à l'écran : leur coût ne dépend pas de la
 résolution de l'écran, et le jeu reste à 60 images par seconde en 4K.
 
-L'entrée « Rémanence » mélange chaque image à la précédente, comme l'écran LCD de la console,
+L'entrée « Rémanence » de la page Affichage mélange chaque image à la précédente, comme l'écran LCD de la console,
 lent à réagir : certains jeux faisaient clignoter des sprites d'une image à l'autre pour les
 rendre transparents. Elle se combine à tous les filtres.
 
@@ -145,14 +148,14 @@ rendre transparents. Elle se combine à tous les filtres.
 
 Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy. C'est une option :
 par défaut, ils tournent sur la Game Boy d'origine. Pour l'activer, passer l'entrée
-« Coloriser » du menu à « oui » (elle apparaît pour les jeux Game Boy lancés sans `-model`)
+« Coloriser » de la page Affichage du menu à « oui » (elle apparaît pour les jeux Game Boy lancés sans `-model`)
 puis « Réinitialiser », ou lancer le jeu avec `-model gbc` :
 
 - **Palette automatique** : les jeux Nintendo reçoivent la palette que la boot ROM couleur
   prévoit pour leur titre (Tetris en jaune et rouge, Link's Awakening en rose…), les autres
   une palette par défaut.
 - **12 palettes au choix** : celles que la console offrait en maintenant une direction, seule
-  ou avec A ou B, pendant le logo. L'entrée Palette du menu et la touche P passent de « Auto »
+  ou avec A ou B, pendant le logo. L'entrée Palette de la page Affichage et la touche P passent de « Auto »
   à « Droite », « Gauche+A »… avec aperçu en direct ; le choix est retenu pour chaque jeu.
 - **Boot ROM** : avec `bios/gbc_bios.bin`, l'animation de démarrage et les combinaisons au
   logo fonctionnent comme sur la console. Sans elle, gbe reprend les tables de la boot ROM

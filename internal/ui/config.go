@@ -28,10 +28,15 @@ type Config struct {
 	Filter string `json:"filter"`
 	// Ghosting blends each frame with the previous one, like the LCD (see
 	// ghostingModes).
-	Ghosting   string                `json:"ghosting"`
-	Fullscreen bool                  `json:"fullscreen"`
-	Volume     float64               `json:"volume"`
-	Keys       map[string]ebiten.Key `json:"keys"` // button or action name -> key
+	Ghosting   string `json:"ghosting"`
+	Fullscreen bool   `json:"fullscreen"`
+	// Monitor is the name of the monitor the window opens on, e.g. a TV
+	// (empty: the primary one), and MonitorIndex its position among them,
+	// which tells apart monitors with the same name.
+	Monitor      string                `json:"monitor"`
+	MonitorIndex int                   `json:"monitor_index"`
+	Volume       float64               `json:"volume"`
+	Keys         map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Vibration makes the gamepads shake with the motor of rumble
@@ -195,6 +200,7 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.Vibration = *loaded.Vibration
 	}
 	cfg.Ghosting, cfg.Fullscreen = loadGhosting(loaded.Ghosting), loaded.Fullscreen
+	cfg.Monitor, cfg.MonitorIndex = loaded.Monitor, loaded.MonitorIndex
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {
 			cfg.Recent = append(cfg.Recent, r)

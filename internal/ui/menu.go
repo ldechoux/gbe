@@ -69,6 +69,8 @@ const (
 	displayPalette = iota
 	displayColorize
 	displayScale
+	displayMonitor
+	displayFullscreen
 	displayFilter
 	displayGhosting
 	displayBack
@@ -97,6 +99,14 @@ func onOff(l *i18n.Locale, on bool) string {
 		return l.T("setting.on")
 	}
 	return l.T("setting.off")
+}
+
+// fullscreenLabel names the display mode: full screen or window.
+func fullscreenLabel(l *i18n.Locale) string {
+	if ebiten.IsFullscreen() {
+		return l.T("fullscreen.on")
+	}
+	return l.T("fullscreen.off")
 }
 
 // ghostingLabel names a ghosting mode in language l.
@@ -212,11 +222,15 @@ func mainDisabled(g *Game, i int) bool {
 }
 
 // displayEntries lists the entries of the display page shown for this game:
-// the colorization setting only applies to DMG games.
+// the colorization setting only applies to DMG games, and the monitor one
+// needs a second monitor, e.g. a TV.
 func displayEntries(g *Game) []int {
 	entries := make([]int, 0, displayItems)
 	for i := range displayItems {
-		if i != displayColorize || g.colorizable() {
+		switch {
+		case i == displayColorize && !g.colorizable():
+		case i == displayMonitor && !g.multiMonitor():
+		default:
 			entries = append(entries, i)
 		}
 	}
@@ -414,6 +428,10 @@ func (m *menu) adjustDisplay(g *Game, delta int) {
 		g.cfg.Scale = max(1, min(maxScale, g.cfg.Scale+delta))
 		ebiten.SetWindowSize(gb.ScreenWidth*g.cfg.Scale, gb.ScreenHeight*g.cfg.Scale)
 		g.saveConfig()
+	case displayMonitor:
+		g.cycleMonitor(delta)
+	case displayFullscreen:
+		g.toggleFullscreen() // like F11, from a gamepad too
 	case displayFilter:
 		g.cycleFilter(delta)
 	case displayGhosting:
@@ -700,6 +718,8 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 			paletteLabel(l, g),
 			l.T("menu.colorize", onOff(l, g.cfg.ColorizeDMG)),
 			l.T("menu.scale", g.cfg.Scale),
+			monitorEntry(l, g),
+			l.T("menu.fullscreen", fullscreenLabel(l)),
 			l.T("menu.filter", l.T("filter."+g.filter().ID)),
 			l.T("menu.ghosting", ghostingLabel(l, g.cfg.Ghosting)),
 			l.T("display.back"),

@@ -90,12 +90,15 @@ type Game struct {
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	ignoredPad  map[padButton]bool  // same for gamepad buttons
 
-	pads    padReader
-	stick   stickNav
-	actions menuActions // this tick's menu actions (keyboard + gamepad)
-	frame   int
-	fps     fpsCounter
-	quit    bool
+	pads padReader
+	// monitors lets the display page move the window to a TV (nil in tests
+	// without monitors).
+	monitors monitorSet
+	stick    stickNav
+	actions  menuActions // this tick's menu actions (keyboard + gamepad)
+	frame    int
+	fps      fpsCounter
+	quit     bool
 
 	rewind     rewinder
 	rumble     rumbler
@@ -146,6 +149,7 @@ func Run(opts Options) error {
 		ignoredKeys: map[ebiten.Key]bool{},
 		ignoredPad:  map[padButton]bool{},
 		pads:        &ebitenPads{},
+		monitors:    &ebitenMonitors{},
 	}
 
 	ctx := audio.NewContext(sampleRate)
@@ -166,6 +170,7 @@ func Run(opts Options) error {
 	}
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	g.restoreMonitor()
 	ebiten.SetFullscreen(cfg.Fullscreen)
 	ebiten.SetTPS(60)
 

@@ -180,6 +180,7 @@ nav a:hover { color: var(--accent); }
   padding: 20px;
 }
 .card p { margin: 0; color: var(--muted); font-size: 15px; }
+.credits h3 a { color: inherit; }
 
 /* Palettes */
 .palettes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
@@ -231,6 +232,8 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
 
 /* Release notes (HTML rendered by GitHub) */
 .release { margin-bottom: 24px; }
+.older-releases { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px 32px; }
+.older-releases time { font-size: 13px; color: var(--muted); margin-left: 8px; }
 .release-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
 .release-head h3 { margin: 0; font-size: 14px; }
 .release-head h3 a { color: var(--ink); text-decoration: none; }

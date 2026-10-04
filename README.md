@@ -108,7 +108,8 @@ des boutons (lignes « Avance » et « Arriere »).
 
 Le raccourci de capture se change dans la même page Contrôles : sélectionner « Capture »,
 puis appuyer sur la combinaison voulue (modificateurs compris). Les captures sont
-enregistrées à la taille de la fenêtre (échelle choisie), avec la palette courante, sous la
+enregistrées à la taille de la fenêtre (échelle choisie), avec la palette, le filtre
+d'affichage et la rémanence courants (sans le menu ni les notifications), sous la
 forme `<titre>-AAAAMMJJ-HHMMSS.png`. Chaque réglage est enregistré immédiatement.
 
 Les touches sont enregistrées par position physique : un mapping reste valable si l'on change de

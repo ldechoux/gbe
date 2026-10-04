@@ -63,9 +63,10 @@ Toutes tournent sans boot ROM. Les appuis sont tenus pendant 10 images, de l'ima
   dans la palette par défaut (DMG vert). Ses jeux récents sont, dans l'ordre, Link's
   Awakening DX (sélectionné), Super Mario Land, Tetris DX, Wario Land 3 et Donkey Kong
   Country. Leurs noms sont les titres lus dans l'en-tête des ROMs, comme gbe les affiche :
-  ZELDA, SUPER MARIOLAND, TETRIS DX, WARIOLAND3, DK COUNTRY. Éviter Pokémon Pinball, dont
-  l'en-tête donne « POKEMONPINBVPHP » (titre suivi du code fabricant), tant que la lecture
-  du titre ne le corrige pas.
+  ZELDA, SUPER MARIOLAND, TETRIS DX, WARIOLAND3, DK COUNTRY. Sur les cartouches Game Boy
+  Color récentes, ce titre est limité à 11 caractères, sans le code fabricant qui le suit
+  dans l'en-tête : Pokémon Pinball s'appelle « POKEMONPINB ». Pour changer la liste,
+  préférer des jeux dont le titre reste lisible.
 
 ## Prérequis
 

@@ -204,10 +204,8 @@ nav a:hover { color: var(--accent); }
 .shots { grid-template-columns: repeat(3, 1fr); }
 .shots-head { margin-top: 32px; }
 .shots figure { margin: 0; }
-/* The screenshots are macOS window captures with their own transparent
-   shadow margin, so they get no frame of their own. */
-.shots img { display: block; width: 100%; height: auto; }
-.shots figcaption { font-size: 13px; color: var(--muted); margin-top: -5%; text-align: center; } /* pull it into the shadow margin */
+.shots img { display: block; width: 100%; height: auto; border: var(--px) solid var(--line); }
+.shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
 /* Downloads */
 .downloads { grid-template-columns: repeat(3, 1fr); }

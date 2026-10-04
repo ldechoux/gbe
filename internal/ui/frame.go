@@ -39,9 +39,13 @@ func frameRGBA(dst []byte, src frameSource, pal *Palette, correct bool) {
 		}
 		return
 	}
+	// Two pixels per iteration, stored at once: the loop is short enough
+	// for its speed to depend on where it lands in memory otherwise.
 	lut := colorLUT(correct)[:] // same for the table
-	for i, c := range src.colors[:] {
-		binary.LittleEndian.PutUint32(dst[i*4:], lut[c&0x7FFF])
+	colors := src.colors[:]
+	for i := 0; i < screenPixels-1; i += 2 {
+		px := uint64(lut[colors[i]&0x7FFF]) | uint64(lut[colors[i+1]&0x7FFF])<<32
+		binary.LittleEndian.PutUint64(dst[i*4:i*4+8], px)
 	}
 }
 

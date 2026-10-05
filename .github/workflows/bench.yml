@@ -6,7 +6,8 @@ name: Benchmarks
 #
 # - On every pull request: its benchmarks against those of its base branch.
 #   The report is posted on the pull request, in a comment updated on every
-#   push.
+#   push. A pull request that only changes the site or the Claude Code
+#   skills cannot change the performance: it is not benchmarked.
 # - By hand (Actions > Benchmarks > Run workflow, or
 #   gh workflow run bench.yml -f base=v0.1.4 -f head=main): any two
 #   versions, tags, branches or commits. The benchmarks of bench/, which
@@ -17,6 +18,12 @@ name: Benchmarks
 #   by hand.
 on:
   pull_request: # opened, new commits pushed, reopened
+    paths-ignore: # skipped only when every changed file matches
+      - site/**
+      - tools/sitegen/**
+      - screenshots/**
+      - .github/workflows/pages.yml
+      - .claude/**
   release:
     types: [published]
   workflow_dispatch:

@@ -73,6 +73,7 @@ h3 { font-size: 12px; margin-bottom: 12px; }
 nav { display: flex; gap: 20px; flex-wrap: wrap; }
 nav a { color: var(--ink); text-decoration: none; font-size: 14px; }
 nav a:hover { color: var(--accent); }
+.menu-toggle { display: none; }
 
 /* Hero */
 .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; padding-top: 64px; }
@@ -165,7 +166,7 @@ nav a:hover { color: var(--accent); }
 }
 .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--line); }
 .btn:active { transform: translate(var(--px), var(--px)); box-shadow: none; }
-.btn:focus-visible, nav a:focus-visible { outline: var(--px) dashed var(--accent); outline-offset: 3px; }
+.btn:focus-visible, nav a:focus-visible, .menu-toggle:focus-visible { outline: var(--px) dashed var(--accent); outline-offset: 3px; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-block { display: flex; width: 100%; }
 .size { font-weight: 400; opacity: 0.75; }
@@ -270,10 +271,33 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
   .palette-shots { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
-  .topbar { position: static; } /* the wrapped nav would eat the small screen */
+  /* Without JavaScript, the menu wraps on several lines, which would eat the
+     small screen if the bar stayed on top. */
+  .topbar { position: static; }
   html { scroll-padding-top: 0; }
   nav { gap: 12px; }
   nav a { font-size: 13px; }
+  /* With JavaScript, it folds behind the Menu button, in a thin bar. */
+  .topbar.has-menu { position: sticky; }
+  html:has(.has-menu) { scroll-padding-top: 64px; }
+  .has-menu .topbar-inner { min-height: 48px; }
+  .has-menu .menu-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    font: 600 13px var(--text);
+    color: var(--ink); background: var(--surface);
+    border: var(--px) solid var(--line);
+    box-shadow: var(--px) var(--px) 0 var(--line);
+    cursor: pointer;
+  }
+  .menu-toggle::before { /* three pixel lines */
+    content: ""; width: 14px; height: 10px;
+    background: linear-gradient(var(--ink) 0 2px, transparent 2px 4px, var(--ink) 4px 6px, transparent 6px 8px, var(--ink) 8px 10px);
+  }
+  .has-menu nav { display: none; flex-basis: 100%; flex-direction: column; gap: 0; padding-bottom: 8px; }
+  .has-menu.is-open nav { display: flex; }
+  .has-menu.is-open .topbar-inner { padding-top: 5px; } /* keep the first row where it was */
+  .has-menu nav a { font-size: 15px; padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--line) 25%, transparent); }
   .features, .shots, .downloads, .lcd-shots { grid-template-columns: 1fr; }
   .drop-shot { width: 100%; }
   .palettes { grid-template-columns: repeat(2, 1fr); }

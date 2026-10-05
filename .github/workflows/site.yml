@@ -1,0 +1,38 @@
+name: Site
+
+# Checks that a pull request changing the site still renders it: the tests
+# of the generator, then the page itself, from the template and the
+# releases, as "GitHub Pages" does on main. Nothing is published.
+on:
+  pull_request: # opened, new commits pushed, reopened
+    # The paths "GitHub Pages" deploys on.
+    paths: [site/**, tools/sitegen/**, screenshots/**, internal/ui/palettes.go, .github/workflows/pages.yml, .github/workflows/site.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to the pull request cancels the run on the previous commit.
+  group: site-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go test ./tools/sitegen
+
+      - name: Fetch releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The HTML media type makes the API return each body rendered as HTML.
+        run: |
+          gh api --paginate --slurp -H "Accept: application/vnd.github.html+json" \
+            "repos/$GITHUB_REPOSITORY/releases" | jq 'add // []' > releases.json
+
+      - name: Generate site
+        run: go run ./tools/sitegen -repo "$GITHUB_REPOSITORY" -releases releases.json -out "$RUNNER_TEMP/site"

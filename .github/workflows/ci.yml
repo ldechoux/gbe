@@ -1,9 +1,15 @@
 name: CI
 
 # Checks that every pull request builds and passes the tests. Nothing is
-# kept: binaries are only published by "Release binaries".
+# kept: binaries are only published by "Release binaries". A pull request
+# that only changes the site or the Claude Code skills has no Go code to
+# check: it is skipped, and "Site" renders the site instead.
 on:
   pull_request: # opened, new commits pushed, reopened
+    paths-ignore: # skipped only when every changed file matches
+      - site/**
+      - screenshots/**
+      - .claude/**
 
 permissions:
   contents: read

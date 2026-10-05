@@ -16,7 +16,8 @@
 <header class="topbar">
   <div class="wrap topbar-inner">
     <a class="brand" href="#top">gbe</a>
-    <nav>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>Menu</button>
+    <nav id="site-nav">
       <a href="#fonctionnalites">Fonctionnalités</a>
       <a href="#gbc">Game Boy Color</a>
       <a href="#ecran">Grand écran</a>
@@ -388,6 +389,32 @@
 </footer>
 
 <script>
+  // Small screens: the menu folds behind the Menu button. Without JavaScript
+  // it stays unfolded, on several lines.
+  (function () {
+    var bar = document.querySelector(".topbar");
+    var button = bar.querySelector(".menu-toggle");
+    function open(on) {
+      bar.classList.toggle("is-open", on);
+      button.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    bar.classList.add("has-menu");
+    button.hidden = false;
+    button.addEventListener("click", function () { open(!bar.classList.contains("is-open")); });
+    bar.querySelectorAll("nav a").forEach(function (a) {
+      a.addEventListener("click", function () { open(false); });
+    });
+    document.addEventListener("click", function (e) {
+      if (!bar.contains(e.target)) open(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && bar.classList.contains("is-open")) {
+        open(false);
+        button.focus();
+      }
+    });
+  })();
+
   // Highlight the visitor's platform in the download section.
   (function () {
     var ua = navigator.userAgent;

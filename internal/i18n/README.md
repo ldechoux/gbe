@@ -92,6 +92,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `audio_filter.soft` | | Filtre qui adoucit un peu les aigus |
 | `audio_filter.warm` | | Filtre qui adoucit nettement les aigus |
 | `audio_filter.speaker` | | Filtre qui imite le haut-parleur de la console : mono, sans graves ni aigus |
+| `menu.menu_sounds` | `%s` `setting.on` ou `setting.off` | Entrée de la page Son : les sons joués quand on se sert des menus |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de la page Affichage : taille de la fenêtre |
 | `menu.monitor` | `%d` numéro de l'écran (à partir de 1), `%s` son nom | Entrée de la page Affichage, visible avec au moins deux écrans : l'écran où s'ouvre la fenêtre, par exemple une TV en AirPlay |
 | `menu.fullscreen` | `%s` `fullscreen.on` ou `fullscreen.off` | Entrée de la page Affichage : passe du plein écran à la fenêtre, comme F11, y compris à la manette |
@@ -131,7 +132,7 @@ Ses entrées réutilisent les libellés `menu.palette` (ou `menu.colors`), `menu
 
 ### `sound.*` — page Son
 
-Ses entrées utilisent les libellés `menu.volume`, `menu.stereo` et `menu.audio_filter`. En bas de la page, l'aide
+Ses entrées utilisent les libellés `menu.volume`, `menu.stereo`, `menu.audio_filter` et `menu.menu_sounds`. En bas de la page, l'aide
 explique la sortie ou le filtre sélectionnés, et sinon reprend celle du menu Pause.
 
 | Clé | Paramètres | Usage |
@@ -145,6 +146,7 @@ explique la sortie ou le filtre sélectionnés, et sinon reprend celle du menu P
 | `sound.help_soft` | | Aide en bas de la page : le filtre `audio_filter.soft` |
 | `sound.help_warm` | | Aide en bas de la page : le filtre `audio_filter.warm` |
 | `sound.help_speaker` | | Aide en bas de la page : le filtre `audio_filter.speaker` |
+| `sound.help_menu_sounds` | | Aide en bas de la page : l'entrée `menu.menu_sounds` |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 

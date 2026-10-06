@@ -128,8 +128,8 @@ les autres réglages :
   colorisé, voir ci-dessous), la colorisation des jeux DMG, l'échelle de la fenêtre, l'écran
   où elle s'ouvre (voir [Jouer sur la TV](#jouer-sur-la-tv)), le plein écran ou la fenêtre,
   le filtre d'affichage et la rémanence.
-- **Son** : le volume, la sortie (stéréo, casque ou mono) et le filtre audio (voir
-  [Son](#son)).
+- **Son** : le volume, la sortie (stéréo, casque ou mono), le filtre audio et les bruitages
+  des menus (voir [Son](#son)).
 - **Contrôles** : chaque touche se redéfinit (Entrée sur un bouton puis appuyer sur la
   nouvelle touche ; en cas de conflit, les deux touches sont échangées).
 
@@ -196,6 +196,7 @@ toucher à l'émulation :
 | | Doux (`soft`) | Aigus un peu adoucis (passe-bas à 9 kHz) |
 | | Chaud (`warm`) | Son plus rond, aigus nettement adoucis (passe-bas à 4,5 kHz) |
 | | Haut-parleur (`speaker`) | Le petit haut-parleur de la console : mono, sans graves ni aigus (de 350 Hz à 5 kHz). L'entrée Sortie est alors grisée |
+| Bruitages | Oui (défaut) ou non | Les sons des menus, synthétisés comme sur la console (ondes carrées, enveloppe de volume) : déplacement, changement d'un réglage, entrée dans une page ou choix, retour, et refus (entrée grisée, réglage au bout). L'écran de dépôt les joue aussi |
 
 Les options `-stereo` et `-audio-filter` remplacent ces réglages au lancement. En mode
 headless, `-wav` enregistre le son brut, ou avec ces options si elles sont données.

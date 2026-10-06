@@ -91,6 +91,7 @@ type Game struct {
 	stream *audioStream
 	player *audio.Player
 	fx     *audiofx.Chain // the stereo mode and the filter of the settings
+	sfx    soundPlayer    // the sounds of the menus (none in the tests)
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	ignoredPad  map[padButton]bool  // same for gamepad buttons
@@ -186,6 +187,7 @@ func Run(opts Options) error {
 	g.player.SetBufferSize(40 * time.Millisecond)
 	g.player.SetVolume(cfg.Volume)
 	g.player.Play()
+	g.sfx = newEbitenSounds(ctx)
 
 	// With a game, the title gets its name, and the frame rate every
 	// fpsRefreshInterval (see Update).

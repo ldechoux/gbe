@@ -13,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
+	"github.com/ldechoux/gbe/internal/menusound"
 	"github.com/ldechoux/gbe/internal/rom"
 )
 
@@ -241,9 +242,12 @@ func (g *Game) updateDropScreen() {
 	switch a := g.actions; {
 	case a.up:
 		g.recentCursor = (g.recentCursor + n - 1) % n
+		g.menuSound(menusound.Move)
 	case a.down:
 		g.recentCursor = (g.recentCursor + 1) % n
+		g.menuSound(menusound.Move)
 	case a.ok:
+		g.menuSound(menusound.Enter)
 		g.playRecent(g.recentCursor)
 	}
 }

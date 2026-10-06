@@ -17,8 +17,9 @@ const (
 	stateMagic = "GBESTATE"
 	// 2 added the Game Boy Color, 3 its compatibility mode, 4 dropped the
 	// timer of the frame sequencer, now clocked by DIV, 5 added when
-	// channel 3 last read the wave RAM; older states still load.
-	stateVersion = 5
+	// channel 3 last read the wave RAM, 6 the band-limited output samples
+	// being made; older states still load.
+	stateVersion = 6
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -115,6 +116,22 @@ func (c *codec) i64(p *int64) {
 	v := uint64(*p)
 	c.u64(&v)
 	*p = int64(v)
+}
+
+// i64s is i64 for every element of s, in one go.
+func (c *codec) i64s(s []int64) {
+	if !c.load {
+		n := len(c.out)
+		c.out = slices.Grow(c.out, 8*len(s))[:n+8*len(s)]
+		b := c.out[n:]
+		for i, v := range s {
+			binary.LittleEndian.PutUint64(b[8*i:], uint64(v))
+		}
+	} else if b := c.next(8 * len(s)); b != nil {
+		for i := range s {
+			s[i] = int64(binary.LittleEndian.Uint64(b[8*i:]))
+		}
+	}
 }
 
 func (c *codec) int(p *int) {
@@ -372,7 +389,7 @@ func (p *PPU) sync(c *codec) {
 }
 
 func (a *APU) sync(c *codec) {
-	a.mixValid = false
+	a.dirty = allChannels
 	a.catchUp()
 	a.untilClock = 0
 	c.raw(a.regs[:])
@@ -386,9 +403,18 @@ func (a *APU) sync(c *codec) {
 	}
 	c.int(&a.seqStep)
 	c.f64(&a.sampleClock)
-	c.f64(&a.accL)
-	c.f64(&a.accR)
-	c.int(&a.accN)
+	if c.version < 6 {
+		// The output was the average level over each sample: start from
+		// the current level, without a jump.
+		var acc float64
+		var n int
+		c.f64(&acc)
+		c.f64(&acc)
+		c.int(&n)
+		a.blip.reset(a.mixChannels())
+	} else {
+		a.blip.sync(c)
+	}
 	c.f64(&a.hpL)
 	c.f64(&a.hpR)
 }

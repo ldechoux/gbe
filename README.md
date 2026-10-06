@@ -387,7 +387,7 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
 - `internal/gb` : le cœur, sans dépendance graphique.
   - CPU SM83 : chaque accès mémoire fait avancer le reste de la machine d'un M-cycle.
   - PPU : rendu ligne par ligne, en teintes (DMG) ou en couleurs RGB555 (CGB).
-  - APU : 4 canaux, filtre passe-haut.
+  - APU : 4 canaux, sortie à bande limitée (sans repliement des aigus), filtre passe-haut.
   - Timer, joypad, port série, MBC.
 - `internal/ui` : le frontend Ebitengine.
   - Rendu avec la palette choisie, ou en couleurs (corrigées ou non) en mode Game Boy Color.

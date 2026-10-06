@@ -39,9 +39,11 @@ type Config struct {
 	Volume       float64 `json:"volume"`
 	// Stereo and AudioFilter shape the sound for the listener (see
 	// audiofx.StereoModes and audiofx.Filters).
-	Stereo      string                `json:"stereo"`
-	AudioFilter string                `json:"audio_filter"`
-	Keys        map[string]ebiten.Key `json:"keys"` // button or action name -> key
+	Stereo      string `json:"stereo"`
+	AudioFilter string `json:"audio_filter"`
+	// MenuSounds plays a sound as the menus are used (see menusound).
+	MenuSounds bool                  `json:"menu_sounds"`
+	Keys       map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Vibration makes the gamepads shake with the motor of rumble
@@ -154,6 +156,7 @@ func DefaultConfig() *Config {
 		Volume:           0.8,
 		Stereo:           audiofx.Stereo,
 		AudioFilter:      audiofx.Off,
+		MenuSounds:       true,
 		Keys:             defaultKeys(),
 		Gamepad:          defaultPad(),
 		Screenshot:       defaultScreenshotHotkey(),
@@ -188,6 +191,7 @@ func LoadConfig(path string) (*Config, error) {
 		ColorCorrection *bool   `json:"color_correction"` // same
 		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
 		Vibration       *bool   `json:"vibration"`        // same
+		MenuSounds      *bool   `json:"menu_sounds"`      // same
 		// A string, or a boolean before the ghosting modes: on was simple.
 		Ghosting json.RawMessage `json:"ghosting"`
 	}
@@ -205,6 +209,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if loaded.Vibration != nil {
 		cfg.Vibration = *loaded.Vibration
+	}
+	if loaded.MenuSounds != nil {
+		cfg.MenuSounds = *loaded.MenuSounds
 	}
 	cfg.Ghosting, cfg.Fullscreen = loadGhosting(loaded.Ghosting), loaded.Fullscreen
 	cfg.Monitor, cfg.MonitorIndex = loaded.Monitor, loaded.MonitorIndex

@@ -17,6 +17,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/i18n"
+	"github.com/ldechoux/gbe/internal/menusound"
 )
 
 // The bitmap font is ASCII only, hence unaccented translations (see
@@ -83,6 +84,7 @@ const (
 	soundVolume = iota
 	soundStereo
 	soundFilter
+	soundMenuSounds
 	soundBack
 	soundItems
 )
@@ -326,28 +328,33 @@ func (m *menu) update(g *Game) {
 		switch m.page {
 		case pageStart: // a choice is required
 		case pageSwitch:
+			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
 		default:
+			g.menuSound(menusound.Back)
 			m.open = false
 		}
 	case a.back:
 		switch m.page {
 		case pageStart: // a choice is required
 		case pageSwitch:
+			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
 		case pageControls, pageDisplay, pageSound, pageRecent:
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		default:
+			g.menuSound(menusound.Back)
 			m.open = false
 		}
 	case a.up:
-		m.move(g, -1)
+		m.moveSounding(g, -1)
 	case a.down:
-		m.move(g, 1)
+		m.moveSounding(g, 1)
 	case a.left:
-		m.adjust(g, -1)
+		m.adjustSounding(g, -1)
 	case a.right:
-		m.adjust(g, 1)
+		m.adjustSounding(g, 1)
 	case a.ok:
 		m.activate(g)
 	}
@@ -357,12 +364,14 @@ func (m *menu) update(g *Game) {
 // Only Escape cancels: every gamepad button can be bound.
 func (m *menu) capturePad(g *Game) {
 	if pressed(ebiten.KeyEscape) {
+		g.menuSound(menusound.Back)
 		m.capturing, m.notice = false, ""
 		return
 	}
 	if b, ok := padJustPressed(g.pads); ok {
 		g.cfg.BindPad(bindingNames()[m.cursor], b)
 		g.saveConfig()
+		g.menuSound(menusound.Change)
 		m.capturing, m.notice = false, ""
 	}
 }
@@ -387,22 +396,27 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 	key := combo.Key
 	switch {
 	case key == ebiten.KeyEscape && !combo.hasModifiers():
+		g.menuSound(menusound.Back)
 		m.capturing, m.notice = false, ""
 	case m.cursor == controlsScreenshot():
 		if !combo.hasModifiers() && g.cfg.bound(key) {
+			g.menuSound(menusound.Refuse)
 			m.notice = g.tr().T("controls.key_used_by_button", keyLabel(g.tr(), key))
 			return
 		}
 		g.cfg.Screenshot = combo
 		g.saveConfig()
+		g.menuSound(menusound.Change)
 		m.capturing, m.notice = false, ""
 	default:
 		if g.cfg.conflicts(key) {
+			g.menuSound(menusound.Refuse)
 			m.notice = g.tr().T("controls.key_used_by_screenshot", keyLabel(g.tr(), key))
 			return
 		}
 		g.cfg.Bind(bindingNames()[m.cursor], key)
 		g.saveConfig()
+		g.menuSound(menusound.Change)
 		m.capturing, m.notice = false, ""
 	}
 }
@@ -435,6 +449,41 @@ func (m *menu) adjust(g *Game, delta int) {
 		g.cycleLanguage(delta)
 		m.width = 0 // the labels change length
 	}
+}
+
+// moveSounding moves the cursor, with the Move sound when it goes somewhere.
+func (m *menu) moveSounding(g *Game, delta int) {
+	cursor := m.cursor
+	m.move(g, delta)
+	if m.cursor != cursor {
+		g.menuSound(menusound.Move)
+	}
+}
+
+// adjustSounding changes the selected setting by delta, with the Change
+// sound when its value changes, Move when the controls page switches tab,
+// and Refuse for a setting at its end ("< x8 >" cannot go further) or
+// locked; entries that are not settings stay silent.
+func (m *menu) adjustSounding(g *Game, delta int) {
+	before, tab := m.selectedText(g), m.tab
+	m.adjust(g, delta)
+	switch after := m.selectedText(g); {
+	case m.tab != tab:
+		g.menuSound(menusound.Move)
+	case after != before:
+		g.menuSound(menusound.Change)
+	case strings.Contains(before, "<"), m.page == pageControls && m.tab == tabPad && m.cursor == padVibration():
+		g.menuSound(menusound.Refuse)
+	}
+}
+
+// selectedText is the text of the selected entry, as drawn.
+func (m *menu) selectedText(g *Game) string {
+	v := m.view(g)
+	if v.selected < 0 || v.selected >= len(v.items) {
+		return ""
+	}
+	return v.items[v.selected]
 }
 
 func (m *menu) adjustDisplay(g *Game, delta int) {
@@ -474,6 +523,8 @@ func (m *menu) adjustSound(g *Game, delta int) {
 		g.cfg.Stereo = cycle(audiofx.StereoModes, g.cfg.Stereo, delta)
 	case m.cursor == soundFilter:
 		g.cfg.AudioFilter = cycle(audiofx.Filters, g.cfg.AudioFilter, delta)
+	case m.cursor == soundMenuSounds:
+		g.cfg.MenuSounds = !g.cfg.MenuSounds
 	default:
 		return
 	}
@@ -516,24 +567,30 @@ func (m *menu) switchTab(g *Game, delta int) {
 func (m *menu) activate(g *Game) {
 	if m.page == pageSwitch {
 		if m.cursor == switchLaunch && g.pending != nil {
+			g.menuSound(menusound.Enter)
 			g.switchGame(g.pending) // opens the resume prompt, or closes the menu
 		} else {
+			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
 		}
 		return
 	}
 	if m.page == pageMain && mainDisabled(g, m.cursor) {
+		g.menuSound(menusound.Refuse)
 		return
 	}
 	if m.page == pageRecent {
 		if m.cursor >= len(g.cfg.Recent) {
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		} else {
+			g.menuSound(menusound.Enter)
 			g.playRecent(m.cursor) // closes the menu once launched
 		}
 		return
 	}
 	if m.page == pageStart {
+		g.menuSound(menusound.Enter)
 		m.open = false
 		switch {
 		case m.cursor == startResume:
@@ -547,56 +604,73 @@ func (m *menu) activate(g *Game) {
 	if m.page == pageControls && m.tab == tabPad {
 		switch {
 		case m.cursor < padVibration():
+			g.menuSound(menusound.Enter)
 			m.capturing = true
 		case m.cursor == padVibration():
-			m.toggleVibration(g)
+			m.adjustSounding(g, 1) // toggles the vibrations
 		case m.cursor == padTest():
 			if padVibrates(g) {
+				g.menuSound(menusound.Enter)
 				testVibration(g.pads)
+			} else {
+				g.menuSound(menusound.Refuse)
 			}
 		case m.cursor == padDefaults():
+			g.menuSound(menusound.Enter)
 			g.cfg.Gamepad = defaultPad()
 			g.cfg.Vibration = true
 			g.saveConfig()
 		default:
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		}
 		return
 	}
 	if m.page == pageDisplay {
 		if m.cursor == displayBack {
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		} else {
-			m.adjust(g, 1) // OK cycles like Right
+			m.adjustSounding(g, 1) // OK cycles like Right
 		}
 		return
 	}
 	if m.page == pageSound {
 		if m.cursor == soundBack {
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		} else if m.cursor != soundVolume { // OK must not turn the volume up
-			m.adjust(g, 1)
+			m.adjustSounding(g, 1)
 		}
 		return
 	}
 	if m.page == pageControls {
 		switch {
 		case m.cursor <= controlsScreenshot():
+			g.menuSound(menusound.Enter)
 			m.capturing = true
 		case m.cursor == controlsDefaults():
+			g.menuSound(menusound.Enter)
 			g.cfg.Keys = defaultKeys()
 			g.cfg.Screenshot = defaultScreenshotHotkey()
 			g.saveConfig()
 		default:
+			g.menuSound(menusound.Back)
 			m.backToMain()
 		}
 		return
 	}
 	switch m.cursor {
 	case itemResume:
+		g.menuSound(menusound.Back)
 		m.open = false
+		return
 	case itemSpeed, itemLanguage:
-		m.adjust(g, 1)
+		m.adjustSounding(g, 1)
+		return
+	}
+	g.menuSound(menusound.Enter) // a page opens, or an action is chosen
+	switch m.cursor {
 	case itemSound:
 		m.page, m.cursor, m.width = pageSound, soundVolume, 0
 	case itemRecent:
@@ -806,6 +880,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 			l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
 			l.T("menu.stereo", l.T("stereo."+stereo)),
 			l.T("menu.audio_filter", l.T("audio_filter."+g.cfg.AudioFilter)),
+			l.T("menu.menu_sounds", onOff(l, g.cfg.MenuSounds)),
 			l.T("sound.back"),
 		}
 		return l.T("sound.title"), items, m.soundFooter(g)
@@ -839,6 +914,10 @@ func soundAlternatives(g *Game) (items, footers []string) {
 		items = append(items, l.T("menu.audio_filter", l.T("audio_filter."+id)))
 		footers = append(footers, l.T("sound.help_"+id))
 	}
+	for _, on := range []bool{true, false} {
+		items = append(items, l.T("menu.menu_sounds", onOff(l, on)))
+	}
+	footers = append(footers, l.T("sound.help_menu_sounds"))
 	return items, append(footers, mainFooter(g))
 }
 
@@ -851,6 +930,8 @@ func (m *menu) soundFooter(g *Game) string {
 		return l.T("sound.help_" + g.cfg.Stereo)
 	case soundFilter:
 		return l.T("sound.help_" + g.cfg.AudioFilter)
+	case soundMenuSounds:
+		return l.T("sound.help_menu_sounds")
 	}
 	return mainFooter(g)
 }

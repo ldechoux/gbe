@@ -118,6 +118,22 @@ func (c *codec) i64(p *int64) {
 	*p = int64(v)
 }
 
+// i64s is i64 for every element of s, in one go.
+func (c *codec) i64s(s []int64) {
+	if !c.load {
+		n := len(c.out)
+		c.out = slices.Grow(c.out, 8*len(s))[:n+8*len(s)]
+		b := c.out[n:]
+		for i, v := range s {
+			binary.LittleEndian.PutUint64(b[8*i:], uint64(v))
+		}
+	} else if b := c.next(8 * len(s)); b != nil {
+		for i := range s {
+			s[i] = int64(binary.LittleEndian.Uint64(b[8*i:]))
+		}
+	}
+}
+
 func (c *codec) int(p *int) {
 	v := int64(*p)
 	c.i64(&v)
@@ -373,7 +389,7 @@ func (p *PPU) sync(c *codec) {
 }
 
 func (a *APU) sync(c *codec) {
-	a.mixValid = false
+	a.dirty = allChannels
 	a.catchUp()
 	a.untilClock = 0
 	c.raw(a.regs[:])

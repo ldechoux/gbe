@@ -18,8 +18,7 @@ const (
 	blipTaps   = 24   // output samples a jump is spread over
 	blipPhases = 1024 // positions of a jump between two output samples
 	blipShift  = 15   // fixed point of the kernel: each row sums to 1<<blipShift
-	blipSize   = 32   // ring buffer, a power of two above blipTaps
-	blipMask   = blipSize - 1
+	blipSize   = 256  // buffer: the samples being made move back to its start at its end
 
 	// blipCutoff is the cutoff of the sinc, relative to the sample rate (0.43
 	// of 48 kHz: 20.6 kHz), and blipBeta the shape of its Kaiser window: the
@@ -84,60 +83,71 @@ func newBlipKernel() (k [blipPhases + 1][blipTaps]int32) {
 }
 
 // blip turns the jumps of the left and right levels into band-limited
-// output samples.
+// output samples. Both sides are worked out at once, in the two halves of
+// an int64 (the left one in the low 32 bits): (l + r<<32) * v is l*v +
+// (r*v)<<32, so a single multiplication serves both. The halves wrap around
+// like two int32, which the sums never reach.
 type blip struct {
-	buf   [blipSize][2]int32 // what the jumps add to the next output samples
-	pos   int                // the output sample being made, in buf
-	sum   [2]int32           // the running sums: the output, << blipShift
-	level [2]int             // the levels the jumps went to
+	buf   [blipSize]int64 // what the jumps add to the next output samples
+	pos   int             // the output sample being made, in buf; at most blipSize-blipTaps
+	sum   int64           // the running sums: the output, << blipShift
+	level [2]int          // the levels the jumps went to
+}
+
+// pack puts l and r in the two halves of an int64.
+func pack(l, r int32) int64 { return int64(l) + int64(r)<<32 }
+
+// unpack takes l and r back from the two halves of an int64.
+func unpack(v int64) (l, r int32) {
+	l = int32(v)
+	return l, int32((v - int64(l)) >> 32)
 }
 
 // set makes the levels jump to l and r, at phase (0 to blipPhases) between
 // the output sample being made and the next one. A jump is at most
 // 2*mixScale, so a whole output sample of them stays far below 1<<31.
 func (b *blip) set(l, r, phase int) {
-	dl, dr := int32(l-b.level[0]), int32(r-b.level[1])
+	dl, dr := l-b.level[0], r-b.level[1]
 	if dl == 0 && dr == 0 {
 		return
 	}
 	b.level = [2]int{l, r}
+	d := pack(int32(dl), int32(dr))
+	s := (*[blipTaps]int64)(b.buf[b.pos:])
 	for i, v := range &blipKernel[phase] {
-		s := &b.buf[(b.pos+i)&blipMask]
-		s[0] += dl * v
-		s[1] += dr * v
+		s[i] += d * int64(v)
 	}
 }
 
 // next returns the output sample being made, << blipShift, and moves to the
 // next one.
 func (b *blip) next() (l, r int32) {
-	s := &b.buf[b.pos]
-	b.sum[0] += s[0]
-	b.sum[1] += s[1]
-	*s = [2]int32{}
-	b.pos = (b.pos + 1) & blipMask
-	return b.sum[0], b.sum[1]
+	b.sum += b.buf[b.pos]
+	b.buf[b.pos] = 0
+	b.pos++
+	if b.pos > blipSize-blipTaps {
+		// Keep room for a whole kernel after pos: the samples being made
+		// move back to the start, the rest of the buffer is zero.
+		n := copy(b.buf[:], b.buf[b.pos:])
+		clear(b.buf[n:])
+		b.pos = 0
+	}
+	return unpack(b.sum)
 }
 
 // reset makes the output levels right away, without a jump: after a state
 // that did not hold the samples being made was loaded.
 func (b *blip) reset(l, r int) {
-	*b = blip{level: [2]int{l, r}, sum: [2]int32{int32(l) << blipShift, int32(r) << blipShift}}
+	*b = blip{level: [2]int{l, r}, sum: pack(int32(l)<<blipShift, int32(r)<<blipShift)}
 }
 
+// sync saves the samples being made, the only ones not zero, from pos.
 func (b *blip) sync(c *codec) {
-	for i := range b.buf {
-		for j := range b.buf[i] {
-			v := int64(b.buf[i][j])
-			c.i64(&v)
-			b.buf[i][j] = int32(v)
-		}
+	if c.loading() {
+		*b = blip{}
 	}
-	c.int(&b.pos)
-	for j := range b.sum {
-		v := int64(b.sum[j])
-		c.i64(&v)
-		b.sum[j] = int32(v)
-		c.int(&b.level[j])
-	}
+	c.i64s(b.buf[b.pos : b.pos+blipTaps])
+	c.i64(&b.sum)
+	c.int(&b.level[0])
+	c.int(&b.level[1])
 }

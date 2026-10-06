@@ -123,8 +123,11 @@ type APU struct {
 	samples      []int16
 
 	// The mixed output only changes now and then (a step of a waveform, a
-	// register write...), so it is computed again only after a change.
-	mixValid bool
+	// register write...), so it is computed again only after a change: dirty
+	// has a bit for each channel whose DAC output dac must be computed again
+	// (all of them after a register write).
+	dirty byte
+	dac   [4]int
 }
 
 func newAPU(bus *Bus) *APU {
@@ -214,7 +217,7 @@ func (a *APU) waveJustRead() bool {
 const waveReadWindow = 2
 
 func (a *APU) write(addr uint16, v byte) {
-	a.mixValid = false
+	a.dirty = allChannels
 	a.catchUp()
 	a.untilClock = 0 // the write may change a timer: check on the next tick
 	off := addr - 0xFF10
@@ -433,7 +436,7 @@ func (a *APU) sweepStep() {
 func (a *APU) divEvent() {
 	if a.on {
 		a.sequencerStep()
-		a.mixValid = false
+		a.dirty = allChannels
 	}
 }
 
@@ -489,7 +492,7 @@ func (a *APU) clockChannels(cycles int) {
 		for c.timer <= 0 {
 			c.timer += a.period(i)
 			c.dutyPos = (c.dutyPos + 1) & 7
-			a.outputChanged(c)
+			a.outputChanged(i)
 		}
 	}
 	w := &a.ch[2]
@@ -499,7 +502,7 @@ func (a *APU) clockChannels(cycles int) {
 		w.timer += w.reload
 		w.wavePos = (w.wavePos + 1) & 31
 		w.waveRead = true
-		a.outputChanged(w)
+		a.outputChanged(2)
 	}
 	n := &a.ch[3]
 	n.timer -= cycles
@@ -510,15 +513,18 @@ func (a *APU) clockChannels(cycles int) {
 		if n.narrow {
 			n.lfsr = n.lfsr&^(1<<6) | bit<<6
 		}
-		a.outputChanged(n)
+		a.outputChanged(3)
 	}
 }
 
-// outputChanged is called when the waveform of a channel moves on, which
+// allChannels is dirty when every channel may have changed.
+const allChannels = 0x0F
+
+// outputChanged is called when the waveform of channel i moves on, which
 // changes the mix if the channel is heard.
-func (a *APU) outputChanged(c *channel) {
-	if c.enabled && c.dac {
-		a.mixValid = false
+func (a *APU) outputChanged(i int) {
+	if c := &a.ch[i]; c.enabled && c.dac {
+		a.dirty |= 1 << i
 	}
 }
 
@@ -550,12 +556,11 @@ func (a *APU) output(i int) byte {
 const mixScale = 4 * 15 * 8
 
 func (a *APU) mix(cycles int) {
-	if !a.mixValid {
+	if a.dirty != 0 {
 		// The new level starts now: where in the output sample being made.
 		phase := min(int(a.sampleClock*a.phaseScale+0.5), blipPhases)
 		l, r := a.mixChannels()
 		a.blip.set(l, r, phase)
-		a.mixValid = true
 	}
 
 	a.sampleClock += float64(cycles)
@@ -580,18 +585,25 @@ func (a *APU) mix(cycles int) {
 }
 
 // mixChannels returns the analog output of the left and right channels,
-// from -mixScale to mixScale.
+// from -mixScale to mixScale. It computes again the DAC output of the dirty
+// channels only.
 func (a *APU) mixChannels() (l, r int) {
+	for i := range a.dac {
+		if a.dirty&(1<<i) == 0 {
+			continue
+		}
+		a.dac[i] = 0
+		if a.ch[i].dac {
+			// DAC: 0..15 -> +15..-15 (+1..-1)
+			a.dac[i] = 15 - 2*int(a.output(i))
+		}
+	}
+	a.dirty = 0
 	if !a.on {
 		return 0, 0
 	}
 	nr51 := a.regs[0x15]
-	for i := range 4 {
-		if !a.ch[i].dac {
-			continue
-		}
-		// DAC: 0..15 -> +15..-15 (+1..-1)
-		v := 15 - 2*int(a.output(i))
+	for i, v := range a.dac {
 		if nr51&(0x10<<i) != 0 {
 			l += v
 		}

@@ -81,7 +81,17 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.recent` | | Entrée qui ouvre la page Jeux récents (grisée tant qu'aucun jeu n'a été lancé) |
 | `menu.display` | | Entrée qui ouvre la page Affichage |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
-| `menu.volume` | `%d` volume en pourcent | Entrée de réglage du volume (`%%` affiche `%`) |
+| `menu.sound` | | Entrée qui ouvre la page Son |
+| `menu.volume` | `%d` volume en pourcent | Entrée de la page Son : réglage du volume (`%%` affiche `%`) |
+| `menu.stereo` | `%s` mode de sortie (`stereo.*`) | Entrée de la page Son : comment la stéréo arrive aux oreilles (grisée sur `stereo.mono` avec le filtre `audio_filter.speaker`, qui est mono) |
+| `stereo.stereo` | | Sortie : les deux côtés comme la console les mixe |
+| `stereo.headphones` | | Sortie pour le casque : chaque oreille entend un peu l'autre côté (crossfeed) |
+| `stereo.mono` | | Sortie : les deux côtés mélangés |
+| `menu.audio_filter` | `%s` filtre audio (`audio_filter.*`) | Entrée de la page Son : filtre de tonalité |
+| `audio_filter.off` | | Aucun filtre audio |
+| `audio_filter.soft` | | Filtre qui adoucit un peu les aigus |
+| `audio_filter.warm` | | Filtre qui adoucit nettement les aigus |
+| `audio_filter.speaker` | | Filtre qui imite le haut-parleur de la console : mono, sans graves ni aigus |
 | `menu.scale` | `%d` facteur d'échelle | Entrée de la page Affichage : taille de la fenêtre |
 | `menu.monitor` | `%d` numéro de l'écran (à partir de 1), `%s` son nom | Entrée de la page Affichage, visible avec au moins deux écrans : l'écran où s'ouvre la fenêtre, par exemple une TV en AirPlay |
 | `menu.fullscreen` | `%s` `fullscreen.on` ou `fullscreen.off` | Entrée de la page Affichage : passe du plein écran à la fenêtre, comme F11, y compris à la manette |
@@ -118,6 +128,23 @@ Ses entrées réutilisent les libellés `menu.palette` (ou `menu.colors`), `menu
 |---|---|---|
 | `display.title` | | Titre de la page |
 | `display.back` | | Entrée qui revient au menu Pause |
+
+### `sound.*` — page Son
+
+Ses entrées utilisent les libellés `menu.volume`, `menu.stereo` et `menu.audio_filter`. En bas de la page, l'aide
+explique la sortie ou le filtre sélectionnés, et sinon reprend celle du menu Pause.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `sound.title` | | Titre de la page |
+| `sound.back` | | Entrée qui revient au menu Pause |
+| `sound.help_stereo` | | Aide en bas de la page : la sortie `stereo.stereo` |
+| `sound.help_headphones` | | Aide en bas de la page : la sortie `stereo.headphones` |
+| `sound.help_mono` | | Aide en bas de la page : la sortie `stereo.mono` |
+| `sound.help_off` | | Aide en bas de la page : le filtre `audio_filter.off` |
+| `sound.help_soft` | | Aide en bas de la page : le filtre `audio_filter.soft` |
+| `sound.help_warm` | | Aide en bas de la page : le filtre `audio_filter.warm` |
+| `sound.help_speaker` | | Aide en bas de la page : le filtre `audio_filter.speaker` |
 
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 

@@ -116,8 +116,11 @@ Sans groupe, le script les fait tous, en environ une minute. Avec des groupes (`
 `scenes` et `drop`, si l'utilisateur le demande ; par défaut ×8, `lcd` et `fr`. L'écran de
 dépôt ignore le filtre. Les autres groupes ont des réglages fixes, dans `capture.sh`.
 
+Le harnais ignore les manettes branchées sur la machine (`noPads`) : le menu s'affiche
+toujours comme sans manette, sans « Start+Select: menu » dans son aide.
+
 Si le harnais ne compile plus, c'est que l'API qu'il utilise a changé : `renderFrame`,
-`menu.show`, `menu.showStart`, `started`, `stateTime`, `frame`, `Config.Recent`, la
+`menu.show`, `menu.showStart`, `started`, `stateTime`, `frame`, `Config.Recent`, `padReader`, la
 construction de `Game` faite par `ui.Run`, `rom.Open`, `ui.Screenshot`, `ui.Palettes`,
 `SetCompatPalette` ou `scaler.Pipeline`. Adapter `harness/`, et mettre le skill à jour
 dans le même commit.

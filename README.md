@@ -98,6 +98,8 @@ Options utiles :
 | `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit celui pour lequel le jeu a été fait, d'après l'octet 0x0143 de l'en-tête : la Game Boy Color pour les jeux qui la gèrent, la Game Boy d'origine pour les autres, sauf si la colorisation est activée dans le menu. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-filter nom` | Filtre d'affichage : `nearest`, `sharp`, `lcd`, `scale2x`, `scale3x` ou `mmpx` (voir [Affichage](#affichage-grands-écrans)) |
+| `-stereo nom` | Sortie du son : `stereo`, `headphones` (casque) ou `mono` (voir [Son](#son)) |
+| `-audio-filter nom` | Filtre audio : `off`, `soft`, `warm` ou `speaker` (voir [Son](#son)) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
 
@@ -115,10 +117,10 @@ Options utiles :
 | Cmd+F2 (Ctrl+F2 hors macOS) | Capture d'écran PNG |
 | F11 | Plein écran (retenu au prochain lancement ; aussi dans la page Affichage, entrée « Mode ») |
 
-Le menu permet de régler le volume, la vitesse de l'avance rapide et la langue, de
-sauvegarder ou recharger l'état, de réinitialiser la console ou de quitter. Sa page **Jeux
-récents** relance l'un des 5 derniers jeux (la partie en cours est sauvegardée d'abord).
-Deux pages regroupent les autres réglages :
+Le menu permet de régler la vitesse de l'avance rapide et la langue, de sauvegarder ou
+recharger l'état, de réinitialiser la console ou de quitter. Sa page **Jeux récents** relance
+l'un des 5 derniers jeux (la partie en cours est sauvegardée d'abord). Trois pages regroupent
+les autres réglages :
 
 - **Affichage** : la palette (10 palettes monochromes, aperçu en direct ; dans un jeu Game
   Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran
@@ -126,6 +128,8 @@ Deux pages regroupent les autres réglages :
   colorisé, voir ci-dessous), la colorisation des jeux DMG, l'échelle de la fenêtre, l'écran
   où elle s'ouvre (voir [Jouer sur la TV](#jouer-sur-la-tv)), le plein écran ou la fenêtre,
   le filtre d'affichage et la rémanence.
+- **Son** : le volume, la sortie (stéréo, casque ou mono) et le filtre audio (voir
+  [Son](#son)).
 - **Contrôles** : chaque touche se redéfinit (Entrée sur un bouton puis appuyer sur la
   nouvelle touche ; en cas de conflit, les deux touches sont échangées).
 
@@ -176,6 +180,25 @@ Les deux images mélangées sont toujours consécutives, même en avance rapide.
 fait en lumière linéaire, pour que les sprites transparents ne paraissent pas trop sombres,
 et après le filtre, qui voit des images nettes. Comme sur l'écran d'origine, les éléments en
 mouvement laissent un léger halo.
+
+## Son
+
+Le son des quatre canaux est mixé en stéréo à 48 kHz, à bande limitée : les harmoniques des
+ondes carrées ne se replient pas dans l'audible. La page Son du menu l'adapte à l'écoute, sans
+toucher à l'émulation :
+
+| Entrée | Valeur | Effet |
+|---|---|---|
+| Sortie | Stéréo (`stereo`, défaut) | Les deux côtés tels que la console les mixe |
+| | Casque (`headphones`) | Chaque oreille entend un peu l'autre côté, adouci et légèrement en retard, comme avec des enceintes dans une pièce (crossfeed). Beaucoup de jeux jouent une voie d'un seul côté, ce qui fatigue vite au casque. Un son au centre ne change pas |
+| | Mono (`mono`) | Les deux côtés mélangés, pour une seule enceinte |
+| Filtre | Aucun (`off`, défaut) | Le son de la console, sans retouche |
+| | Doux (`soft`) | Aigus un peu adoucis (passe-bas à 9 kHz) |
+| | Chaud (`warm`) | Son plus rond, aigus nettement adoucis (passe-bas à 4,5 kHz) |
+| | Haut-parleur (`speaker`) | Le petit haut-parleur de la console : mono, sans graves ni aigus (de 350 Hz à 5 kHz). L'entrée Sortie est alors grisée |
+
+Les options `-stereo` et `-audio-filter` remplacent ces réglages au lancement. En mode
+headless, `-wav` enregistre le son brut, ou avec ces options si elles sont données.
 
 ## Jouer sur la TV
 

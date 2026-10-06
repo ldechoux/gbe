@@ -142,6 +142,9 @@ func (g *Game) startGame(next *rom.Game) {
 	if g.stream != nil {
 		g.stream.reset()
 	}
+	if g.fx != nil {
+		g.fx.Reset()
+	}
 	g.keepPrevious()
 
 	g.stateTime, g.started = time.Time{}, true

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
 	"github.com/ldechoux/gbe/internal/ui/scaler"
@@ -33,10 +34,14 @@ type Config struct {
 	// Monitor is the name of the monitor the window opens on, e.g. a TV
 	// (empty: the primary one), and MonitorIndex its position among them,
 	// which tells apart monitors with the same name.
-	Monitor      string                `json:"monitor"`
-	MonitorIndex int                   `json:"monitor_index"`
-	Volume       float64               `json:"volume"`
-	Keys         map[string]ebiten.Key `json:"keys"` // button or action name -> key
+	Monitor      string  `json:"monitor"`
+	MonitorIndex int     `json:"monitor_index"`
+	Volume       float64 `json:"volume"`
+	// Stereo and AudioFilter shape the sound for the listener (see
+	// audiofx.StereoModes and audiofx.Filters).
+	Stereo      string                `json:"stereo"`
+	AudioFilter string                `json:"audio_filter"`
+	Keys        map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
 	// Vibration makes the gamepads shake with the motor of rumble
@@ -147,6 +152,8 @@ func DefaultConfig() *Config {
 		Filter:           scaler.Filters[0].ID,
 		Ghosting:         ghostingOff,
 		Volume:           0.8,
+		Stereo:           audiofx.Stereo,
+		AudioFilter:      audiofx.Off,
 		Keys:             defaultKeys(),
 		Gamepad:          defaultPad(),
 		Screenshot:       defaultScreenshotHotkey(),
@@ -219,6 +226,12 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if id, ok := scaler.ID(loaded.Filter); ok {
 		cfg.Filter = id
+	}
+	if id, ok := audiofx.ID(audiofx.StereoModes, loaded.Stereo); ok {
+		cfg.Stereo = id
+	}
+	if id, ok := audiofx.ID(audiofx.Filters, loaded.AudioFilter); ok {
+		cfg.AudioFilter = id
 	}
 	if loaded.Scale >= 1 && loaded.Scale <= maxScale {
 		cfg.Scale = loaded.Scale

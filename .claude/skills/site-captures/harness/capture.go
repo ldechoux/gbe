@@ -20,6 +20,18 @@ import (
 	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
 
+// noPads reads no gamepad: the captures show the menu as without one,
+// whatever is connected to the machine that takes them (a gamepad adds
+// "Start+Select: menu" to the footer).
+type noPads struct{}
+
+func (noPads) ids() []ebiten.GamepadID                                   { return nil }
+func (noPads) name(ebiten.GamepadID) string                              { return "" }
+func (noPads) duration(ebiten.GamepadID, padButton) int                  { return 0 }
+func (noPads) axis(ebiten.GamepadID, ebiten.StandardGamepadAxis) float64 { return 0 }
+func (noPads) canVibrate(ebiten.GamepadID) bool                          { return false }
+func (noPads) vibrate(ebiten.GamepadID, float64, time.Duration)          {}
+
 // CaptureOptions describes one console's captures.
 type CaptureOptions struct {
 	Dir      string // output directory
@@ -86,7 +98,7 @@ func Capture(console *gb.GameBoy, opts CaptureOptions) error {
 	cfg.Recent = []RecentGame{{Path: opts.Dir + "/played.gb", Title: "PLAYED"}}
 	g := &Game{gb: console, cfg: cfg, cfgPath: opts.Dir + "/config.json", title: "capture", shotDir: opts.Dir,
 		lcd: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight), stream: &audioStream{},
-		ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{}, pads: &ebitenPads{}, started: true}
+		ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{}, pads: noPads{}, started: true}
 	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
 	return ebiten.RunGame(&captureGame{Game: g, opts: opts})
 }
@@ -131,7 +143,7 @@ func CaptureDrop(roms []string, opts CaptureOptions) error {
 	g := &Game{cfg: cfg, cfgPath: opts.Dir + "/config.json", shotDir: opts.Dir,
 		lcd: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight), lcdPrev: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream: &audioStream{}, ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{},
-		pads: &ebitenPads{}, monitors: &ebitenMonitors{}}
+		pads: noPads{}, monitors: &ebitenMonitors{}}
 	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
 	return ebiten.RunGame(&dropCapture{Game: g, opts: opts})
 }

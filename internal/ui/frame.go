@@ -32,10 +32,13 @@ func frameRGBA(dst []byte, src frameSource, pal *Palette, correct bool) {
 		for i, c := range pal.Colors {
 			shades[i] = packRGBA(c.R, c.G, c.B)
 		}
-		// Ranged over as a slice: the array pointer, from a struct, would
-		// otherwise be checked for nil at every pixel.
-		for i, s := range src.shades[:] {
-			binary.LittleEndian.PutUint32(dst[i*4:], shades[s&3])
+		// Two pixels per iteration, stored at once, as below. Taken as a
+		// slice: the array pointer, from a struct, would otherwise be
+		// checked for nil at every pixel.
+		s := src.shades[:]
+		for i := 0; i < screenPixels-1; i += 2 {
+			px := uint64(shades[s[i]&3]) | uint64(shades[s[i+1]&3])<<32
+			binary.LittleEndian.PutUint64(dst[i*4:i*4+8], px)
 		}
 		return
 	}

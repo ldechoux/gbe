@@ -15,6 +15,7 @@ import (
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/gomono"
 
+	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/i18n"
 )
 
@@ -28,6 +29,7 @@ const (
 	pageMain menuPage = iota
 	pageControls
 	pageDisplay
+	pageSound
 	pageStart  // shown at launch when a save state exists
 	pageSwitch // shown when a game is dropped on the window during another
 	pageRecent // the last games played, to launch one
@@ -53,7 +55,7 @@ const (
 	itemRecent
 	itemDisplay
 	itemControls
-	itemVolume
+	itemSound
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -75,6 +77,21 @@ const (
 	displayBack
 	displayItems
 )
+
+// Sound page entries.
+const (
+	soundVolume = iota
+	soundStereo
+	soundFilter
+	soundBack
+	soundItems
+)
+
+// soundDisabled reports whether the sound page entry i is greyed out: the
+// stereo mode, while the speaker filter makes the sound mono.
+func soundDisabled(g *Game, i int) bool {
+	return i == soundStereo && g.cfg.AudioFilter == audiofx.Speaker
+}
 
 // paletteLabel is the palette entry of the display page. In Game Boy Color mode
 // it switches the color correction instead, except for colorized DMG games,
@@ -243,7 +260,7 @@ func (m *menu) move(g *Game, delta int) {
 	if m.page != pageDisplay {
 		n := m.itemCount(g)
 		m.cursor = (m.cursor + n + delta) % n
-		for m.page == pageMain && mainDisabled(g, m.cursor) {
+		for m.page == pageMain && mainDisabled(g, m.cursor) || m.page == pageSound && soundDisabled(g, m.cursor) {
 			m.cursor = (m.cursor + n + delta) % n
 		}
 		return
@@ -262,6 +279,8 @@ func (m *menu) itemCount(g *Game) int {
 		return controlsBack() + 1
 	case pageDisplay:
 		return displayItems
+	case pageSound:
+		return soundItems
 	case pageStart:
 		return startItems
 	case pageSwitch:
@@ -278,6 +297,8 @@ func (m *menu) backToMain() {
 	switch m.page {
 	case pageDisplay:
 		cursor = itemDisplay
+	case pageSound:
+		cursor = itemSound
 	case pageRecent:
 		cursor = itemRecent
 	}
@@ -314,7 +335,7 @@ func (m *menu) update(g *Game) {
 		case pageStart: // a choice is required
 		case pageSwitch:
 			m.keepPlaying(g)
-		case pageControls, pageDisplay, pageRecent:
+		case pageControls, pageDisplay, pageSound, pageRecent:
 			m.backToMain()
 		default:
 			m.open = false
@@ -399,15 +420,14 @@ func (m *menu) adjust(g *Game, delta int) {
 		m.adjustDisplay(g, delta)
 		return
 	}
+	if m.page == pageSound {
+		m.adjustSound(g, delta)
+		return
+	}
 	if m.page != pageMain {
 		return
 	}
 	switch m.cursor {
-	case itemVolume:
-		v := math.Round(g.cfg.Volume*10) + float64(delta)
-		g.cfg.Volume = max(0, min(10, v)) / 10
-		g.player.SetVolume(g.cfg.Volume)
-		g.saveConfig()
 	case itemSpeed:
 		g.cfg.FastForwardSpeed = max(minFastForward, min(maxFastForward, g.cfg.FastForwardSpeed+delta))
 		g.saveConfig()
@@ -440,6 +460,34 @@ func (m *menu) adjustDisplay(g *Game, delta int) {
 		g.cfg.Ghosting = ghostingModes[(i+delta%n+n)%n]
 		g.saveConfig()
 	}
+}
+
+func (m *menu) adjustSound(g *Game, delta int) {
+	switch {
+	case m.cursor == soundVolume:
+		v := math.Round(g.cfg.Volume*10) + float64(delta)
+		g.cfg.Volume = max(0, min(10, v)) / 10
+		if g.player != nil { // none in the tests
+			g.player.SetVolume(g.cfg.Volume)
+		}
+	case m.cursor == soundStereo && !soundDisabled(g, soundStereo):
+		g.cfg.Stereo = cycle(audiofx.StereoModes, g.cfg.Stereo, delta)
+	case m.cursor == soundFilter:
+		g.cfg.AudioFilter = cycle(audiofx.Filters, g.cfg.AudioFilter, delta)
+	default:
+		return
+	}
+	if g.fx != nil {
+		g.fx.Set(g.cfg.Stereo, g.cfg.AudioFilter)
+	}
+	g.saveConfig()
+}
+
+// cycle returns the ID delta places after id in ids, wrapping around.
+func cycle(ids []string, id string, delta int) string {
+	n := len(ids)
+	i := max(0, slices.Index(ids, id))
+	return ids[(i+delta%n+n)%n]
 }
 
 // toggleVibration turns the gamepad vibrations on or off.
@@ -523,6 +571,14 @@ func (m *menu) activate(g *Game) {
 		}
 		return
 	}
+	if m.page == pageSound {
+		if m.cursor == soundBack {
+			m.backToMain()
+		} else if m.cursor != soundVolume { // OK must not turn the volume up
+			m.adjust(g, 1)
+		}
+		return
+	}
 	if m.page == pageControls {
 		switch {
 		case m.cursor <= controlsScreenshot():
@@ -539,8 +595,10 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemResume:
 		m.open = false
-	case itemVolume, itemSpeed, itemLanguage:
+	case itemSpeed, itemLanguage:
 		m.adjust(g, 1)
+	case itemSound:
+		m.page, m.cursor, m.width = pageSound, soundVolume, 0
 	case itemRecent:
 		m.page, m.cursor, m.width = pageRecent, 0, 0
 	case itemDisplay:
@@ -577,6 +635,11 @@ type menuView struct {
 	disabled map[int]bool // items drawn greyed out
 	selected int          // highlighted item
 	footer   string       // one line or more
+	// altItems and altFooters are the other entries and footers the page
+	// may show as its settings and selection change: the panel keeps the
+	// size of the largest, instead of changing as the player goes through
+	// them.
+	altItems, altFooters []string
 }
 
 func (m *menu) view(g *Game) menuView {
@@ -600,6 +663,11 @@ func (m *menu) view(g *Game) menuView {
 	switch m.page {
 	case pageDisplay:
 		v.selected = slices.Index(displayEntries(g), m.cursor)
+	case pageSound:
+		if soundDisabled(g, soundStereo) {
+			v.disabled = map[int]bool{soundStereo: true}
+		}
+		v.altItems, v.altFooters = soundAlternatives(g)
 	case pageMain:
 		for i := range items {
 			if mainDisabled(g, i) {
@@ -729,12 +797,25 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("display.title"), items, mainFooter(g)
 	}
+	if m.page == pageSound {
+		stereo := g.cfg.Stereo
+		if soundDisabled(g, soundStereo) {
+			stereo = audiofx.Mono
+		}
+		items = []string{
+			l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
+			l.T("menu.stereo", l.T("stereo."+stereo)),
+			l.T("menu.audio_filter", l.T("audio_filter."+g.cfg.AudioFilter)),
+			l.T("sound.back"),
+		}
+		return l.T("sound.title"), items, m.soundFooter(g)
+	}
 	items = []string{
 		l.T("menu.resume"),
 		l.T("menu.recent"),
 		l.T("menu.display"),
 		l.T("menu.controls"),
-		l.T("menu.volume", int(math.Round(g.cfg.Volume*100))),
+		l.T("menu.sound"),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),
@@ -743,6 +824,35 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.quit"),
 	}
 	return l.T("menu.title"), items, mainFooter(g)
+}
+
+// soundAlternatives lists every value the entries of the sound page and
+// every explanation its footer may show.
+func soundAlternatives(g *Game) (items, footers []string) {
+	l := g.tr()
+	items = append(items, l.T("menu.volume", 100))
+	for _, id := range audiofx.StereoModes {
+		items = append(items, l.T("menu.stereo", l.T("stereo."+id)))
+		footers = append(footers, l.T("sound.help_"+id))
+	}
+	for _, id := range audiofx.Filters {
+		items = append(items, l.T("menu.audio_filter", l.T("audio_filter."+id)))
+		footers = append(footers, l.T("sound.help_"+id))
+	}
+	return items, append(footers, mainFooter(g))
+}
+
+// soundFooter explains the stereo mode or the filter selected on the sound
+// page.
+func (m *menu) soundFooter(g *Game) string {
+	l := g.tr()
+	switch m.cursor {
+	case soundStereo:
+		return l.T("sound.help_" + g.cfg.Stereo)
+	case soundFilter:
+		return l.T("sound.help_" + g.cfg.AudioFilter)
+	}
+	return mainFooter(g)
 }
 
 // mainFooter is the footer of the main and display pages: the keyboard

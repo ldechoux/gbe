@@ -116,6 +116,20 @@ func layoutMenu(v menuView, minWidth, sw, sh float64) menuLayout {
 		for _, s := range l.items {
 			width = math.Max(width, advance("> "+s))
 		}
+		for _, s := range v.altItems {
+			width = math.Max(width, advance("> "+shorten(s, maxW-advance("> "))))
+		}
+		lines := len(l.footer)
+		for _, f := range v.altFooters {
+			alt := wrapText(f, maxW)
+			lines = max(lines, len(alt))
+			for _, s := range alt {
+				width = math.Max(width, advance(s))
+			}
+		}
+		for len(l.footer) < lines { // room for the longest footer
+			l.footer = append(l.footer, "")
+		}
 		for _, s := range l.footer {
 			width = math.Max(width, advance(s))
 		}
@@ -172,8 +186,13 @@ func width0(v menuView, tabsW float64) float64 {
 	for _, s := range v.items {
 		width = math.Max(width, advance("> "+s))
 	}
-	for _, s := range strings.Split(v.footer, "\n") {
-		width = math.Max(width, advance(s))
+	for _, s := range v.altItems {
+		width = math.Max(width, advance("> "+s))
+	}
+	for _, f := range append([]string{v.footer}, v.altFooters...) {
+		for _, s := range strings.Split(f, "\n") {
+			width = math.Max(width, advance(s))
+		}
 	}
 	return width
 }

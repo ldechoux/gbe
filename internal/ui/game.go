@@ -17,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
+	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
 	"github.com/ldechoux/gbe/internal/rom"
@@ -37,6 +38,9 @@ type Options struct {
 	ConfigPath string // "" for DefaultConfigPath()
 	Scale      int    // 0 to use the configured scale
 	Filter     string // "" to use the configured filter (see scaler.Filters)
+	// Stereo and AudioFilter override the configured ones ("" to keep
+	// them; see audiofx.StereoModes and audiofx.Filters).
+	Stereo, AudioFilter string
 	// ScreenshotDir receives the PNG captures ("" for DefaultScreenshotDir()).
 	ScreenshotDir string
 	// Open opens a game dropped on the window, colorize being the setting
@@ -86,6 +90,7 @@ type Game struct {
 
 	stream *audioStream
 	player *audio.Player
+	fx     *audiofx.Chain // the stereo mode and the filter of the settings
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	ignoredPad  map[padButton]bool  // same for gamepad buttons
@@ -148,6 +153,12 @@ func Run(opts Options) error {
 	if id, ok := scaler.ID(opts.Filter); ok {
 		cfg.Filter = id
 	}
+	if id, ok := audiofx.ID(audiofx.StereoModes, opts.Stereo); ok {
+		cfg.Stereo = id
+	}
+	if id, ok := audiofx.ID(audiofx.Filters, opts.AudioFilter); ok {
+		cfg.AudioFilter = id
+	}
 
 	if opts.ScreenshotDir == "" {
 		opts.ScreenshotDir = DefaultScreenshotDir()
@@ -160,6 +171,7 @@ func Run(opts Options) error {
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream:      &audioStream{},
+		fx:          audiofx.New(sampleRate, cfg.Stereo, cfg.AudioFilter),
 		ignoredKeys: map[ebiten.Key]bool{},
 		ignoredPad:  map[padButton]bool{},
 		pads:        &ebitenPads{},
@@ -517,7 +529,11 @@ func (g *Game) advance(fast, rewind bool) {
 		g.rewind.record(g.gb)
 		rumble += g.gb.Rumble()
 	}
-	g.stream.push(g.gb.APU.DrainSamples())
+	samples := g.gb.APU.DrainSamples()
+	if g.fx != nil {
+		g.fx.Process(samples) // in place: the APU fills the slice again next frame
+	}
+	g.stream.push(samples)
 	g.rumble.update(g.pads, g.cfg.Vibration, rumble/float64(n))
 }
 

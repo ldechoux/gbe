@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui"
@@ -27,11 +28,13 @@ func main() {
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
 	filterName := flag.String("filter", "", "display filter, overrides the config: "+strings.Join(scaler.IDs(), ", "))
+	stereo := flag.String("stereo", "", "sound output, overrides the config: "+strings.Join(audiofx.StereoModes, ", ")+" (headphones lets each ear hear a little of the other side)")
+	audioFilter := flag.String("audio-filter", "", "audio filter, overrides the config: "+strings.Join(audiofx.Filters, ", "))
 	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
 	frames := flag.Int("frames", 0, "headless mode: run this many frames without a window, then exit")
 	shot := flag.String("screenshot", "", "headless mode: write the last frame to this PNG file")
 	inputs := flag.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
-	wav := flag.String("wav", "", "headless mode: record the audio to this WAV file")
+	wav := flag.String("wav", "", "headless mode: record the audio to this WAV file (with -stereo and -audio-filter only, not the config)")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
@@ -56,6 +59,14 @@ func main() {
 	if _, ok := scaler.ID(*filterName); *filterName != "" && !ok {
 		log.Fatalf("unknown filter %q (want %s)", *filterName, strings.Join(scaler.IDs(), ", "))
 	}
+	stereoID, ok := audiofx.ID(audiofx.StereoModes, *stereo)
+	if *stereo != "" && !ok {
+		log.Fatalf("unknown sound output %q (want %s)", *stereo, strings.Join(audiofx.StereoModes, ", "))
+	}
+	audioFilterID, ok := audiofx.ID(audiofx.Filters, *audioFilter)
+	if *audioFilter != "" && !ok {
+		log.Fatalf("unknown audio filter %q (want %s)", *audioFilter, strings.Join(audiofx.Filters, ", "))
+	}
 	configPath := *cfgPath
 	if configPath == "" {
 		configPath = ui.DefaultConfigPath()
@@ -75,7 +86,8 @@ func main() {
 	}
 
 	if *frames > 0 {
-		if err := runHeadless(game.Console, *frames, *inputs, *shot, *wav); err != nil {
+		fx := audiofx.New(48000, stereoID, audioFilterID)
+		if err := runHeadless(game.Console, *frames, *inputs, *shot, *wav, fx); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -86,6 +98,9 @@ func main() {
 		ConfigPath: configPath,
 		Scale:      *scale,
 		Filter:     *filterName,
+
+		Stereo:      stereoID,
+		AudioFilter: audioFilterID,
 
 		ScreenshotDir: *shotDir,
 		// A dropped game opens with the same -model and -bios.
@@ -144,7 +159,7 @@ func parseInputs(s string) ([]press, error) {
 	return out, nil
 }
 
-func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string) error {
+func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string, fx *audiofx.Chain) error {
 	presses, err := parseInputs(inputs)
 	if err != nil {
 		return err
@@ -161,7 +176,9 @@ func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string) erro
 			console.SetButton(b, down)
 		}
 		console.RunFrame()
-		pcm = append(pcm, console.APU.DrainSamples()...)
+		samples := console.APU.DrainSamples()
+		fx.Process(samples)
+		pcm = append(pcm, samples...)
 	}
 	if wav != "" {
 		if err := writeWAV(wav, pcm, 48000); err != nil {

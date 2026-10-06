@@ -17,8 +17,9 @@ const (
 	stateMagic = "GBESTATE"
 	// 2 added the Game Boy Color, 3 its compatibility mode, 4 dropped the
 	// timer of the frame sequencer, now clocked by DIV, 5 added when
-	// channel 3 last read the wave RAM; older states still load.
-	stateVersion = 5
+	// channel 3 last read the wave RAM, 6 the band-limited output samples
+	// being made; older states still load.
+	stateVersion = 6
 )
 
 // ErrStateMismatch is returned when a save state belongs to another ROM.
@@ -386,9 +387,18 @@ func (a *APU) sync(c *codec) {
 	}
 	c.int(&a.seqStep)
 	c.f64(&a.sampleClock)
-	c.f64(&a.accL)
-	c.f64(&a.accR)
-	c.int(&a.accN)
+	if c.version < 6 {
+		// The output was the average level over each sample: start from
+		// the current level, without a jump.
+		var acc float64
+		var n int
+		c.f64(&acc)
+		c.f64(&acc)
+		c.int(&n)
+		a.blip.reset(a.mixChannels())
+	} else {
+		a.blip.sync(c)
+	}
 	c.f64(&a.hpL)
 	c.f64(&a.hpR)
 }

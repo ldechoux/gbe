@@ -115,17 +115,16 @@ type APU struct {
 	untilClock int
 
 	samplePeriod float64 // T-cycles per output sample
-	sampleClock  float64
-	accL, accR   float64
-	accN         int
+	phaseScale   float64 // blipPhases / samplePeriod
+	sampleClock  float64 // T-cycles since the last output sample
+	blip         blip    // the mixed output, band-limited (see blip.go)
 	hpL, hpR     float64
 	hpCharge     float64
 	samples      []int16
 
 	// The mixed output only changes now and then (a step of a waveform, a
 	// register write...), so it is computed again only after a change.
-	mixL, mixR float64
-	mixValid   bool
+	mixValid bool
 }
 
 func newAPU(bus *Bus) *APU {
@@ -138,6 +137,7 @@ func newAPU(bus *Bus) *APU {
 // keep the audio buffer level stable.
 func (a *APU) SetSampleRate(rate float64) {
 	a.samplePeriod = ClockRate / rate
+	a.phaseScale = blipPhases / a.samplePeriod
 	a.hpCharge = math.Pow(0.999958, ClockRate/rate)
 }
 
@@ -545,22 +545,27 @@ func (a *APU) output(i int) byte {
 	return byte(^c.lfsr&1) * c.env.volume
 }
 
+// mixScale is the largest mixed level (mixChannels) left or right: 4
+// channels at 15 times the largest master volume, 8.
+const mixScale = 4 * 15 * 8
+
 func (a *APU) mix(cycles int) {
 	if !a.mixValid {
-		a.mixL, a.mixR = a.mixChannels()
+		// The new level starts now: where in the output sample being made.
+		phase := min(int(a.sampleClock*a.phaseScale+0.5), blipPhases)
+		l, r := a.mixChannels()
+		a.blip.set(l, r, phase)
 		a.mixValid = true
 	}
-	a.accL += a.mixL
-	a.accR += a.mixR
-	a.accN++
 
 	a.sampleClock += float64(cycles)
 	if a.sampleClock < a.samplePeriod {
 		return
 	}
 	a.sampleClock -= a.samplePeriod
-	l, r := a.accL/float64(a.accN)/4, a.accR/float64(a.accN)/4
-	a.accL, a.accR, a.accN = 0, 0, 0
+	bl, br := a.blip.next()
+	l := float64(bl) / (mixScale << blipShift)
+	r := float64(br) / (mixScale << blipShift)
 
 	// High-pass filter removing the DC offset, like the real hardware. The
 	// explicit conversions round the products, which some architectures
@@ -574,8 +579,9 @@ func (a *APU) mix(cycles int) {
 	a.samples = append(a.samples, toInt16(outL), toInt16(outR))
 }
 
-// mixChannels returns the analog output of the left and right channels.
-func (a *APU) mixChannels() (l, r float64) {
+// mixChannels returns the analog output of the left and right channels,
+// from -mixScale to mixScale.
+func (a *APU) mixChannels() (l, r int) {
 	if !a.on {
 		return 0, 0
 	}
@@ -584,8 +590,8 @@ func (a *APU) mixChannels() (l, r float64) {
 		if !a.ch[i].dac {
 			continue
 		}
-		// DAC: 0..15 -> +1..-1
-		v := 1 - float64(a.output(i))/7.5
+		// DAC: 0..15 -> +15..-15 (+1..-1)
+		v := 15 - 2*int(a.output(i))
 		if nr51&(0x10<<i) != 0 {
 			l += v
 		}
@@ -594,8 +600,8 @@ func (a *APU) mixChannels() (l, r float64) {
 		}
 	}
 	nr50 := a.regs[0x14]
-	l *= float64((nr50>>4)&7+1) / 8
-	r *= float64(nr50&7+1) / 8
+	l *= int((nr50>>4)&7 + 1)
+	r *= int(nr50&7 + 1)
 	return l, r
 }
 

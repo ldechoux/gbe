@@ -1,13 +1,13 @@
 // Command icongen draws the icon of the application, and writes it in the
 // formats each system wants: PNG at several sizes, gbe.icns for macOS and
-// gbe.ico for Windows.
+// gbe.ico for Windows. It also writes the favicon of the site.
 //
 // The icon is a Game Boy in pixel art on a rounded tile, as macOS draws its
 // icons. It is computed with integers only, so that every machine writes the
 // same bytes: the generated files are in the repository, and a test checks
 // that they match this program.
 //
-//	go run ./tools/icongen -out assets/icon
+//	go run ./tools/icongen -out assets/icon -favicon site/favicon.svg
 package main
 
 import (
@@ -90,7 +90,8 @@ var (
 		's': rgb(0x8d8d99),
 		'p': rgb(0x8f8b83),
 	}
-	shade = rgb(0xa7a39a) // the case along its right and bottom edges
+	shade   = rgb(0xa7a39a) // the case along its right and bottom edges
+	outline = rgb(0x1f1f24) // around the favicon
 	// The tile goes from top to bottom, from the magenta of the buttons to a
 	// darker one.
 	tileTop, tileBottom = rgb(0xb3266b), rgb(0x6e0f3e)
@@ -108,7 +109,11 @@ var Sizes = []int{16, 32, 48, 64, 128, 256, 512, 1024}
 
 func main() {
 	out := flag.String("out", "assets/icon", "directory to write the files to")
+	favicon := flag.String("favicon", "site/favicon.svg", "file to write the favicon of the site to")
 	flag.Parse()
+	if err := os.WriteFile(*favicon, Favicon(), 0o644); err != nil {
+		log.Fatal(err)
+	}
 	files, err := Files()
 	if err != nil {
 		log.Fatal(err)
@@ -142,6 +147,73 @@ func Files() (map[string][]byte, error) {
 	return files, nil
 }
 
+// cellColor is the color of the cell (x, y) of the Game Boy, or false
+// outside of it.
+func cellColor(x, y int) (color.RGBA, bool) {
+	ch := at(x, y)
+	switch ch {
+	case '.':
+		return color.RGBA{}, false
+	case 'S':
+		return lcd[screen[y-4][x-5]-'0'], true
+	case 'b':
+		if at(x+1, y) == '.' || at(x, y+1) == '.' {
+			return shade, true
+		}
+	}
+	c, ok := palette[ch]
+	if !ok {
+		panic(fmt.Sprintf("no color for %q", ch))
+	}
+	return c, true
+}
+
+func at(x, y int) byte {
+	if y < 0 || y >= len(body) || x < 0 || x >= len(body[y]) {
+		return '.'
+	}
+	return body[y][x]
+}
+
+// Favicon returns the favicon of the site: the Game Boy alone, in SVG, with
+// a dark outline that sets it apart from a light tab.
+func Favicon() []byte {
+	var b bytes.Buffer
+	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34" shape-rendering="crispEdges">` + "\n")
+	// The outline is one cell wide, all around: 24x34 cells, centered.
+	fill := func(x, y int) (color.RGBA, bool) {
+		if c, ok := cellColor(x, y); ok {
+			return c, true
+		}
+		for dy := -1; dy <= 1; dy++ {
+			for dx := -1; dx <= 1; dx++ {
+				if at(x+dx, y+dy) != '.' {
+					return outline, true
+				}
+			}
+		}
+		return color.RGBA{}, false
+	}
+	for y := -1; y <= len(body); y++ {
+		// One rectangle for each run of cells of the same color.
+		for x := -1; x <= len(body[0]); {
+			c, ok := fill(x, y)
+			end := x + 1
+			for ; end <= len(body[0]); end++ {
+				if d, ok2 := fill(end, y); ok2 != ok || d != c {
+					break
+				}
+			}
+			if ok {
+				fmt.Fprintf(&b, `  <rect x="%d" y="%d" width="%d" height="1" fill="#%02x%02x%02x"/>`+"\n", x+6, y+1, end-x, c.R, c.G, c.B)
+			}
+			x = end
+		}
+	}
+	b.WriteString("</svg>\n")
+	return b.Bytes()
+}
+
 // draw draws the icon at size x size.
 func draw() *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
@@ -164,12 +236,6 @@ func draw() *image.RGBA {
 			}
 		}
 	}
-	at := func(x, y int) byte {
-		if y < 0 || y >= len(body) || x < 0 || x >= len(body[y]) {
-			return '.'
-		}
-		return body[y][x]
-	}
 	ox, oy := (size-22*cell)/2, (size-32*cell)/2
 	// The shadow of the Game Boy on the tile, one cell lower right.
 	for y := range body {
@@ -186,21 +252,9 @@ func draw() *image.RGBA {
 	}
 	for y := range body {
 		for x := range body[y] {
-			c, ok := palette[at(x, y)]
-			switch at(x, y) {
-			case '.':
-				continue
-			case 'b':
-				if at(x+1, y) == '.' || at(x, y+1) == '.' {
-					c = shade
-				}
-			case 'S':
-				c, ok = lcd[screen[y-4][x-5]-'0'], true
+			if c, ok := cellColor(x, y); ok {
+				square(img, ox+x*cell, oy+y*cell, func(color.RGBA) color.RGBA { return c })
 			}
-			if !ok {
-				panic(fmt.Sprintf("no color for %q", at(x, y)))
-			}
-			square(img, ox+x*cell, oy+y*cell, func(color.RGBA) color.RGBA { return c })
 		}
 	}
 	return img

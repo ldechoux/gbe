@@ -1,8 +1,9 @@
 // Package icon holds the icon of the application, drawn by tools/icongen:
 // PNG files at several sizes, gbe.icns for macOS and gbe.ico for Windows.
+// The favicon of the site (site/favicon.svg) is drawn with it.
 package icon
 
-//go:generate go run ../../tools/icongen -out .
+//go:generate go run ../../tools/icongen -out . -favicon ../../site/favicon.svg
 
 import (
 	"bytes"

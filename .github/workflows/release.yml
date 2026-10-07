@@ -1,7 +1,8 @@
 name: Release binaries
 
 # Builds gbe for macOS, Linux and Windows (amd64 + arm64) and attaches the
-# archives to the GitHub release that triggered the run.
+# archives to the GitHub release that triggered the run, with gbe.app for
+# macOS in a disk image.
 on:
   release:
     types: [published]
@@ -70,6 +71,34 @@ jobs:
         with:
           name: gbe-${{ matrix.os }}-${{ matrix.goarch }}
           path: ${{ env.ASSET }}
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+
+  # gbe.app, for Intel and Apple Silicon, in a disk image: lipo, codesign
+  # and hdiutil only exist on macOS.
+  macos-app:
+    needs: test
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ github.event.release.tag_name || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build gbe.app and its disk image
+        run: echo "ASSET=$(packaging/macos/build.sh "$VERSION" dist)" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gbe-macos-app
+          path: ${{ env.ASSET }}
+          compression-level: 0 # a disk image is compressed already
 
       - name: Attach to the release
         if: github.event_name == 'release'

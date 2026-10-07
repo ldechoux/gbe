@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The description of gbe.app; build.sh replaces @VERSION@. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>gbe</string>
+	<key>CFBundleDisplayName</key>
+	<string>gbe</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.ldechoux.gbe</string>
+	<key>CFBundleExecutable</key>
+	<string>gbe</string>
+	<key>CFBundleIconFile</key>
+	<string>gbe</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@VERSION@</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>fr</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.games</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>gbe, émulateur Game Boy et Game Boy Color</string>
+	<!-- Why macOS asks, when a recent game is in one of these places. -->
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>gbe ouvre les jeux de ton Bureau et y enregistre leurs sauvegardes.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>gbe ouvre les jeux de ton dossier Documents et y enregistre leurs sauvegardes.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>gbe ouvre les jeux de ton dossier Téléchargements et y enregistre leurs sauvegardes.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>gbe ouvre les jeux d'un disque externe et y enregistre leurs sauvegardes.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>gbe ouvre les jeux d'un disque réseau et y enregistre leurs sauvegardes.</string>
+</dict>
+</plist>

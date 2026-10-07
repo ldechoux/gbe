@@ -9,6 +9,7 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -69,24 +70,36 @@ type page struct {
 const detailedReleases = 3
 
 var platforms = []Platform{
-	{ID: "macos", Name: "macOS", Note: "Binaire non signé : au premier lancement, clic droit > Ouvrir."},
+	{ID: "macos", Name: "macOS", Note: "Glisser gbe dans Applications. L'app n'est pas signée par Apple : au premier lancement, Réglages Système > Confidentialité et sécurité > Ouvrir quand même. Les archives x86_64 et arm64 contiennent le binaire seul, pour le terminal."},
 	{ID: "windows", Name: "Windows", Note: "Lancer gbe.exe depuis un terminal avec le chemin de la ROM."},
 	{ID: "linux", Name: "Linux", Note: "Nécessite libX11, libGL et libasound (présents sur tout bureau)."},
 }
 
 var archLabels = map[string]string{
-	"amd64": "x86_64",
-	"arm64": "arm64",
+	"amd64":     "x86_64",
+	"arm64":     "arm64",
+	"universal": "Application",
 }
 
-// parseAsset extracts os and arch from "gbe-<tag>-<os>-<arch>.<ext>".
+// parseAsset extracts os and arch from "gbe-<tag>-<os>-<arch>.<ext>". The
+// application for macOS, for both architectures, is "universal".
 func parseAsset(name string) (osName, arch string, ok bool) {
-	base := strings.TrimSuffix(strings.TrimSuffix(name, ".zip"), ".tar.gz")
+	base := name
+	for _, ext := range []string{".zip", ".tar.gz", ".dmg"} {
+		base = strings.TrimSuffix(base, ext)
+	}
 	parts := strings.Split(base, "-")
 	if len(parts) < 4 || parts[0] != "gbe" {
 		return "", "", false
 	}
 	return parts[len(parts)-2], parts[len(parts)-1], true
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func humanSize(n int64) string {
@@ -133,6 +146,10 @@ func buildPage(repo string, all []Release) page {
 			}
 			plat.Downloads = append(plat.Downloads, Download{arch, label, a.URL, humanSize(a.Size)})
 		}
+		// The application comes before the archives of the binary alone.
+		slices.SortStableFunc(plat.Downloads, func(a, b Download) int {
+			return cmp.Compare(boolInt(b.Arch == "universal"), boolInt(a.Arch == "universal"))
+		})
 		if len(plat.Downloads) > 0 {
 			p.Platforms = append(p.Platforms, plat)
 		}

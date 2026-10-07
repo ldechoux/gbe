@@ -24,7 +24,11 @@ go run ./tools/sitegen -releases /tmp/releases.json -out /tmp/site && open /tmp/
 ## Téléchargement
 
 À chaque release GitHub publiée, le workflow [`release.yml`](.github/workflows/release.yml)
-compile gbe et joint six archives à la release, sous la forme `gbe-<tag>-<os>-<arch>` :
+compile gbe et joint à la release :
+- **pour macOS, l'application** `gbe.app`, pour les Mac Intel et Apple Silicon, dans une
+  image disque `gbe-<tag>-macos-universal.dmg` ;
+- **six archives du binaire seul**, à lancer depuis un terminal, sous la forme
+  `gbe-<tag>-<os>-<arch>` :
 
 | OS | Architectures |
 |---|---|
@@ -34,8 +38,16 @@ compile gbe et joint six archives à la release, sous la forme `gbe-<tag>-<os>-<
 
 Remarques par plateforme :
 
-- **macOS** : les binaires ne sont pas signés. Au premier lancement, faire clic droit >
-  Ouvrir, ou lancer `xattr -d com.apple.quarantine gbe`.
+- **macOS** : ouvrir l'image disque et glisser gbe dans Applications. L'application n'est
+  pas signée par Apple, faute de compte Apple Developer. Au premier lancement, macOS
+  refuse de l'ouvrir :
+  1. fermer le message ;
+  2. ouvrir Réglages Système > Confidentialité et sécurité, puis cliquer sur « Ouvrir quand
+     même » en face de gbe, et confirmer.
+
+  Les lancements suivants se font normalement. En variante, dans un terminal :
+  `xattr -dr com.apple.quarantine /Applications/gbe.app`. Pour le binaire seul :
+  `xattr -d com.apple.quarantine gbe`.
 - **Linux** : il faut `libX11`, `libGL` et `libasound`, présents sur tout bureau standard.
 
 `gbe -version` affiche la version.

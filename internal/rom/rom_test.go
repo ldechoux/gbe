@@ -182,3 +182,35 @@ func TestOpenErrors(t *testing.T) {
 		t.Errorf("not strict: %v", err)
 	}
 }
+
+// The default boot ROM comes from the first folder that has it; a missing
+// one is not an error.
+func TestReadBootROM(t *testing.T) {
+	empty, first, second := t.TempDir(), t.TempDir(), t.TempDir()
+	write := func(dir, name, data string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(first, "gb_bios.bin", "first gb")
+	write(second, "gb_bios.bin", "second gb")
+	write(second, "gbc_bios.bin", "second gbc")
+	opts := Options{BootROMDirs: []string{empty, first, second}}
+	for _, c := range []struct {
+		opts  Options
+		model gb.Model
+		want  string
+	}{
+		{opts, gb.ModelDMG, "first gb"},
+		{opts, gb.ModelCGB, "second gbc"},
+		{Options{BootROMDirs: []string{empty}}, gb.ModelDMG, ""},
+		{Options{BootROM: "none", BootROMDirs: []string{first}}, gb.ModelDMG, ""},
+		{Options{BootROM: filepath.Join(second, "gbc_bios.bin")}, gb.ModelDMG, "second gbc"},
+		{Options{BootROM: filepath.Join(empty, "missing.bin")}, gb.ModelDMG, ""},
+	} {
+		got, err := readBootROM(c.opts, c.model)
+		if err != nil || string(got) != c.want {
+			t.Errorf("readBootROM(%+v, %v) = %q, %v; want %q", c.opts, c.model, got, err, c.want)
+		}
+	}
+}

@@ -35,10 +35,15 @@ type Options struct {
 	// Game runs at launch; nil shows a screen asking for a ROM to be
 	// dropped on the window. Its save state is written on exit and offered
 	// on launch.
-	Game       *rom.Game
-	ConfigPath string // "" for DefaultConfigPath()
-	Scale      int    // 0 to use the configured scale
-	Filter     string // "" to use the configured filter (see scaler.Filters)
+	Game *rom.Game
+	// LaunchError, with Game nil, is why the game at LaunchPath, given at
+	// launch, could not be opened: the drop screen tells it, as for a game
+	// dropped on the window.
+	LaunchPath  string
+	LaunchError error
+	ConfigPath  string // "" for DefaultConfigPath()
+	Scale       int    // 0 to use the configured scale
+	Filter      string // "" to use the configured filter (see scaler.Filters)
 	// Stereo and AudioFilter override the configured ones ("" to keep
 	// them; see audiofx.StereoModes and audiofx.Filters).
 	Stereo, AudioFilter string
@@ -197,6 +202,8 @@ func Run(opts Options) error {
 	g.pruneRecent()
 	if opts.Game != nil {
 		g.startGame(opts.Game)
+	} else if opts.LaunchError != nil {
+		g.notifyLong(dropError(g.tr(), filepath.Base(opts.LaunchPath), opts.LaunchError))
 	}
 	ebiten.SetWindowSize(gb.ScreenWidth*cfg.Scale, gb.ScreenHeight*cfg.Scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)

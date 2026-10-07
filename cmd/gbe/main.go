@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"image/png"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -23,7 +25,7 @@ var version = "dev"
 
 func main() {
 	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument; without one, the window waits for a ROM dropped on it)")
-	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default bios/gb_bios.bin, or bios/gbc_bios.bin in Game Boy Color mode; ignored if missing)`)
+	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default gb_bios.bin, or gbc_bios.bin in Game Boy Color mode, from a bios folder in the working folder, the config folder or next to gbe; ignored if missing)`)
 	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
 	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
 	scale := flag.Int("scale", 0, "window scale, overrides the config")
@@ -71,17 +73,33 @@ func main() {
 	if configPath == "" {
 		configPath = ui.DefaultConfigPath()
 	}
+	configDir := filepath.Dir(configPath)
+	if *frames == 0 {
+		logToFile(filepath.Join(configDir, "gbe.log"))
+	}
 	cfg, err := ui.LoadConfig(configPath)
 	if err != nil {
 		log.Printf("config %s: %v (using defaults)", configPath, err)
 	}
-	opts := rom.Options{Model: model, BootROM: *biosPath, Colorize: cfg.ColorizeDMG, Fresh: *frames > 0}
+	opts := rom.Options{
+		Model:       model,
+		BootROM:     *biosPath,
+		BootROMDirs: bootROMDirs(configDir),
+		Colorize:    cfg.ColorizeDMG,
+		Fresh:       *frames > 0,
+	}
 
-	// Without a ROM, the window asks for one to be dropped on it.
+	// Without a ROM, the window asks for one to be dropped on it. One that
+	// cannot be opened is explained there too: launched from the Finder or
+	// the Explorer, gbe has no terminal to tell it in.
 	var game *rom.Game
+	var gameErr error
 	if *romPath != "" {
-		if game, err = rom.Open(*romPath, opts); err != nil {
-			log.Fatal(err)
+		if game, gameErr = rom.Open(*romPath, opts); gameErr != nil {
+			if *frames > 0 {
+				log.Fatal(gameErr)
+			}
+			log.Print(gameErr)
 		}
 	}
 
@@ -94,10 +112,12 @@ func main() {
 	}
 
 	if err := ui.Run(ui.Options{
-		Game:       game,
-		ConfigPath: configPath,
-		Scale:      *scale,
-		Filter:     *filterName,
+		Game:        game,
+		LaunchPath:  *romPath,
+		LaunchError: gameErr,
+		ConfigPath:  configPath,
+		Scale:       *scale,
+		Filter:      *filterName,
 
 		Stereo:      stereoID,
 		AudioFilter: audioFilterID,
@@ -112,6 +132,33 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// logToFile copies the log to path, from scratch at each launch: launched
+// from the Finder or the Explorer, gbe has no terminal, and the log is the
+// only trace of what went wrong.
+func logToFile(path string) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		log.Printf("log file: %v", err)
+		return
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		log.Printf("log file: %v", err)
+		return
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, f))
+}
+
+// bootROMDirs are the folders searched for the default boot ROMs: bios in
+// the working folder, then in the config folder, which does not depend on
+// where gbe is launched from, then next to the executable.
+func bootROMDirs(configDir string) []string {
+	dirs := []string{"bios", filepath.Join(configDir, "bios")}
+	if exe, err := os.Executable(); err == nil {
+		dirs = append(dirs, filepath.Join(filepath.Dir(exe), "bios"))
+	}
+	return dirs
 }
 
 // parseModel reads the -model flag. "gb" and "gbc" are the names players

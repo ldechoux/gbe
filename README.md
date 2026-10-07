@@ -63,21 +63,22 @@ Remarques par plateforme :
 
 ## Lancer
 
-Avec Go 1.27 ou plus récent, gbe s'installe directement (sans cgo) :
+Le plus simple est de prendre le binaire de sa plateforme dans les
+[releases](https://github.com/ldechoux/gbe/releases) (voir Téléchargement).
+
+Depuis les sources, avec Go 1.27 ou plus récent (sans cgo) :
 
 ```sh
-go install github.com/ldechoux/gbe/cmd/gbe@latest
-gbe mon-jeu.gb
-```
-
-Le binaire est installé dans `$(go env GOPATH)/bin`.
-
-Depuis les sources :
-
-```sh
+git clone https://github.com/ldechoux/gbe.git && cd gbe
 CGO_ENABLED=0 go build -o bin/gbe ./cmd/gbe
 ./bin/gbe roms/Super_Mario_Land_World_Rev1.gb
 ```
+
+`go install github.com/ldechoux/gbe/cmd/gbe@latest` ne fonctionne plus depuis la v0.1.6. gbe
+utilise un fork d'Ebitengine, en attendant que la détection des manettes vibrantes y soit
+intégrée ([ebiten#3854](https://github.com/hajimehoshi/ebiten/issues/3854)), et Go refuse
+`go install` pour un module qui remplace une dépendance. Cette commande reviendra avec le retour à
+Ebitengine.
 
 Les dossiers `bios/` (boot ROM) et `roms/` ne sont pas versionnés : les fichiers qu'ils
 contiennent sont sous copyright. Il faut y placer ses propres copies.
@@ -322,10 +323,14 @@ ne font jamais vibrer.
 L'entrée **Vibrations** de l'onglet Manette les active ou les coupe (activées par défaut), et
 **Tester la vibration** fait vibrer la manette une demi-seconde.
 
-gbe ne peut pas toujours savoir si une manette vibre. Il le sait sous Windows : seules les
-manettes XInput (Xbox et compatibles) y vibrent, et les entrées sont grisées pour les autres.
-Sous macOS (manettes Xbox, PlayStation, MFi) et Linux (manettes à retour de force), le test
-permet de vérifier.
+Si la manette ne peut pas vibrer, les deux entrées sont grisées. Les manettes qui vibrent sont :
+- sous Windows, les manettes XInput (Xbox et compatibles) ;
+- sous macOS, les manettes Xbox, PlayStation et MFi ;
+- sous Linux, les manettes à retour de force, si gbe a le droit d'écrire sur leur périphérique.
+
+gbe le demande à Ebitengine, via une fonction proposée au projet
+([ebiten#3854](https://github.com/hajimehoshi/ebiten/issues/3854)) et utilisée en attendant
+depuis un fork.
 
 ## Save states
 

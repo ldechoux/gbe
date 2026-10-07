@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"runtime"
 	"strings"
 	"time"
 
@@ -220,20 +219,12 @@ func (p *ebitenPads) axis(id ebiten.GamepadID, a ebiten.StandardGamepadAxis) flo
 	return ebiten.StandardGamepadAxisValue(id, a)
 }
 
-// xinputSDLID starts the SDL ID that Ebitengine gives XInput gamepads on
-// Windows ("xinput" in hexadecimal).
-const xinputSDLID = "78696e707574"
-
-// canVibrate: Ebitengine has no way to tell whether a gamepad vibrates. It
-// only can on Windows for XInput gamepads, which their SDL ID shows. On
-// macOS and Linux most gamepads do, but not all: the menu offers a test.
-// IsGamepadVibrationAvailable, proposed to Ebitengine, would tell
+// canVibrate asks Ebitengine whether VibrateGamepad works for the gamepad.
+// IsGamepadVibrationAvailable comes from a fork of Ebitengine (see the
+// replace directive in go.mod) until it is released upstream
 // (https://github.com/hajimehoshi/ebiten/issues/3854).
 func (p *ebitenPads) canVibrate(id ebiten.GamepadID) bool {
-	if runtime.GOOS == "windows" {
-		return strings.HasPrefix(ebiten.GamepadSDLID(id), xinputSDLID)
-	}
-	return true
+	return ebiten.IsGamepadVibrationAvailable(id)
 }
 
 func (p *ebitenPads) vibrate(id ebiten.GamepadID, strength float64, d time.Duration) {

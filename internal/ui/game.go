@@ -17,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
+	"github.com/ldechoux/gbe/assets/icon"
 	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
@@ -192,6 +193,7 @@ func Run(opts Options) error {
 	// With a game, the title gets its name, and the frame rate every
 	// fpsRefreshInterval (see Update).
 	ebiten.SetWindowTitle("gbe")
+	ebiten.SetWindowIcon(icon.Window())
 	g.pruneRecent()
 	if opts.Game != nil {
 		g.startGame(opts.Game)

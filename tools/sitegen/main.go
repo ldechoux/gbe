@@ -71,7 +71,7 @@ const detailedReleases = 3
 
 var platforms = []Platform{
 	{ID: "macos", Name: "macOS", Note: "Glisser gbe dans Applications. L'app n'est pas signée par Apple : au premier lancement, Réglages Système > Confidentialité et sécurité > Ouvrir quand même. Les archives x86_64 et arm64 contiennent le binaire seul, pour le terminal."},
-	{ID: "windows", Name: "Windows", Note: "Lancer gbe.exe depuis un terminal avec le chemin de la ROM."},
+	{ID: "windows", Name: "Windows", Note: "Décompresser l'archive et double-cliquer sur gbe.exe. L'exécutable n'est pas signé : si Windows SmartScreen l'arrête, cliquer sur Informations complémentaires > Exécuter quand même."},
 	{ID: "linux", Name: "Linux", Note: "Nécessite libX11, libGL et libasound (présents sur tout bureau)."},
 }
 

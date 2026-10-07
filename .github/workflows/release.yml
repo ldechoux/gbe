@@ -52,7 +52,16 @@ jobs:
       - name: Build
         run: |
           ext=""
-          if [ "$GOOS" = windows ]; then ext=".exe"; fi
+          if [ "$GOOS" = windows ]; then
+            ext=".exe"
+            # The icon of gbe.exe and the version in its properties, which
+            # go build links from cmd/gbe/rsrc_windows_<arch>.syso. Numbers
+            # only: 0.0.0 for a build that is not a release.
+            v=$(echo "$VERSION" | sed -n 's/^v\{0,1\}\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+            GOOS=linux GOARCH=amd64 go run github.com/tc-hib/go-winres@v0.3.3 make \
+              --in packaging/windows/winres.json --out cmd/gbe/rsrc --arch "$GOARCH" \
+              --product-version "${v:-0.0.0}" --file-version "${v:-0.0.0}"
+          fi
           name="gbe-${VERSION}-${{ matrix.os }}-${GOARCH}"
           mkdir -p "dist/$name"
           go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \

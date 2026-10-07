@@ -1,0 +1,26 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": "../../assets/icon/gbe.ico"
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "0.0.0.0",
+          "product_version": "0.0.0.0"
+        },
+        "info": {
+          "0409": {
+            "FileDescription": "gbe, Game Boy and Game Boy Color emulator",
+            "InternalName": "gbe",
+            "OriginalFilename": "gbe.exe",
+            "ProductName": "gbe",
+            "Comments": "https://ldechoux.github.io/gbe/"
+          }
+        }
+      }
+    }
+  }
+}

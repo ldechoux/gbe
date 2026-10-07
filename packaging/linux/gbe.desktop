@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=gbe
+GenericName=Game Boy emulator
+GenericName[fr]=Émulateur Game Boy
+Comment=Game Boy and Game Boy Color emulator
+Comment[fr]=Émulateur Game Boy et Game Boy Color
+Exec=gbe %f
+Icon=gbe
+Terminal=false
+Categories=Game;Emulator;
+Keywords=Game Boy;Game Boy Color;GBC;emulator;

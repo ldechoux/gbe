@@ -27,6 +27,7 @@ go run ./tools/sitegen -releases /tmp/releases.json -out /tmp/site && open /tmp/
 compile gbe et joint à la release :
 - **pour macOS, l'application** `gbe.app`, pour les Mac Intel et Apple Silicon, dans une
   image disque `gbe-<tag>-macos-universal.dmg` ;
+- **pour Linux, une AppImage** par architecture, `gbe-<tag>-linux-<arch>.AppImage` ;
 - **six archives du binaire seul**, à lancer depuis un terminal, sous la forme
   `gbe-<tag>-<os>-<arch>` :
 
@@ -52,7 +53,11 @@ Remarques par plateforme :
   gbe. L'exécutable n'est pas signé : au premier lancement, Windows SmartScreen peut
   afficher « Windows a protégé votre ordinateur ». Cliquer sur « Informations
   complémentaires », puis sur « Exécuter quand même ».
-- **Linux** : il faut `libX11`, `libGL` et `libasound`, présents sur tout bureau standard.
+- **Linux** : l'AppImage `gbe-<tag>-linux-<arch>.AppImage` est un seul fichier, avec
+  l'icône et l'entrée de menu de gbe. La rendre exécutable (Propriétés > Permissions, ou
+  `chmod +x`), puis la lancer d'un double-clic. Les archives contiennent aussi `gbe.desktop`
+  et `gbe.png`, pour installer l'entrée de menu à la main. Il faut `libX11`, `libGL` et
+  `libasound`, présents sur tout bureau standard.
 
 `gbe -version` affiche la version.
 

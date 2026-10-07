@@ -44,9 +44,12 @@ type Asset struct {
 	URL  string `json:"browser_download_url"`
 }
 
-// Download is one archive of the latest release, e.g. macOS arm64.
+// Download is one file of the latest release, e.g. the macOS arm64
+// archive. App is set for an application (the macOS disk image, the Linux
+// AppImage), as opposed to an archive of the binary alone.
 type Download struct {
 	Arch, ArchLabel, URL, Size string
+	App                        bool
 }
 
 // Platform groups the downloads of one OS.
@@ -72,7 +75,7 @@ const detailedReleases = 3
 var platforms = []Platform{
 	{ID: "macos", Name: "macOS", Note: "Glisser gbe dans Applications. L'app n'est pas signée par Apple : au premier lancement, Réglages Système > Confidentialité et sécurité > Ouvrir quand même. Les archives x86_64 et arm64 contiennent le binaire seul, pour le terminal."},
 	{ID: "windows", Name: "Windows", Note: "Décompresser l'archive et double-cliquer sur gbe.exe. L'exécutable n'est pas signé : si Windows SmartScreen l'arrête, cliquer sur Informations complémentaires > Exécuter quand même."},
-	{ID: "linux", Name: "Linux", Note: "Nécessite libX11, libGL et libasound (présents sur tout bureau)."},
+	{ID: "linux", Name: "Linux", Note: "L'AppImage se lance d'un double-clic, après l'avoir rendue exécutable (Propriétés > Permissions, ou chmod +x). Nécessite libX11, libGL et libasound, présents sur tout bureau."},
 }
 
 var archLabels = map[string]string{
@@ -85,7 +88,7 @@ var archLabels = map[string]string{
 // application for macOS, for both architectures, is "universal".
 func parseAsset(name string) (osName, arch string, ok bool) {
 	base := name
-	for _, ext := range []string{".zip", ".tar.gz", ".dmg"} {
+	for _, ext := range []string{".zip", ".tar.gz", ".dmg", ".AppImage"} {
 		base = strings.TrimSuffix(base, ext)
 	}
 	parts := strings.Split(base, "-")
@@ -144,11 +147,16 @@ func buildPage(repo string, all []Release) page {
 			if label == "" {
 				label = arch
 			}
-			plat.Downloads = append(plat.Downloads, Download{arch, label, a.URL, humanSize(a.Size)})
+			appImage := strings.HasSuffix(a.Name, ".AppImage")
+			if appImage {
+				label = "AppImage " + label
+			}
+			app := appImage || strings.HasSuffix(a.Name, ".dmg")
+			plat.Downloads = append(plat.Downloads, Download{arch, label, a.URL, humanSize(a.Size), app})
 		}
-		// The application comes before the archives of the binary alone.
+		// The applications come before the archives of the binary alone.
 		slices.SortStableFunc(plat.Downloads, func(a, b Download) int {
-			return cmp.Compare(boolInt(b.Arch == "universal"), boolInt(a.Arch == "universal"))
+			return cmp.Compare(boolInt(b.App), boolInt(a.App))
 		})
 		if len(plat.Downloads) > 0 {
 			p.Platforms = append(p.Platforms, plat)

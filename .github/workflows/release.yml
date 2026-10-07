@@ -2,7 +2,7 @@ name: Release binaries
 
 # Builds gbe for macOS, Linux and Windows (amd64 + arm64) and attaches the
 # archives to the GitHub release that triggered the run, with gbe.app for
-# macOS in a disk image.
+# macOS in a disk image and an AppImage for Linux.
 on:
   release:
     types: [published]
@@ -67,6 +67,11 @@ jobs:
           go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
             -o "dist/$name/gbe$ext" ./cmd/gbe
           cp README.md "dist/$name/"
+          if [ "$GOOS" = linux ]; then
+            # The menu entry and the icon, to install them by hand.
+            cp packaging/linux/gbe.desktop "dist/$name/"
+            cp assets/icon/icon-256.png "dist/$name/gbe.png"
+          fi
           cd dist
           if [ "$GOOS" = windows ]; then
             zip -qr "$name.zip" "$name"
@@ -76,16 +81,45 @@ jobs:
             echo "ASSET=dist/$name.tar.gz" >> "$GITHUB_ENV"
           fi
 
+      # For Linux, the AppImage too: one file with its icon and menu entry.
+      # appimagetool and the runtimes are pinned to a release, and checked.
+      - name: Build the AppImage
+        if: matrix.goos == 'linux'
+        env:
+          APPIMAGETOOL_URL: https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          RUNTIME_URL: https://github.com/AppImage/type2-runtime/releases/download/20251108
+          RUNTIME_SHA256_amd64: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+          RUNTIME_SHA256_arm64: 00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444
+        run: |
+          case $GOARCH in amd64) runtime=runtime-x86_64 sum=$RUNTIME_SHA256_amd64 ;; arm64) runtime=runtime-aarch64 sum=$RUNTIME_SHA256_arm64 ;; esac
+          export APPIMAGETOOL="$RUNNER_TEMP/appimagetool" RUNTIME="$RUNNER_TEMP/$runtime"
+          curl -sSfL -o "$APPIMAGETOOL" "$APPIMAGETOOL_URL"
+          curl -sSfL -o "$RUNTIME" "$RUNTIME_URL/$runtime"
+          echo "$APPIMAGETOOL_SHA256  $APPIMAGETOOL" | sha256sum -c
+          echo "$sum  $RUNTIME" | sha256sum -c
+          chmod +x "$APPIMAGETOOL"
+          image=$(packaging/linux/build.sh "$VERSION" "$GOARCH" dist)
+          echo "APPIMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Check that the AppImage starts
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          chmod +x "$APPIMAGE"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" -version
+
       - uses: actions/upload-artifact@v4
         with:
           name: gbe-${{ matrix.os }}-${{ matrix.goarch }}
-          path: ${{ env.ASSET }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.APPIMAGE }}
 
       - name: Attach to the release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" $APPIMAGE --clobber --repo "$GITHUB_REPOSITORY"
 
   # gbe.app, for Intel and Apple Silicon, in a disk image: lipo, codesign
   # and hdiutil only exist on macOS.

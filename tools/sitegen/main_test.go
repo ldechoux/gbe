@@ -16,6 +16,7 @@ func TestBuildPage(t *testing.T) {
 		{TagName: "v0.2.0-rc1", Prerelease: true, PublishedAt: time.Now()},
 		{TagName: "v0.1.0", PublishedAt: time.Now(), Assets: []Asset{
 			asset("gbe-v0.1.0-linux-amd64.tar.gz"),
+			asset("gbe-v0.1.0-linux-amd64.AppImage"),
 			asset("gbe-v0.1.0-macos-arm64.tar.gz"),
 			asset("gbe-v0.1.0-macos-amd64.tar.gz"),
 			asset("gbe-v0.1.0-macos-universal.dmg"),
@@ -33,10 +34,10 @@ func TestBuildPage(t *testing.T) {
 	var got []string
 	for _, pl := range p.Platforms {
 		for _, d := range pl.Downloads {
-			got = append(got, pl.ID+"/"+d.Arch)
+			got = append(got, pl.ID+"/"+d.ArchLabel)
 		}
 	}
-	want := []string{"macos/universal", "macos/arm64", "macos/amd64", "windows/arm64", "linux/amd64"}
+	want := []string{"macos/Application", "macos/arm64", "macos/x86_64", "windows/arm64", "linux/AppImage x86_64", "linux/x86_64"}
 	if len(got) != len(want) {
 		t.Fatalf("downloads %v, want %v", got, want)
 	}

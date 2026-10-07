@@ -16,6 +16,7 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 
 	"github.com/ldechoux/gbe/internal/audiofx"
+	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
 	"github.com/ldechoux/gbe/internal/menusound"
 )
@@ -34,6 +35,7 @@ const (
 	pageStart  // shown at launch when a save state exists
 	pageSwitch // shown when a game is dropped on the window during another
 	pageRecent // the last games played, to launch one
+	pageBootROM
 )
 
 // Start page entries.
@@ -57,6 +59,7 @@ const (
 	itemDisplay
 	itemControls
 	itemSound
+	itemBootROM
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -88,6 +91,22 @@ const (
 	soundBack
 	soundItems
 )
+
+// Boot ROM page entries.
+const (
+	bootChoose = iota
+	bootAuto
+	bootGB  // information, greyed out
+	bootGBC // same
+	bootBack
+	bootItems
+)
+
+// bootDisabled reports whether the Boot ROM page entry i is greyed out: the
+// lines that only inform, and the automatic search while it is on.
+func bootDisabled(g *Game, i int) bool {
+	return i == bootGB || i == bootGBC || i == bootAuto && g.cfg.BootROMDir == ""
+}
 
 // soundDisabled reports whether the sound page entry i is greyed out: the
 // stereo mode, while the speaker filter makes the sound mono.
@@ -262,7 +281,8 @@ func (m *menu) move(g *Game, delta int) {
 	if m.page != pageDisplay {
 		n := m.itemCount(g)
 		m.cursor = (m.cursor + n + delta) % n
-		for m.page == pageMain && mainDisabled(g, m.cursor) || m.page == pageSound && soundDisabled(g, m.cursor) {
+		for m.page == pageMain && mainDisabled(g, m.cursor) || m.page == pageSound && soundDisabled(g, m.cursor) ||
+			m.page == pageBootROM && bootDisabled(g, m.cursor) {
 			m.cursor = (m.cursor + n + delta) % n
 		}
 		return
@@ -283,6 +303,8 @@ func (m *menu) itemCount(g *Game) int {
 		return displayItems
 	case pageSound:
 		return soundItems
+	case pageBootROM:
+		return bootItems
 	case pageStart:
 		return startItems
 	case pageSwitch:
@@ -301,6 +323,8 @@ func (m *menu) backToMain() {
 		cursor = itemDisplay
 	case pageSound:
 		cursor = itemSound
+	case pageBootROM:
+		cursor = itemBootROM
 	case pageRecent:
 		cursor = itemRecent
 	}
@@ -340,7 +364,7 @@ func (m *menu) update(g *Game) {
 		case pageSwitch:
 			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
-		case pageControls, pageDisplay, pageSound, pageRecent:
+		case pageControls, pageDisplay, pageSound, pageRecent, pageBootROM:
 			g.menuSound(menusound.Back)
 			m.backToMain()
 		default:
@@ -644,6 +668,25 @@ func (m *menu) activate(g *Game) {
 		}
 		return
 	}
+	if m.page == pageBootROM {
+		switch m.cursor {
+		case bootChoose:
+			g.menuSound(menusound.Enter)
+			g.chooseBootROMDir()
+		case bootAuto:
+			if bootDisabled(g, bootAuto) {
+				g.menuSound(menusound.Refuse)
+				return
+			}
+			g.menuSound(menusound.Change)
+			g.setBootROMDir("")
+			m.cursor = bootChoose // the entry is greyed out now
+		default:
+			g.menuSound(menusound.Back)
+			m.backToMain()
+		}
+		return
+	}
 	if m.page == pageControls {
 		switch {
 		case m.cursor <= controlsScreenshot():
@@ -673,6 +716,8 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemSound:
 		m.page, m.cursor, m.width = pageSound, soundVolume, 0
+	case itemBootROM:
+		m.page, m.cursor, m.width = pageBootROM, bootChoose, 0
 	case itemRecent:
 		m.page, m.cursor, m.width = pageRecent, 0, 0
 	case itemDisplay:
@@ -742,6 +787,14 @@ func (m *menu) view(g *Game) menuView {
 			v.disabled = map[int]bool{soundStereo: true}
 		}
 		v.altItems, v.altFooters = soundAlternatives(g)
+	case pageBootROM:
+		v.disabled = map[int]bool{}
+		for i := range bootItems {
+			if bootDisabled(g, i) {
+				v.disabled[i] = true
+			}
+		}
+		v.altItems, v.altFooters = bootAlternatives(g)
 	case pageMain:
 		for i := range items {
 			if mainDisabled(g, i) {
@@ -885,12 +938,30 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("sound.title"), items, m.soundFooter(g)
 	}
+	if m.page == pageBootROM {
+		search := g.bootROMSearch()
+		found := func(model gb.Model) string {
+			if search.Find(model) != "" {
+				return l.T("boot_rom.found")
+			}
+			return l.T("boot_rom.missing")
+		}
+		items = []string{
+			l.T("boot_rom.choose"),
+			l.T("boot_rom.auto"),
+			l.T("boot_rom.gb", found(gb.ModelDMG)),
+			l.T("boot_rom.gbc", found(gb.ModelCGB)),
+			l.T("boot_rom.back"),
+		}
+		return l.T("boot_rom.title"), items, bootFooter(g, g.cfg.BootROMDir, g.bootROMPending)
+	}
 	items = []string{
 		l.T("menu.resume"),
 		l.T("menu.recent"),
 		l.T("menu.display"),
 		l.T("menu.controls"),
 		l.T("menu.sound"),
+		l.T("menu.boot_rom"),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),
@@ -921,6 +992,38 @@ func soundAlternatives(g *Game) (items, footers []string) {
 	return items, append(footers, mainFooter(g))
 }
 
+// bootDirWidth is the longest folder the Boot ROM page shows, in characters:
+// a longer one scrolls.
+const bootDirWidth = 30
+
+// bootFooter is the footer of the Boot ROM page: the folder chosen, and the
+// reminder to reset when the running game does not use it yet.
+func bootFooter(g *Game, dir string, pending bool) string {
+	l := g.tr()
+	footer := l.T("boot_rom.folder_auto")
+	if dir != "" {
+		footer = l.T("boot_rom.folder", marquee(shortDir(dir), bootDirWidth, int64(ebiten.Tick())))
+	}
+	if pending {
+		footer += "\n" + l.T("menu.footer_pending")
+	}
+	return footer
+}
+
+// bootAlternatives lists the other values of the Boot ROM page: the panel
+// keeps its size when a boot ROM is found or a folder is chosen.
+func bootAlternatives(g *Game) (items, footers []string) {
+	l := g.tr()
+	for _, s := range []string{l.T("boot_rom.found"), l.T("boot_rom.missing")} {
+		items = append(items, l.T("boot_rom.gb", s), l.T("boot_rom.gbc", s))
+	}
+	long := strings.Repeat("x", bootDirWidth)
+	for _, pending := range []bool{false, true} {
+		footers = append(footers, bootFooter(g, "", pending), bootFooter(g, long, pending))
+	}
+	return items, footers
+}
+
 // soundFooter explains the stereo mode or the filter selected on the sound
 // page.
 func (m *menu) soundFooter(g *Game) string {
@@ -947,7 +1050,7 @@ func mainFooter(g *Game) string {
 	if len(g.pads.ids()) > 0 {
 		key += "_pad"
 	}
-	if g.modePending() {
+	if g.modePending() || g.bootROMPending {
 		return l.T("menu.footer_pending") // e.g. after changing the colorization
 	}
 	return l.T(key)

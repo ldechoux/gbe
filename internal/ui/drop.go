@@ -13,6 +13,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/i18n"
+	"github.com/ldechoux/gbe/internal/menusound"
 	"github.com/ldechoux/gbe/internal/rom"
 )
 
@@ -38,13 +39,20 @@ func (g *Game) drop(fsys fs.FS) {
 		}
 	}
 	l := g.tr()
-	if e.IsDir() {
-		g.notifyLong(l.T("error.folder"))
-		return
-	}
 	path := e.Name()
 	if p, ok := e.(ebiten.AbsPather); ok {
 		path = p.AbsPath()
+	}
+	if e.IsDir() {
+		// On the Boot ROM page, a folder becomes the one of the boot ROMs:
+		// the way to choose it without a folder dialog.
+		if g.menu.open && g.menu.page == pageBootROM && filepath.IsAbs(path) {
+			g.menuSound(menusound.Change)
+			g.setBootROMDir(path)
+			return
+		}
+		g.notifyLong(l.T("error.folder"))
+		return
 	}
 	next, err := g.openGame(path)
 	if err != nil {
@@ -131,7 +139,7 @@ func (g *Game) startGame(next *rom.Game) {
 	g.gb, g.title, g.romPath = next.Console, next.Title, next.Path
 	g.savePath, g.statePath = next.SavePath, next.StatePath
 	g.autoModel, g.newConsole = next.AutoModel, next.NewConsole
-	g.pending = nil
+	g.pending, g.bootROMPending = nil, false
 	g.addRecent(next)
 
 	g.rewind.clear()

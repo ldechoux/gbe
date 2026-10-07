@@ -195,7 +195,7 @@ func TestReadBootROM(t *testing.T) {
 	write(first, "gb_bios.bin", "first gb")
 	write(second, "gb_bios.bin", "second gb")
 	write(second, "gbc_bios.bin", "second gbc")
-	opts := Options{BootROMDirs: []string{empty, first, second}}
+	opts := Options{BootROMs: &BootROMSearch{Defaults: []string{empty, first, second}}}
 	for _, c := range []struct {
 		opts  Options
 		model gb.Model
@@ -203,8 +203,11 @@ func TestReadBootROM(t *testing.T) {
 	}{
 		{opts, gb.ModelDMG, "first gb"},
 		{opts, gb.ModelCGB, "second gbc"},
-		{Options{BootROMDirs: []string{empty}}, gb.ModelDMG, ""},
-		{Options{BootROM: "none", BootROMDirs: []string{first}}, gb.ModelDMG, ""},
+		{Options{BootROMs: &BootROMSearch{Defaults: []string{empty}}}, gb.ModelDMG, ""},
+		{Options{BootROM: "none", BootROMs: &BootROMSearch{Defaults: []string{first}}}, gb.ModelDMG, ""},
+		// The folder chosen in the menu comes first.
+		{Options{BootROMs: &BootROMSearch{Dir: second, Defaults: []string{first}}}, gb.ModelDMG, "second gb"},
+		{Options{BootROMs: &BootROMSearch{Dir: empty, Defaults: []string{first}}}, gb.ModelDMG, "first gb"},
 		{Options{BootROM: filepath.Join(second, "gbc_bios.bin")}, gb.ModelDMG, "second gbc"},
 		{Options{BootROM: filepath.Join(empty, "missing.bin")}, gb.ModelDMG, ""},
 	} {

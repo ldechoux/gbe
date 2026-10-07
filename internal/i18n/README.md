@@ -82,6 +82,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.display` | | Entrée qui ouvre la page Affichage |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.sound` | | Entrée qui ouvre la page Son |
+| `menu.boot_rom` | | Entrée qui ouvre la page Boot ROM |
 | `menu.volume` | `%d` volume en pourcent | Entrée de la page Son : réglage du volume (`%%` affiche `%`) |
 | `menu.stereo` | `%s` mode de sortie (`stereo.*`) | Entrée de la page Son : comment la stéréo arrive aux oreilles (grisée sur `stereo.mono` avec le filtre `audio_filter.speaker`, qui est mono) |
 | `stereo.stereo` | | Sortie : les deux côtés comme la console les mixe |
@@ -148,6 +149,26 @@ explique la sortie ou le filtre sélectionnés, et sinon reprend celle du menu P
 | `sound.help_speaker` | | Aide en bas de la page : le filtre `audio_filter.speaker` |
 | `sound.help_menu_sounds` | | Aide en bas de la page : l'entrée `menu.menu_sounds` |
 
+
+### `boot_rom.*` — page Boot ROM
+
+Le dossier des boot ROM choisi par le joueur, et si elles sont trouvées.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `boot_rom.title` | | Titre de la page |
+| `boot_rom.choose` | | Entrée qui ouvre le dialogue du système pour choisir le dossier |
+| `boot_rom.auto` | | Entrée qui oublie le dossier choisi et revient aux dossiers `bios` par défaut |
+| `boot_rom.gb` | `%s` : `boot_rom.found` ou `boot_rom.missing` | Ligne d'information : la boot ROM Game Boy |
+| `boot_rom.gbc` | `%s` : `boot_rom.found` ou `boot_rom.missing` | Ligne d'information : la boot ROM Game Boy Color |
+| `boot_rom.found` | | La boot ROM est trouvée |
+| `boot_rom.missing` | | La boot ROM est absente |
+| `boot_rom.back` | | Entrée qui revient au menu Pause |
+| `boot_rom.folder` | `%s` : le dossier, raccourci | Pied de page : le dossier choisi |
+| `boot_rom.folder_auto` | | Pied de page : aucun dossier choisi |
+| `boot_rom.dialog_title` | | Titre du dialogue du système (police du système : accents permis) |
+| `boot_rom.picker_failed` | | Notification : le dialogue n'a pas pu s'ouvrir (Linux sans `zenity`) |
+| `boot_rom.empty` | | Notification : le dossier choisi n'a aucune boot ROM |
 ### `start.*` — écran de reprise (au lancement, si une sauvegarde d'état existe)
 
 | Clé | Paramètres | Usage |

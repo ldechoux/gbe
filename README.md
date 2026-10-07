@@ -82,13 +82,21 @@ CGO_ENABLED=0 go build -o bin/gbe ./cmd/gbe
 Les dossiers `bios/` (boot ROM) et `roms/` ne sont pas versionnés : les fichiers qu'ils
 contiennent sont sous copyright. Il faut y placer ses propres copies.
 
-gbe cherche les boot ROM `gb_bios.bin` et `gbc_bios.bin` dans un dossier `bios`, dans cet
-ordre :
-- celui du dossier courant ;
-- celui du dossier de configuration (`~/Library/Application Support/gbe/bios` sur macOS,
-  `%AppData%\gbe\bios` sous Windows, `~/.config/gbe/bios` sous Linux) : il est trouvé
-  quel que soit l'endroit d'où gbe est lancé, y compris depuis le Finder ou l'Explorateur ;
-- celui qui est à côté de l'exécutable.
+Le plus simple est de choisir le dossier des boot ROM `gb_bios.bin` et `gbc_bios.bin` dans
+le menu : la page « Boot ROM... » du menu Pause ouvre le dialogue « Choisir un dossier » du
+système et indique si chaque boot ROM est trouvée. On peut aussi déposer le dossier sur la
+fenêtre pendant que la page est ouverte, par exemple sous Linux sans `zenity`, `qarma` ni
+`matedialog`, que le dialogue utilise. « Recherche auto » oublie le dossier choisi. Pendant
+une partie, le nouveau dossier s'applique à la prochaine réinitialisation.
+
+gbe cherche les boot ROM dans cet ordre :
+- le dossier choisi dans le menu ;
+- le dossier `bios` du dossier courant ;
+- le dossier `bios` du dossier de configuration (`~/Library/Application Support/gbe/bios`
+  sur macOS, `%AppData%\gbe\bios` sous Windows, `~/.config/gbe/bios` sous Linux) : il est
+  trouvé quel que soit l'endroit d'où gbe est lancé, y compris depuis le Finder ou
+  l'Explorateur ;
+- le dossier `bios` à côté de l'exécutable.
 
 gbe écrit aussi ses messages dans `gbe.log`, dans le dossier de configuration, pour garder
 une trace quand il est lancé sans terminal. Le fichier repart de zéro à chaque lancement. Une ROM passée en argument qui
@@ -127,7 +135,7 @@ Options utiles :
 
 | Option | Rôle |
 |---|---|
-| `-bios chemin` | Boot ROM à exécuter (défaut `gb_bios.bin`, ou `gbc_bios.bin` en mode Game Boy Color, cherchée dans les dossiers `bios` décrits plus haut ; ignorée si absente ; `none` pour démarrer directement le jeu) |
+| `-bios chemin` | Boot ROM à exécuter (défaut `gb_bios.bin`, ou `gbc_bios.bin` en mode Game Boy Color, cherchée dans le dossier choisi dans le menu puis dans les dossiers `bios` décrits plus haut ; ignorée si absente ; `none` pour démarrer directement le jeu) |
 | `-model auto\|gb\|gbc` | Matériel émulé. `auto` (défaut) choisit celui pour lequel le jeu a été fait, d'après l'octet 0x0143 de l'en-tête : la Game Boy Color pour les jeux qui la gèrent, la Game Boy d'origine pour les autres, sauf si la colorisation est activée dans le menu. `gb` force la Game Boy d'origine (palettes monochromes, ou un jeu compatible avec les deux), `gbc` la Game Boy Color. `dmg` et `cgb`, les noms du matériel chez Nintendo, sont acceptés aussi |
 | `-scale N` | Taille de la fenêtre (1 à 8) |
 | `-filter nom` | Filtre d'affichage : `nearest`, `sharp`, `lcd`, `scale2x`, `scale3x` ou `mmpx` (voir [Affichage](#affichage-grands-écrans)) |

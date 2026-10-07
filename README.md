@@ -48,6 +48,10 @@ Remarques par plateforme :
   Les lancements suivants se font normalement. En variante, dans un terminal :
   `xattr -dr com.apple.quarantine /Applications/gbe.app`. Pour le binaire seul :
   `xattr -d com.apple.quarantine gbe`.
+- **Windows** : décompresser l'archive et double-cliquer sur `gbe.exe`, qui a l'icône de
+  gbe. L'exécutable n'est pas signé : au premier lancement, Windows SmartScreen peut
+  afficher « Windows a protégé votre ordinateur ». Cliquer sur « Informations
+  complémentaires », puis sur « Exécuter quand même ».
 - **Linux** : il faut `libX11`, `libGL` et `libasound`, présents sur tout bureau standard.
 
 `gbe -version` affiche la version.

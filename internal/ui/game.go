@@ -41,9 +41,12 @@ type Options struct {
 	// dropped on the window.
 	LaunchPath  string
 	LaunchError error
-	ConfigPath  string // "" for DefaultConfigPath()
-	Scale       int    // 0 to use the configured scale
-	Filter      string // "" to use the configured filter (see scaler.Filters)
+	// BootROMs is where the games opened by Open search their boot ROM: the
+	// folder chosen in the menu is set in it.
+	BootROMs   *rom.BootROMSearch
+	ConfigPath string // "" for DefaultConfigPath()
+	Scale      int    // 0 to use the configured scale
+	Filter     string // "" to use the configured filter (see scaler.Filters)
 	// Stereo and AudioFilter override the configured ones ("" to keep
 	// them; see audiofx.StereoModes and audiofx.Filters).
 	Stereo, AudioFilter string
@@ -98,6 +101,15 @@ type Game struct {
 	player *audio.Player
 	fx     *audiofx.Chain // the stereo mode and the filter of the settings
 	sfx    soundPlayer    // the sounds of the menus (none in the tests)
+
+	// The boot ROM folder: the search the games use, the folder dialog
+	// (none in the tests) and its outcome, and whether the running game
+	// needs a reset to use a new folder.
+	bootROMs       *rom.BootROMSearch
+	picker         folderPicker
+	picks          chan folderPick
+	picking        bool
+	bootROMPending bool
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	ignoredPad  map[padButton]bool  // same for gamepad buttons
@@ -194,6 +206,10 @@ func Run(opts Options) error {
 	g.player.SetVolume(cfg.Volume)
 	g.player.Play()
 	g.sfx = newEbitenSounds(ctx)
+	g.bootROMs, g.picker = opts.BootROMs, systemPicker{}
+	if g.bootROMs != nil {
+		g.bootROMs.Dir = cfg.BootROMDir
+	}
 
 	// With a game, the title gets its name, and the frame rate every
 	// fpsRefreshInterval (see Update).
@@ -367,11 +383,15 @@ func (g *Game) modePending() bool {
 	if !g.autoModel || g.newConsole == nil || g.gb == nil {
 		return false
 	}
-	running := gb.ModelDMG
+	return g.runningModel() != g.preferredModel()
+}
+
+// runningModel is the hardware the console runs as.
+func (g *Game) runningModel() gb.Model {
 	if g.gb.IsCGB() {
-		running = gb.ModelCGB
+		return gb.ModelCGB
 	}
-	return running != g.preferredModel()
+	return gb.ModelDMG
 }
 
 // colorizable reports whether the colorization setting applies to the game:
@@ -385,11 +405,17 @@ func (g *Game) colorizable() bool {
 func (g *Game) restart() {
 	g.rewind.clear()
 	defer g.keepPrevious() // the previous frame belongs to the abandoned game
+	model := g.preferredModel()
 	if !g.modePending() {
-		g.gb.Reset()
-		return
+		// A new boot ROM folder needs a new console, of the same model.
+		if !g.bootROMPending || g.newConsole == nil {
+			g.gb.Reset()
+			return
+		}
+		model = g.runningModel()
 	}
-	console, err := g.newConsole(g.preferredModel())
+	g.bootROMPending = false
+	console, err := g.newConsole(model)
 	if err != nil {
 		log.Printf("restarting: %v", err)
 		g.notify(g.tr().T("toast.restart_failed", err))
@@ -441,6 +467,7 @@ func (g *Game) Update() error {
 	if fsys := ebiten.DroppedFiles(); fsys != nil {
 		g.drop(fsys)
 	}
+	g.pollFolderPick()
 	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}

@@ -63,6 +63,9 @@ type Config struct {
 	// Recent are the last games played, the latest first, which the drop
 	// screen offers to launch again (see maxRecent).
 	Recent []RecentGame `json:"recent"`
+	// BootROMDir is the folder of the boot ROMs chosen in the menu, searched
+	// before the default ones (see rom.BootROMSearch); "" for none.
+	BootROMDir string `json:"boot_rom_dir"`
 }
 
 // RecentGame is a game of Config.Recent.
@@ -215,6 +218,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	cfg.Ghosting, cfg.Fullscreen = loadGhosting(loaded.Ghosting), loaded.Fullscreen
 	cfg.Monitor, cfg.MonitorIndex = loaded.Monitor, loaded.MonitorIndex
+	if filepath.IsAbs(loaded.BootROMDir) {
+		cfg.BootROMDir = loaded.BootROMDir
+	}
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {
 			cfg.Recent = append(cfg.Recent, r)

@@ -81,12 +81,13 @@ func main() {
 	if err != nil {
 		log.Printf("config %s: %v (using defaults)", configPath, err)
 	}
+	bootROMs := &rom.BootROMSearch{Dir: cfg.BootROMDir, Defaults: bootROMDirs(configDir)}
 	opts := rom.Options{
-		Model:       model,
-		BootROM:     *biosPath,
-		BootROMDirs: bootROMDirs(configDir),
-		Colorize:    cfg.ColorizeDMG,
-		Fresh:       *frames > 0,
+		Model:    model,
+		BootROM:  *biosPath,
+		BootROMs: bootROMs,
+		Colorize: cfg.ColorizeDMG,
+		Fresh:    *frames > 0,
 	}
 
 	// Without a ROM, the window asks for one to be dropped on it. One that
@@ -115,6 +116,7 @@ func main() {
 		Game:        game,
 		LaunchPath:  *romPath,
 		LaunchError: gameErr,
+		BootROMs:    bootROMs,
 		ConfigPath:  configPath,
 		Scale:       *scale,
 		Filter:      *filterName,
@@ -150,9 +152,10 @@ func logToFile(path string) {
 	log.SetOutput(io.MultiWriter(os.Stderr, f))
 }
 
-// bootROMDirs are the folders searched for the default boot ROMs: bios in
-// the working folder, then in the config folder, which does not depend on
-// where gbe is launched from, then next to the executable.
+// bootROMDirs are the folders searched for the default boot ROMs after the
+// one chosen in the menu: bios in the working folder, then in the config
+// folder, which does not depend on where gbe is launched from, then next to
+// the executable.
 func bootROMDirs(configDir string) []string {
 	dirs := []string{"bios", filepath.Join(configDir, "bios")}
 	if exe, err := os.Executable(); err == nil {

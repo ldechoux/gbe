@@ -36,7 +36,7 @@
   <div class="hero-text">
     <p class="kicker">Émulateur Game Boy et Game Boy Color</p>
     <h1>gbe</h1>
-    <p class="lead">Un émulateur Game Boy et Game Boy Color écrit en Go pur, sans cgo. Image, son, sauvegardes : il suffit d'une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, pour jouer, sous macOS, Linux ou Windows.</p>
+    <p class="lead">Un émulateur Game Boy et Game Boy Color pour macOS, Linux et Windows. Déposez une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, sur la fenêtre, et jouez : image, son et sauvegardes, tout y est.</p>
     <div class="actions">
       <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
       <a target="_blank" rel="noopener" class="btn" href="https://github.com/{{.Repo}}">Code source</a>
@@ -71,19 +71,19 @@
   <div class="grid features">
     <article class="card">
       <h3>Émulation fidèle</h3>
-      <p>Processeur SM83, écran, timer et manette, en mode Game Boy comme en mode Game Boy Color. Les ROMs de test blargg (<code>cpu_instrs</code>, <code>instr_timing</code>, <code>mem_timing</code>) passent dans les deux modes, et <code>dmg-acid2</code> comme <code>cgb-acid2</code> sont rendus au pixel près.</p>
+      <p>Processeur, écran, son et manette se comportent comme sur la console, en mode Game Boy comme en mode Game Boy Color. gbe réussit les ROMs de test de référence de la communauté (blargg, dmg-acid2, cgb-acid2), qui vérifient le processeur, les timings et l'affichage au pixel près.</p>
     </article>
     <article class="card">
       <h3>Son stéréo</h3>
-      <p>Les quatre canaux du Game Boy (deux carrés, onde, bruit), mixés en stéréo 48 kHz sans repliement des aigus, avec un filtre passe-haut comme sur la console. Au casque, chaque oreille peut entendre un peu l'autre côté ; un filtre adoucit les aigus ou imite le haut-parleur de la console.</p>
+      <p>Les quatre voies du Game Boy en stéréo, avec un son propre, sans sifflements parasites dans les aigus. La page Son du menu l'adapte : au casque, chaque oreille entend un peu l'autre côté, ce qui fatigue moins ; des filtres adoucissent les aigus ou imitent le petit haut-parleur de la console. Les menus font aussi de petits bruitages, à la façon de la Game Boy.</p>
     </article>
     <article class="card">
       <h3>Cartouches</h3>
-      <p>ROM seule, MBC1, MBC2, MBC3 avec horloge et MBC5. Une ROM <code>.gb</code>, <code>.gbc</code> ou compressée en <code>.zip</code> se lance en ligne de commande, ou en la déposant sur la fenêtre. L'archive n'est jamais modifiée, et les jeux à pile sont sauvegardés dans un fichier <code>.sav</code>.</p>
+      <p>gbe gère les cartouches de la grande majorité des jeux (MBC1, MBC2, MBC5, et MBC3 avec son horloge, celle de Pokémon Or et Argent). Une ROM se lance en la déposant sur la fenêtre ou en ligne de commande, et une archive <code>.zip</code> n'est jamais modifiée. Les jeux qui sauvegardent sur leur cartouche gardent leur progression dans un fichier <code>.sav</code>, à côté de la ROM.</p>
     </article>
     <article class="card">
-      <h3>Save states et retour arrière</h3>
-      <p>La partie est enregistrée en quittant. Au lancement suivant, gbe propose de reprendre là où vous en étiez ou de recommencer. En jeu, Retour arrière remonte jusqu'à 10 secondes en arrière, et Tab accélère le jeu (x2 à x8) pour passer les dialogues.</p>
+      <h3>Save states et rembobinage</h3>
+      <p>La partie est enregistrée en quittant. Au lancement suivant, gbe propose de reprendre là où vous en étiez ou de recommencer. En jeu, maintenez la touche Retour arrière (⌫) pour remonter jusqu'à 10 secondes en arrière, et Tab pour accélérer le jeu (×2 à ×8) et passer les dialogues.</p>
     </article>
     <article class="card">
       <h3>Grand écran</h3>
@@ -95,7 +95,7 @@
     </article>
     <article class="card">
       <h3>Captures d'écran</h3>
-      <p>Cmd+F2 (Ctrl+F2 hors macOS) enregistre un PNG à la taille de la fenêtre, avec le filtre d'affichage choisi. Le raccourci se change lui aussi dans le menu.</p>
+      <p>Cmd+F2 (Ctrl+F2 hors macOS) enregistre une image PNG dans le dossier Images/gbe, à la taille de la fenêtre, avec le filtre d'affichage choisi. Le raccourci se change lui aussi dans le menu.</p>
     </article>
     <article class="card">
       <h3>Vibrations</h3>
@@ -110,7 +110,7 @@
 
 <section id="palettes" class="wrap">
   <h2>Game Boy : {{len .Palettes}} palettes</h2>
-  <p class="section-lead">Par défaut, les jeux Game Boy gardent leurs quatre teintes, dans la palette de votre choix : des variantes monochromes colorées, avec aperçu en direct dans le menu (ou touche P). Le menu prend les couleurs de la palette. Ils peuvent aussi être colorisés comme sur une Game Boy Color (voir plus bas).</p>
+  <p class="section-lead">Les jeux Game Boy n'affichent que quatre teintes. gbe les colore avec la palette de votre choix, du vert de la console d'origine au noir et blanc : changez-la dans le menu, qui montre l'aperçu en direct, ou avec la touche P. Ils peuvent aussi être colorisés comme sur une Game Boy Color (voir plus bas).</p>
   <ul class="palettes">
     {{range .Palettes}}
     <li>
@@ -141,23 +141,23 @@
 
 <section id="gbc" class="wrap">
   <h2>Game Boy Color</h2>
-  <p class="section-lead">Les jeux Game Boy Color, et ceux compatibles avec les deux consoles, démarrent automatiquement en couleurs. gbe émule le matériel de la Game Boy Color : mémoire en banques, palettes de 32 768 couleurs, attributs des tuiles, double vitesse, DMA vers la mémoire vidéo et boot ROM couleur.</p>
+  <p class="section-lead">Les jeux Game Boy Color, et ceux compatibles avec les deux consoles, démarrent automatiquement en couleurs. gbe émule tout ce que la Game Boy Color ajoute à la Game Boy : ses 32 768 couleurs, sa mémoire supplémentaire, son mode double vitesse et son animation de démarrage.</p>
   <div class="grid features">
     <article class="card">
       <h3>Couleurs d'origine</h3>
-      <p>L'écran de la Game Boy Color était plus pâle que les nôtres. Par défaut, gbe corrige les couleurs pour retrouver ce rendu ; la touche P ou le menu affichent les couleurs brutes.</p>
+      <p>L'écran de la Game Boy Color était plus pâle que les nôtres. Par défaut, gbe corrige les couleurs pour retrouver ce rendu ; la touche P ou le menu affichent les couleurs vives, sans correction.</p>
     </article>
     <article class="card">
       <h3>Choix de la console</h3>
-      <p>gbe choisit la console d'après la cartouche. <code>-model gb</code> lance un jeu compatible sur la Game Boy d'origine, en quatre teintes avec votre palette.</p>
+      <p>gbe choisit automatiquement la console d'après la cartouche. Un jeu compatible avec les deux peut aussi tourner sur la Game Boy d'origine, en quatre teintes avec votre palette, avec l'option <code>-model gb</code> en ligne de commande.</p>
     </article>
     <article class="card">
       <h3>Save states</h3>
-      <p>Les save states fonctionnent aussi en couleurs. Ils retiennent la console utilisée : une partie sauvegardée en mode Game Boy se reprend en mode Game Boy, et « Recommencer » passe dans le mode choisi.</p>
+      <p>Les save states fonctionnent aussi en couleurs. Une partie sauvegardée reprend sur la console où elle a été jouée, même si vous avez changé de réglage entre-temps ; « Recommencer » relance le jeu sur la console choisie dans les réglages.</p>
     </article>
   </div>
   <h3 class="subhead">Les jeux Game Boy en couleurs</h3>
-  <p class="section-lead">Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy : activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code>. Les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Avec la boot ROM couleur, l'animation et les combinaisons au logo fonctionnent comme sur la console.</p>
+  <p class="section-lead">Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy : activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code>. Les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Si vous avez la boot ROM de la Game Boy Color (son programme de démarrage, non fourni), l'animation s'affiche et ces combinaisons se font pendant le logo, comme sur la console.</p>
   <div class="grid palette-shots">
     <figure>
       <img class="pixelated" src="img/gbc/colorized_tetris.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris colorisé en jaune et rouge">
@@ -194,7 +194,7 @@
     </figure>
   </div>
   <h3 class="subhead">Les autres filtres</h3>
-  <p class="section-lead">« Net » remplit l'écran sans pixels de tailles inégales : seuls les bords des pixels sont adoucis, sur un pixel de l'écran. Scale2x et Scale3x arrondissent les diagonales sans ajouter de couleurs, et MMPX, un algorithme récent conçu pour le pixel art, lisse les pentes en préservant le texte et les contours. Le filtre par défaut garde des pixels carrés, agrandis d'un facteur entier.</p>
+  <p class="section-lead">« Net » agrandit l'image jusqu'à remplir l'écran, sans que certains pixels paraissent plus gros que d'autres : seuls leurs bords sont très légèrement adoucis. Scale2x et Scale3x arrondissent les diagonales sans ajouter de couleurs, et MMPX, un algorithme récent conçu pour le pixel art, lisse les pentes en préservant le texte et les contours. Le filtre par défaut, « Pixels entiers », garde des pixels carrés, tous agrandis autant.</p>
   <div class="grid palette-shots">
     <figure>
       <img src="img/gb/filter_nearest.webp" width="480" height="432" loading="lazy" alt="Détail de Super Mario Land, pixels carrés : la pente de la pyramide en escalier">
@@ -213,7 +213,7 @@
       <figcaption>MMPX</figcaption>
     </figure>
   </div>
-  <p class="note">L'option « Rémanence » imite l'écran LCD de la console, lent à réagir, en mélangeant chaque image à la précédente. Certains jeux s'en servaient pour rendre des sprites transparents en les faisant clignoter. Deux modes, sur le modèle de SameBoy : « simple », à parts égales, et « fidèle », avec des poids qui alternent d'une ligne à l'autre comme sur l'écran LCD.</p>
+  <p class="note">L'option « Rémanence » imite l'écran LCD de la console, lent à réagir, en mélangeant chaque image à la précédente. Certains jeux s'en servaient pour rendre des sprites transparents en les faisant clignoter. Deux modes, inspirés de SameBoy : « simple », qui mélange les deux images à parts égales, et « fidèle », plus proche du véritable écran de la console.</p>
   <h3 class="subhead">Sur la TV, sans câble</h3>
   <p class="section-lead">Sur Mac, une Apple TV devient un second écran : dans le Centre de contrôle, « Recopie de l'écran », en mode « Utiliser comme écran séparé ». Dans la page Affichage du menu, l'entrée « Ecran » envoie alors gbe sur la TV, et l'entrée « Mode » passe en plein écran, à la manette comme au clavier. Le son suit, et le retard reste assez faible pour jouer, la manette en main depuis le canapé. gbe s'en souvient et se rouvre sur la TV au lancement suivant. Avec un câble HDMI, les mêmes entrées fonctionnent sur tous les systèmes.</p>
 </section>
@@ -244,7 +244,7 @@
     </figure>
     <figure>
       <img src="img/gbc/menu.webp" width="1280" height="1152" loading="lazy" alt="Menu de pause de gbe en noir et blanc au-dessus de l'écran titre de Zelda: Link's Awakening DX">
-      <figcaption>Menu de pause, en noir et blanc, avec la correction des couleurs</figcaption>
+      <figcaption>Menu de pause : sur un jeu Game Boy Color, il s'affiche en noir et blanc</figcaption>
     </figure>
     <figure>
       <img src="img/gbc/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Zelda: Link's Awakening DX, gbe propose de reprendre la partie sauvegardée">
@@ -277,12 +277,12 @@
   {{end}}
 
   <h3 class="subhead">Démarrage rapide</h3>
-  <p class="section-lead">Ouvre gbe (l'application sur macOS, <code>gbe.exe</code> sous Windows, l'AppImage sous Linux), puis dépose une ROM <code>.gb</code>, <code>.gbc</code> ou <code>.zip</code> sur la fenêtre : l'écran d'accueil propose aussi les derniers jeux lancés, à relancer à la manette. Déposée pendant une partie, une ROM peut remplacer le jeu en cours, qui est sauvegardé pour être repris plus tard.</p>
+  <p class="section-lead">Ouvrez gbe (l'application sur macOS, <code>gbe.exe</code> sous Windows, l'AppImage sous Linux), puis déposez une ROM <code>.gb</code>, <code>.gbc</code> ou <code>.zip</code> sur la fenêtre : l'écran d'accueil propose aussi les derniers jeux lancés, à relancer à la manette. Déposée pendant une partie, une ROM peut remplacer le jeu en cours, qui est sauvegardé pour être repris plus tard.</p>
   <figure class="drop-shot">
     <img src="img/gb/drop_screen.webp" width="1280" height="1152" loading="lazy" alt="Écran d'accueil de gbe lancé sans ROM : une cartouche Game Boy en pixel art sous une flèche, l'invitation « Deposez une ROM Game Boy ici », et la liste des jeux récents, Zelda sélectionné">
-    <figcaption>Lancé sans ROM : dépose une ROM, ou relance l'un des derniers jeux</figcaption>
+    <figcaption>Lancé sans ROM : déposez une ROM, ou relancez l'un des derniers jeux</figcaption>
   </figure>
-  <p class="section-lead">Depuis un terminal, le binaire seul lance directement la ROM donnée :</p>
+  <p class="section-lead">Depuis un terminal, gbe lance directement la ROM donnée en argument :</p>
   <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code><code>./gbe mon-jeu.zip</code></pre>
 
   <h3 class="subhead">Contrôles</h3>
@@ -295,13 +295,14 @@
       <tr><td>Tab (maintenu)</td><td>Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu)</td></tr>
       <tr><td>Retour arrière (maintenu)</td><td>Rembobinage : le jeu revient en arrière, jusqu'à 10 s</td></tr>
       <tr><td>Échap</td><td>Menu : palette ou couleurs, filtre d'affichage, contrôles, son, save states</td></tr>
-      <tr><td>P</td><td>Palette suivante (palette GBC pour un jeu Game Boy colorisé) ou correction des couleurs (Game Boy Color)</td></tr>
+      <tr><td>P</td><td>Palette suivante ; sur un jeu Game Boy Color, active ou coupe la correction des couleurs</td></tr>
+      <tr><td>Cmd+F2 (Ctrl+F2 sous Windows et Linux)</td><td>Capture d'écran</td></tr>
       <tr><td>F11</td><td>Plein écran (retenu au lancement suivant ; aussi dans la page Affichage, à la manette)</td></tr>
       <tr><td>Manette : Start + Select</td><td>Menu, piloté à la croix, A et B</td></tr>
       <tr><td>Manette : gâchettes hautes R / L (maintenues)</td><td>Avance rapide / rembobinage</td></tr>
     </tbody>
   </table>
-  <p class="note">Aucune ROM ni boot ROM n'est fournie : utilisez vos propres copies.</p>
+  <p class="note">Aucune ROM ni boot ROM n'est fournie : utilisez vos propres copies. Les boot ROM, facultatives, se placent dans un dossier <code>bios</code>, dans le dossier de configuration de gbe (voir le <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}#lancer">README</a>).</p>
 </section>
 
 <section id="notes" class="wrap">

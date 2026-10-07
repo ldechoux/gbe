@@ -110,8 +110,12 @@ type Options struct {
 	// made for.
 	Model gb.Model
 	// BootROM is the -bios flag: a boot ROM path, "none", or empty for
-	// bios/gb_bios.bin or bios/gbc_bios.bin (ignored when missing).
+	// gb_bios.bin or gbc_bios.bin, in the first of BootROMDirs that has it
+	// (ignored when none has).
 	BootROM string
+	// BootROMDirs are the folders searched for the default boot ROM, in
+	// order; bios when empty.
+	BootROMDirs []string
 	// Colorize runs the DMG games on a Game Boy Color, which colorizes them,
 	// when Model is auto.
 	Colorize bool
@@ -178,19 +182,9 @@ func Open(path string, opts Options) (*Game, error) {
 		}
 	}
 	g.NewConsole = func(model gb.Model) (*gb.GameBoy, error) {
-		path := opts.BootROM
-		if path == "" {
-			path = "bios/gb_bios.bin"
-			if model == gb.ModelCGB {
-				path = "bios/gbc_bios.bin"
-			}
-		}
-		var boot []byte
-		if path != "none" {
-			var err error
-			if boot, err = os.ReadFile(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return nil, err
-			}
+		boot, err := readBootROM(opts, model)
+		if err != nil {
+			return nil, err
 		}
 		return gb.NewModel(cart, boot, model)
 	}
@@ -207,4 +201,34 @@ func Open(path string, opts Options) (*Game, error) {
 		return nil, err
 	}
 	return g, nil
+}
+
+// readBootROM reads the boot ROM of model that opts asks for: nil when there
+// is none.
+func readBootROM(opts Options, model gb.Model) ([]byte, error) {
+	switch opts.BootROM {
+	case "none":
+		return nil, nil
+	case "":
+		name := "gb_bios.bin"
+		if model == gb.ModelCGB {
+			name = "gbc_bios.bin"
+		}
+		dirs := opts.BootROMDirs
+		if len(dirs) == 0 {
+			dirs = []string{"bios"}
+		}
+		for _, dir := range dirs {
+			boot, err := os.ReadFile(filepath.Join(dir, name))
+			if !errors.Is(err, fs.ErrNotExist) {
+				return boot, err
+			}
+		}
+		return nil, nil
+	}
+	boot, err := os.ReadFile(opts.BootROM)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return boot, err
 }

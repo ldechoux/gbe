@@ -18,6 +18,7 @@ func TestBuildPage(t *testing.T) {
 			asset("gbe-v0.1.0-linux-amd64.tar.gz"),
 			asset("gbe-v0.1.0-macos-arm64.tar.gz"),
 			asset("gbe-v0.1.0-macos-amd64.tar.gz"),
+			asset("gbe-v0.1.0-macos-universal.dmg"),
 			asset("gbe-v0.1.0-windows-arm64.zip"),
 			asset("checksums.txt"),
 		}},
@@ -35,7 +36,7 @@ func TestBuildPage(t *testing.T) {
 			got = append(got, pl.ID+"/"+d.Arch)
 		}
 	}
-	want := []string{"macos/arm64", "macos/amd64", "windows/arm64", "linux/amd64"}
+	want := []string{"macos/universal", "macos/arm64", "macos/amd64", "windows/arm64", "linux/amd64"}
 	if len(got) != len(want) {
 		t.Fatalf("downloads %v, want %v", got, want)
 	}

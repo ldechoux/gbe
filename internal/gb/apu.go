@@ -435,6 +435,9 @@ func (a *APU) sweepStep() {
 // STOP resets the counter.
 func (a *APU) divEvent() {
 	if a.on {
+		// The sweep may change a period: the timers of the disabled
+		// channels must catch up with the old one first.
+		a.catchUp()
 		a.sequencerStep()
 		a.dirty = allChannels
 	}
@@ -469,14 +472,33 @@ func (a *APU) tick(cycles int) {
 		if a.pending >= a.untilClock {
 			a.clockChannels(a.pending)
 			a.pending = 0
-			a.untilClock = min(a.ch[0].timer, a.ch[1].timer, a.ch[2].timer, a.ch[3].timer)
+			a.untilClock = a.nextClock()
 		}
 	}
 	a.mix(cycles)
 }
 
-// catchUp applies the pending T-cycles to the channel timers. None of them
-// expires, so the channels stay where they are.
+// maxClockDelay bounds the T-cycles between two updates of the channel
+// timers, so that catching up stays short.
+const maxClockDelay = 1 << 16
+
+// nextClock is in how many T-cycles the timer of an enabled channel expires
+// first. The timers of the disabled channels are only caught up later, all
+// at once: they are heard nowhere, and clockChannels runs the same steps as
+// one by one, as long as their period does not change in between (see
+// divEvent).
+func (a *APU) nextClock() int {
+	n := maxClockDelay
+	for i := range a.ch {
+		if a.ch[i].enabled {
+			n = min(n, a.ch[i].timer)
+		}
+	}
+	return n
+}
+
+// catchUp applies the pending T-cycles to the channel timers. Only those of
+// disabled channels may expire, which no one hears.
 func (a *APU) catchUp() {
 	if a.pending > 0 {
 		a.clockChannels(a.pending)
@@ -521,9 +543,12 @@ func (a *APU) clockChannels(cycles int) {
 const allChannels = 0x0F
 
 // outputChanged is called when the waveform of channel i moves on, which
-// changes the mix if the channel is heard.
+// changes the mix if the channel is heard and its level changes.
 func (a *APU) outputChanged(i int) {
-	if c := &a.ch[i]; c.enabled && c.dac {
+	// The level may stay the same (a step of the noise that keeps its bit,
+	// the flat part of a pulse...): mix would make no jump, and skipping it
+	// saves computing the mix again.
+	if c := &a.ch[i]; c.enabled && c.dac && a.dirty&(1<<i) == 0 && 15-2*int(a.output(i)) != a.dac[i] {
 		a.dirty |= 1 << i
 	}
 }

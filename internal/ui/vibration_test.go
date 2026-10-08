@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,7 @@ func TestRumbler(t *testing.T) {
 	pads.pads[1].noVibration = true
 	var r rumbler
 
-	r.update(pads, true, 0.5) // averaged with the previous tick: 0.25
+	r.update(pads, true, 0.5, 1) // averaged with the previous tick: 0.25
 	if len(pads.vibrations) != 1 {
 		t.Fatalf("vibrations %+v, want one, on the gamepad that vibrates", pads.vibrations)
 	}
@@ -24,20 +25,26 @@ func TestRumbler(t *testing.T) {
 	}
 
 	pads.vibrations = nil
-	r.update(pads, true, 0) // still 0.25 on average
-	r.update(pads, true, 0) // the motor stopped
+	r.update(pads, true, 0, 1) // still 0.25 on average
+	r.update(pads, true, 0, 1) // the motor stopped
 	if n := len(pads.vibrations); n != 2 || pads.vibrations[1].strength != 0 {
 		t.Errorf("vibrations %+v, want one more then a stop", pads.vibrations)
 	}
 	pads.vibrations = nil
-	r.update(pads, true, 0)
+	r.update(pads, true, 0, 1)
 	if len(pads.vibrations) != 0 {
 		t.Errorf("vibrations %+v while already stopped", pads.vibrations)
 	}
 
-	r.update(pads, false, 1)
+	r.update(pads, false, 1, 1)
 	if len(pads.vibrations) != 0 {
 		t.Errorf("vibrations %+v with the option off", pads.vibrations)
+	}
+
+	// A weaker strength scales the vibration, floor included.
+	r.update(pads, true, 1, 0.5)
+	if len(pads.vibrations) != 1 || math.Abs(pads.vibrations[0].strength-0.5*(0.25+0.75*0.5)) > 1e-9 {
+		t.Errorf("vibrations %+v at strength 0.5", pads.vibrations)
 	}
 }
 
@@ -67,7 +74,7 @@ func TestGameRumble(t *testing.T) {
 	g := rumbleGame(t, pads)
 	g.advance(false, false)
 	g.advance(false, false)
-	if len(pads.vibrations) == 0 || pads.vibrations[len(pads.vibrations)-1].strength < 0.9 {
+	if len(pads.vibrations) == 0 || pads.vibrations[len(pads.vibrations)-1].strength < 0.75 {
 		t.Fatalf("vibrations %+v, want the gamepad shaking hard", pads.vibrations)
 	}
 
@@ -96,7 +103,7 @@ func TestGameRumble(t *testing.T) {
 		g.cfg.Vibration = c.mode
 		g.advance(false, false)
 		g.advance(false, false)
-		shook := len(pads.vibrations) > 0 && pads.vibrations[len(pads.vibrations)-1].strength > 0.9
+		shook := len(pads.vibrations) > 0 && pads.vibrations[len(pads.vibrations)-1].strength > 0.75
 		if shook != c.shake || !c.shake && len(pads.vibrations) != 0 {
 			t.Errorf("%s: vibrations %+v for a cartridge without a motor", c.mode, pads.vibrations)
 		}
@@ -144,15 +151,69 @@ func TestVibrationMenu(t *testing.T) {
 	g.menu.cursor = padTest()
 	g.actions = menuActions{ok: true}
 	g.menu.update(g)
-	if len(pads.vibrations) != 1 || pads.vibrations[0] != (vibration{0, 1, 500 * time.Millisecond}) {
+	if len(pads.vibrations) != 1 || pads.vibrations[0] != (vibration{0, 0.8, 500 * time.Millisecond}) {
 		t.Errorf("test vibrations %+v", pads.vibrations)
 	}
 
-	g.cfg.Vibration = vibrationOff
-	g.menu.cursor = padDefaults()
+	// The strength: a slider, at its top by default, that Left and Right
+	// move within its bounds and OK leaves alone; the test follows it.
+	g.menu.cursor = padStrength()
+	if v := g.menu.view(g); v.items[padStrength()] != "Strength  [========|]" || v.disabled[padStrength()] {
+		t.Errorf("strength entry %q, disabled %v", v.items[padStrength()], v.disabled[padStrength()])
+	}
+	for _, c := range []struct {
+		actions menuActions
+		want    int
+	}{
+		{menuActions{right: true}, 80}, // already at the top
+		{menuActions{ok: true}, 80},
+		{menuActions{left: true}, 75},
+		{menuActions{left: true}, 70},
+	} {
+		g.actions = c.actions
+		g.menu.update(g)
+		if g.cfg.VibrationStrength != c.want || g.menu.tab != tabPad {
+			t.Errorf("%+v: strength %d, tab %v; want %d, not the tab", c.actions, g.cfg.VibrationStrength, g.menu.tab, c.want)
+		}
+	}
+	if v := g.menu.view(g); v.items[padStrength()] != "Strength  [======|--]" {
+		t.Errorf("strength entry %q at 70%%", v.items[padStrength()])
+	}
+	for range 10 {
+		g.actions = menuActions{left: true}
+		g.menu.update(g)
+	}
+	if v := g.menu.view(g); g.cfg.VibrationStrength != minStrength || v.items[padStrength()] != "Strength  [|--------]" {
+		t.Errorf("at the bottom: strength %d, entry %q", g.cfg.VibrationStrength, v.items[padStrength()])
+	}
+	if cfg, err := LoadConfig(g.cfgPath); err != nil || cfg.VibrationStrength != minStrength {
+		t.Errorf("strength not saved: %d %v", cfg.VibrationStrength, err)
+	}
+	pads.vibrations = nil
+	g.menu.cursor = padTest()
+	g.actions = menuActions{ok: true}
 	g.menu.update(g)
-	if g.cfg.Vibration != vibrationCartridge {
-		t.Errorf("Restore defaults: vibration %q, want the cartridges", g.cfg.Vibration)
+	if len(pads.vibrations) != 1 || pads.vibrations[0].strength != 0.4 {
+		t.Errorf("test vibrations %+v at the lowest strength", pads.vibrations)
+	}
+
+	// Vibrations off: the strength is greyed out and does not move.
+	g.cfg.Vibration = vibrationOff
+	if v := g.menu.view(g); !v.disabled[padStrength()] || v.disabled[padVibration()] {
+		t.Errorf("vibrations off: disabled entries %v", v.disabled)
+	}
+	g.menu.cursor = padStrength()
+	g.actions = menuActions{right: true}
+	g.menu.update(g)
+	if g.cfg.VibrationStrength != minStrength {
+		t.Errorf("vibrations off: strength moved to %d", g.cfg.VibrationStrength)
+	}
+
+	g.menu.cursor = padDefaults()
+	g.actions = menuActions{ok: true}
+	g.menu.update(g)
+	if g.cfg.Vibration != vibrationCartridge || g.cfg.VibrationStrength != maxStrength {
+		t.Errorf("Restore defaults: vibration %q, strength %d; want the cartridges, the top", g.cfg.Vibration, g.cfg.VibrationStrength)
 	}
 
 	// A gamepad that cannot vibrate: greyed out entries that do nothing.
@@ -161,18 +222,18 @@ func TestVibrationMenu(t *testing.T) {
 	g = newTestGame(t, pads)
 	g.menu = menu{open: true, page: pageControls, tab: tabPad, cursor: padVibration()}
 	v := g.menu.view(g)
-	if !v.disabled[padVibration()] || !v.disabled[padTest()] || v.disabled[padDefaults()] {
+	if !v.disabled[padVibration()] || !v.disabled[padStrength()] || !v.disabled[padTest()] || v.disabled[padDefaults()] {
 		t.Errorf("disabled entries %v", v.disabled)
 	}
 	if !strings.HasSuffix(v.items[padVibration()], l.T("controls.unavailable")) || v.footer != l.T("controls.no_vibration") {
 		t.Errorf("entry %q, footer %q", v.items[padVibration()], v.footer)
 	}
-	for _, c := range []int{padVibration(), padTest()} {
+	for _, c := range []int{padVibration(), padStrength(), padTest()} {
 		g.menu.cursor = c
 		g.actions = menuActions{ok: true}
 		g.menu.update(g)
 	}
-	if g.cfg.Vibration != vibrationCartridge || len(pads.vibrations) != 0 {
+	if g.cfg.Vibration != vibrationCartridge || g.cfg.VibrationStrength != maxStrength || len(pads.vibrations) != 0 {
 		t.Errorf("greyed out entries acted: vibration %q, vibrations %+v", g.cfg.Vibration, pads.vibrations)
 	}
 }
@@ -198,11 +259,20 @@ func TestVibrationConfig(t *testing.T) {
 		}
 	}
 	cfg := DefaultConfig()
-	cfg.Vibration = vibrationOff
+	cfg.Vibration, cfg.VibrationStrength = vibrationOff, 55
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
 	}
-	if cfg, err := LoadConfig(path); err != nil || cfg.Vibration != vibrationOff {
-		t.Errorf("vibration %q after saving it off (%v)", cfg.Vibration, err)
+	if cfg, err := LoadConfig(path); err != nil || cfg.Vibration != vibrationOff || cfg.VibrationStrength != 55 {
+		t.Errorf("vibration %q, strength %d after saving them (%v)", cfg.Vibration, cfg.VibrationStrength, err)
+	}
+	// The strength: the top when absent, out of bounds or between steps.
+	for _, content := range []string{`{}`, `{"vibration_strength": 85}`, `{"vibration_strength": 35}`, `{"vibration_strength": 62}`} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if cfg, err := LoadConfig(path); err != nil || cfg.VibrationStrength != maxStrength {
+			t.Errorf("%s: strength %d (%v), want %d", content, cfg.VibrationStrength, err, maxStrength)
+		}
 	}
 }

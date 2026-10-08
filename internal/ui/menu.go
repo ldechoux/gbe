@@ -213,9 +213,10 @@ func controlsBack() int       { return len(bindingNames()) + 2 }
 
 // Gamepad tab layout: one entry per button and action, then these.
 func padVibration() int { return len(bindingNames()) }
-func padTest() int      { return len(bindingNames()) + 1 }
-func padDefaults() int  { return len(bindingNames()) + 2 }
-func padBack() int      { return len(bindingNames()) + 3 }
+func padStrength() int  { return len(bindingNames()) + 1 }
+func padTest() int      { return len(bindingNames()) + 2 }
+func padDefaults() int  { return len(bindingNames()) + 3 }
+func padBack() int      { return len(bindingNames()) + 4 }
 
 // padVibrates reports whether the gamepad shown on the Gamepad tab, the
 // first one, may vibrate: otherwise its vibration entries are greyed out.
@@ -451,6 +452,10 @@ func (m *menu) adjust(g *Game, delta int) {
 			m.cycleVibration(g, delta)
 			return
 		}
+		if m.tab == tabPad && m.cursor == padStrength() {
+			m.stepStrength(g, delta)
+			return
+		}
 		m.switchTab(g, delta)
 		return
 	}
@@ -496,7 +501,7 @@ func (m *menu) adjustSounding(g *Game, delta int) {
 		g.menuSound(menusound.Move)
 	case after != before:
 		g.menuSound(menusound.Change)
-	case strings.Contains(before, "<"), m.page == pageControls && m.tab == tabPad && m.cursor == padVibration():
+	case strings.Contains(before, "<"), m.page == pageControls && m.tab == tabPad && (m.cursor == padVibration() || m.cursor == padStrength()):
 		g.menuSound(menusound.Refuse)
 	}
 }
@@ -574,6 +579,24 @@ func (m *menu) cycleVibration(g *Game, delta int) {
 	}
 }
 
+// stepStrength moves the vibration strength delta steps, within its bounds,
+// while the gamepad vibrates.
+func (m *menu) stepStrength(g *Game, delta int) {
+	if padVibrates(g) && g.cfg.Vibration != vibrationOff {
+		s := g.cfg.VibrationStrength + delta*strengthStep
+		g.cfg.VibrationStrength = max(minStrength, min(maxStrength, s))
+		g.saveConfig()
+	}
+}
+
+// strengthSlider draws the vibration strength as a slider: a track filled
+// up to its handle, from minStrength to maxStrength.
+func strengthSlider(strength int) string {
+	n := (maxStrength - minStrength) / strengthStep // positions after the first
+	pos := (strength - minStrength) / strengthStep
+	return "[" + strings.Repeat("=", pos) + "|" + strings.Repeat("-", n-pos) + "]"
+}
+
 // switchTab moves between the Keyboard and Gamepad tabs. The latter is only
 // reachable while a gamepad is connected; otherwise it is drawn greyed out,
 // which is enough feedback.
@@ -633,17 +656,19 @@ func (m *menu) activate(g *Game) {
 			m.capturing = true
 		case m.cursor == padVibration():
 			m.adjustSounding(g, 1) // OK cycles like Right
+		case m.cursor == padStrength(): // OK must not move the slider
 		case m.cursor == padTest():
 			if padVibrates(g) {
 				g.menuSound(menusound.Enter)
-				testVibration(g.pads)
+				testVibration(g.pads, float64(g.cfg.VibrationStrength)/100)
 			} else {
 				g.menuSound(menusound.Refuse)
 			}
 		case m.cursor == padDefaults():
 			g.menuSound(menusound.Enter)
 			g.cfg.Gamepad = defaultPad()
-			g.cfg.Vibration = DefaultConfig().Vibration
+			def := DefaultConfig()
+			g.cfg.Vibration, g.cfg.VibrationStrength = def.Vibration, def.VibrationStrength
 			g.saveConfig()
 		default:
 			g.menuSound(menusound.Back)
@@ -822,9 +847,12 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 	vibration := l.T("controls.vibration_mode", l.T("vibration."+g.cfg.Vibration))
 	if !vibrates {
 		vibration = l.T("controls.vibration") + "  " + l.T("controls.unavailable")
-		disabled = map[int]bool{padVibration(): true, padTest(): true}
+		disabled = map[int]bool{padVibration(): true, padStrength(): true, padTest(): true}
+	} else if g.cfg.Vibration == vibrationOff {
+		disabled = map[int]bool{padStrength(): true}
 	}
-	items = append(items, vibration, l.T("controls.vibration_test"),
+	strength := l.T("controls.vibration_strength", strengthSlider(g.cfg.VibrationStrength))
+	items = append(items, vibration, strength, l.T("controls.vibration_test"),
 		l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
 		name = name[:31] + "."

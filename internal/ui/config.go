@@ -50,6 +50,10 @@ type Config struct {
 	// motor of rumble cartridges (Pokemon Pinball...), and in all games
 	// from the sounds of shocks.
 	Vibration string `json:"vibration"`
+	// VibrationStrength is how hard they shake, in percent of the full
+	// strength of the gamepad motors: minStrength to maxStrength, in steps
+	// of strengthStep.
+	VibrationStrength int `json:"vibration_strength"`
 	// Screenshot is the key combination that saves a PNG of the screen.
 	Screenshot Hotkey `json:"screenshot"`
 	// FastForwardSpeed is how many frames run per frame while fast forwarding.
@@ -92,6 +96,14 @@ const (
 )
 
 var vibrationModes = []string{vibrationOff, vibrationCartridge, vibrationAll}
+
+// Bounds and step of Config.VibrationStrength. Under minStrength, small
+// motors barely move.
+const (
+	minStrength  = 40
+	maxStrength  = 80
+	strengthStep = 5
+)
 
 // loadVibration reads the vibration setting of a config file: one of
 // vibrationModes, or a boolean before the modes, on being the cartridges
@@ -177,22 +189,23 @@ func defaultKeys() map[string]ebiten.Key {
 // DefaultConfig returns the out-of-the-box settings.
 func DefaultConfig() *Config {
 	return &Config{
-		Palette:          Palettes[0].ID,
-		ColorCorrection:  true,
-		Vibration:        vibrationCartridge,
-		Language:         i18n.Default,
-		Scale:            4,
-		Filter:           scaler.Filters[0].ID,
-		Ghosting:         ghostingOff,
-		Volume:           0.8,
-		Stereo:           audiofx.Stereo,
-		AudioFilter:      audiofx.Off,
-		MenuSounds:       true,
-		Keys:             defaultKeys(),
-		Gamepad:          defaultPad(),
-		Screenshot:       defaultScreenshotHotkey(),
-		FastForwardSpeed: 4,
-		CompatPalettes:   map[string]string{},
+		Palette:           Palettes[0].ID,
+		ColorCorrection:   true,
+		Vibration:         vibrationCartridge,
+		VibrationStrength: maxStrength,
+		Language:          i18n.Default,
+		Scale:             4,
+		Filter:            scaler.Filters[0].ID,
+		Ghosting:          ghostingOff,
+		Volume:            0.8,
+		Stereo:            audiofx.Stereo,
+		AudioFilter:       audiofx.Off,
+		MenuSounds:        true,
+		Keys:              defaultKeys(),
+		Gamepad:           defaultPad(),
+		Screenshot:        defaultScreenshotHotkey(),
+		FastForwardSpeed:  4,
+		CompatPalettes:    map[string]string{},
 	}
 }
 
@@ -241,6 +254,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if loaded.Vibration != nil {
 		cfg.Vibration = loadVibration(loaded.Vibration)
+	}
+	if s := loaded.VibrationStrength; s >= minStrength && s <= maxStrength && s%strengthStep == 0 {
+		cfg.VibrationStrength = s
 	}
 	if loaded.MenuSounds != nil {
 		cfg.MenuSounds = *loaded.MenuSounds

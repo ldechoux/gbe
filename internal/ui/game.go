@@ -572,7 +572,7 @@ func (g *Game) advance(fast, rewind bool) {
 		g.fx.Process(samples) // in place: the APU fills the slice again next frame
 	}
 	g.stream.push(samples)
-	g.rumble.update(g.pads, g.cfg.Vibration != vibrationOff, rumble/float64(n))
+	g.rumble.update(g.pads, g.cfg.Vibration != vibrationOff, rumble/float64(n), float64(g.cfg.VibrationStrength)/100)
 }
 
 // frameRumble is how hard the gamepads shake for the last frame: with the

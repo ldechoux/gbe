@@ -130,6 +130,7 @@
     "vibration.off": "off",
     "vibration.cartridge": "Rumble carts",
     "vibration.all": "all games",
+    "controls.vibration_strength": "Strength  %s",
     "controls.unavailable": "unavailable",
     "controls.no_vibration": "This gamepad cannot vibrate",
     "controls.key_used_by_button": "%s is already used by a button",

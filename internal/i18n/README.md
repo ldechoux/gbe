@@ -249,6 +249,7 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `vibration.off` | | Vibrations coupées |
 | `vibration.cartridge` | | Vibrations des seules cartouches à moteur (Pokémon Pinball…) |
 | `vibration.all` | | Vibrations aussi dans les autres jeux, devinées d'après les sons de chocs (comme SameBoy) |
+| `controls.vibration_strength` | `%s` le curseur `[===\|-----]` | Entrée de l'onglet Manette qui règle l'intensité des vibrations, grisée quand elles sont coupées |
 | `controls.vibration_test` | | Entrée de l'onglet Manette qui fait vibrer la manette une demi-seconde |
 | `controls.unavailable` | | Suit `controls.vibration` quand la manette ne peut pas vibrer |
 | `controls.no_vibration` | | Bas de l'onglet Manette sur les entrées de vibration grisées |

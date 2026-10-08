@@ -339,7 +339,9 @@ L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←
 | cartouches Rumble | Seulement avec les cartouches à moteur (par défaut) |
 | tous les jeux | Aussi dans les autres jeux, d'après leurs sons |
 
-**Tester la vibration** fait vibrer la manette une demi-seconde.
+L'entrée **Intensité** règle leur force avec un curseur (←/→), du plus doux au plus fort (par
+défaut). Elle est grisée quand les vibrations sont coupées. **Tester la vibration** fait vibrer la
+manette une demi-seconde à cette intensité.
 
 gbe ne peut pas toujours savoir si une manette vibre. Il le sait sous Windows : seules les
 manettes XInput (Xbox et compatibles) y vibrent, et les entrées sont grisées pour les autres.

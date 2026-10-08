@@ -79,14 +79,7 @@ func (p *PPU) ticksToEvent(dots int) int {
 	if p.lcdc&0x80 == 0 {
 		return math.MaxInt
 	}
-	end := 456
-	switch p.mode {
-	case 2:
-		end = 80
-	case 3:
-		end = 80 + 172
-	}
-	return max(1, (end-p.dot+dots-1)/dots)
+	return max(1, (modeEnd[p.mode&3]-p.dot+dots-1)/dots)
 }
 
 // ticksToEvent is in how many M-cycles of the given number of T-cycles the

@@ -162,6 +162,10 @@ func (p *PPU) updateStat() {
 	p.statLine = line
 }
 
+// modeEnd is the dot at which each mode ends: HBlank and VBlank lines at the
+// end of the line, mode 2 after the OAM scan, mode 3 after the transfer.
+var modeEnd = [4]int{456, 456, 80, 80 + 172}
+
 // tick advances the PPU by the given number of dots (4 per M-cycle, 2 in
 // CGB double speed mode).
 func (p *PPU) tick(dots int) {
@@ -169,6 +173,9 @@ func (p *PPU) tick(dots int) {
 		return
 	}
 	p.dot += dots
+	if p.dot < modeEnd[p.mode&3] {
+		return // most M-cycles: the mode goes on
+	}
 	mode, ly := p.mode, p.ly
 	switch p.mode {
 	case 2:
@@ -224,6 +231,25 @@ func (p *PPU) tileRow(bank int, tile byte, row int, signed bool) (lo, hi byte) {
 	return p.vram[addr], p.vram[addr+1]
 }
 
+// pixels writes the color indices of the 8 pixels of a tile row, left to
+// right.
+func pixels(dst []byte, lo, hi byte) {
+	_ = dst[7]
+	dst[0] = lo>>7&1 | hi>>6&2
+	dst[1] = lo>>6&1 | hi>>5&2
+	dst[2] = lo>>5&1 | hi>>4&2
+	dst[3] = lo>>4&1 | hi>>3&2
+	dst[4] = lo>>3&1 | hi>>2&2
+	dst[5] = lo>>2&1 | hi>>1&2
+	dst[6] = lo>>1&1 | hi&2
+	dst[7] = lo&1 | hi<<1&2
+}
+
+func fill8(dst []byte, v byte) {
+	_ = dst[7]
+	dst[0], dst[1], dst[2], dst[3], dst[4], dst[5], dst[6], dst[7] = v, v, v, v, v, v, v, v
+}
+
 func colorIndex(lo, hi byte, bit int) byte {
 	return (lo>>bit)&1 | ((hi>>bit)&1)<<1
 }
@@ -256,9 +282,16 @@ func (p *PPU) mapRow(base, px, py int, signed, cgb bool, idx, attrs []byte) {
 		if attr&0x20 != 0 {
 			lo, hi = bits.Reverse8(lo), bits.Reverse8(hi)
 		}
-		for x := px & 7; x < 8 && i < len(idx); x++ {
-			idx[i], attrs[i] = colorIndex(lo, hi, 7-x), attr
-			i++
+		if px&7 == 0 && i+8 <= len(idx) {
+			// A whole tile, the common case: the 8 pixels at once.
+			pixels(idx[i:i+8:i+8], lo, hi)
+			fill8(attrs[i:i+8:i+8], attr)
+			i += 8
+		} else {
+			for x := px & 7; x < 8 && i < len(idx); x++ {
+				idx[i], attrs[i] = colorIndex(lo, hi, 7-x), attr
+				i++
+			}
 		}
 		px = (px | 7 + 1) & 0xFF // next tile
 	}
@@ -298,12 +331,16 @@ func (p *PPU) renderLine() {
 	}
 
 	var obj [ScreenWidth]objPixel
-	if p.lcdc&0x02 != 0 {
-		p.renderSprites(ly, &obj)
-	}
+	sprites := p.lcdc&0x02 != 0 && p.renderSprites(ly, &obj)
 
 	if cgb {
 		out := p.cback[ly*ScreenWidth : (ly+1)*ScreenWidth]
+		if !sprites { // many lines: the background alone
+			for x := range ScreenWidth {
+				out[x] = color(&p.bgPal, bgAttr[x]&7, bgIdx[x])
+			}
+			return
+		}
 		master := p.lcdc&0x01 != 0
 		for x := range ScreenWidth {
 			o := obj[x]
@@ -322,6 +359,12 @@ func (p *PPU) renderLine() {
 	out := p.back[ly*ScreenWidth : (ly+1)*ScreenWidth]
 	cout := p.cback[ly*ScreenWidth : (ly+1)*ScreenWidth]
 	compat := p.bus.compat
+	if !sprites && !compat {
+		for x := range ScreenWidth {
+			out[x] = shade(p.bgp, bgIdx[x])
+		}
+		return
+	}
 	for x := range ScreenWidth {
 		o := obj[x]
 		if o.idx != 0 && (o.attr&0x80 == 0 || bgIdx[x] == 0) {
@@ -346,7 +389,10 @@ func (p *PPU) renderLine() {
 // (0 when there is none) and the attributes of its sprite.
 type objPixel struct{ idx, attr byte }
 
-func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) {
+// renderSprites draws the sprites of line ly in out, and reports whether it
+// drew any pixel.
+func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) bool {
+	drawn := false
 	height := 8
 	if p.lcdc&0x04 != 0 {
 		height = 16
@@ -396,7 +442,9 @@ func (p *PPU) renderSprites(ly int, out *[ScreenWidth]objPixel) {
 			}
 			if idx := colorIndex(lo, hi, bit); idx != 0 {
 				out[sx] = objPixel{idx, attr}
+				drawn = true
 			}
 		}
 	}
+	return drawn
 }

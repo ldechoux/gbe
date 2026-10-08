@@ -49,6 +49,9 @@ type Bus struct {
 	stall            int  // M-cycles the CPU waits for a VRAM DMA
 
 	cycles uint64 // T-cycles elapsed since power on, at the normal speed
+	// frameEnd is the cycle RunFrame runs to, 0 outside of it: the halted
+	// CPU then skips the M-cycles in which nothing happens (see halt.go).
+	frameEnd uint64
 }
 
 func (b *Bus) requestInterrupt(i byte) { b.ifl |= i }

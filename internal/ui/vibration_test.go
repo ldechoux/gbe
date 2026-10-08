@@ -78,20 +78,39 @@ func TestGameRumble(t *testing.T) {
 	}
 
 	pads.vibrations = nil
-	g.cfg.Vibration = false
+	g.cfg.Vibration = vibrationOff
 	g.advance(false, false)
 	if len(pads.vibrations) != 0 {
 		t.Errorf("vibrations %+v with the option off", pads.vibrations)
 	}
 
-	// A game without a motor never shakes the gamepad.
-	pads.vibrations = nil
-	g = withGameBoy(t, newTestGame(t, pads))
-	g.stream = &audioStream{}
-	g.advance(false, false)
-	if len(pads.vibrations) != 0 {
-		t.Errorf("vibrations %+v for a cartridge without a motor", pads.vibrations)
+	// A game without a motor that plays an explosion shakes the gamepad
+	// only in all games.
+	for _, c := range []struct {
+		mode  string
+		shake bool
+	}{{vibrationCartridge, false}, {vibrationAll, true}, {vibrationOff, false}} {
+		pads.vibrations = nil
+		g = withGameBoy(t, newTestGame(t, pads), explosion...)
+		g.stream = &audioStream{}
+		g.cfg.Vibration = c.mode
+		g.advance(false, false)
+		g.advance(false, false)
+		shook := len(pads.vibrations) > 0 && pads.vibrations[len(pads.vibrations)-1].strength > 0.9
+		if shook != c.shake || !c.shake && len(pads.vibrations) != 0 {
+			t.Errorf("%s: vibrations %+v for a cartridge without a motor", c.mode, pads.vibrations)
+		}
 	}
+}
+
+// explosion plays loud low noise on both sides, for good.
+var explosion = []byte{
+	0x3E, 0x77, 0xE0, 0x24, // NR50: full master volume
+	0x3E, 0xFF, 0xE0, 0x25, // NR51: every channel on both sides
+	0x3E, 0xF0, 0xE0, 0x21, // NR42: volume 15, steady
+	0x3E, 0x71, 0xE0, 0x22, // NR43: low noise
+	0x3E, 0x80, 0xE0, 0x23, // NR44: trigger, no length
+	0x18, 0xFE, // JR -2
 }
 
 func TestVibrationMenu(t *testing.T) {
@@ -100,21 +119,26 @@ func TestVibrationMenu(t *testing.T) {
 	g.menu = menu{open: true, page: pageControls, tab: tabPad, cursor: padVibration()}
 	l := g.tr()
 
-	if v := g.menu.view(g); v.items[padVibration()] != l.T("controls.vibration")+"  "+onOff(l, true) || v.disabled[padVibration()] {
+	if v := g.menu.view(g); v.items[padVibration()] != "Vibration < Rumble carts >" || v.disabled[padVibration()] {
 		t.Errorf("vibration entry %q, disabled %v", v.items[padVibration()], v.disabled[padVibration()])
 	}
 	g.actions = menuActions{ok: true}
 	g.menu.update(g)
-	if g.cfg.Vibration {
-		t.Error("Enter did not turn the vibrations off")
+	if g.cfg.Vibration != vibrationAll {
+		t.Errorf("Enter: vibration %q, want all games", g.cfg.Vibration)
 	}
 	g.actions = menuActions{right: true}
 	g.menu.update(g)
-	if !g.cfg.Vibration || g.menu.tab != tabPad {
-		t.Errorf("Right on the vibration entry: vibration %v, tab %v; want it toggled, not the tab", g.cfg.Vibration, g.menu.tab)
+	if g.cfg.Vibration != vibrationOff || g.menu.tab != tabPad {
+		t.Errorf("Right on the vibration entry: vibration %q, tab %v; want it off, not the tab", g.cfg.Vibration, g.menu.tab)
 	}
-	if cfg, err := LoadConfig(g.cfgPath); err != nil || !cfg.Vibration {
-		t.Errorf("vibration not saved: %v %v", cfg.Vibration, err)
+	g.actions = menuActions{left: true}
+	g.menu.update(g)
+	if g.cfg.Vibration != vibrationAll {
+		t.Errorf("Left: vibration %q, want all games", g.cfg.Vibration)
+	}
+	if cfg, err := LoadConfig(g.cfgPath); err != nil || cfg.Vibration != vibrationAll {
+		t.Errorf("vibration not saved: %q %v", cfg.Vibration, err)
 	}
 
 	g.menu.cursor = padTest()
@@ -124,11 +148,11 @@ func TestVibrationMenu(t *testing.T) {
 		t.Errorf("test vibrations %+v", pads.vibrations)
 	}
 
-	g.cfg.Vibration = false
+	g.cfg.Vibration = vibrationOff
 	g.menu.cursor = padDefaults()
 	g.menu.update(g)
-	if !g.cfg.Vibration {
-		t.Error("Restore defaults did not turn the vibrations back on")
+	if g.cfg.Vibration != vibrationCartridge {
+		t.Errorf("Restore defaults: vibration %q, want the cartridges", g.cfg.Vibration)
 	}
 
 	// A gamepad that cannot vibrate: greyed out entries that do nothing.
@@ -148,28 +172,37 @@ func TestVibrationMenu(t *testing.T) {
 		g.actions = menuActions{ok: true}
 		g.menu.update(g)
 	}
-	if !g.cfg.Vibration || len(pads.vibrations) != 0 {
-		t.Errorf("greyed out entries acted: vibration %v, vibrations %+v", g.cfg.Vibration, pads.vibrations)
+	if g.cfg.Vibration != vibrationCartridge || len(pads.vibrations) != 0 {
+		t.Errorf("greyed out entries acted: vibration %q, vibrations %+v", g.cfg.Vibration, pads.vibrations)
 	}
 }
 
 func TestVibrationConfig(t *testing.T) {
-	if !DefaultConfig().Vibration {
-		t.Error("vibrations off by default")
+	if v := DefaultConfig().Vibration; v != vibrationCartridge {
+		t.Errorf("vibration %q by default, want the cartridges", v)
 	}
 	path := filepath.Join(t.TempDir(), "config.json")
-	if err := os.WriteFile(path, []byte(`{"palette": "dmg"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if cfg, err := LoadConfig(path); err != nil || !cfg.Vibration {
-		t.Errorf("config without the setting: vibration %v (%v), want on", cfg.Vibration, err)
+	// Absent, a boolean from before the modes, a mode, nonsense.
+	for content, want := range map[string]string{
+		`{"palette": "dmg"}`:      vibrationCartridge,
+		`{"vibration": true}`:     vibrationCartridge,
+		`{"vibration": false}`:    vibrationOff,
+		`{"vibration": "all"}`:    vibrationAll,
+		`{"vibration": "strong"}`: vibrationCartridge,
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if cfg, err := LoadConfig(path); err != nil || cfg.Vibration != want {
+			t.Errorf("%s: vibration %q (%v), want %q", content, cfg.Vibration, err, want)
+		}
 	}
 	cfg := DefaultConfig()
-	cfg.Vibration = false
+	cfg.Vibration = vibrationOff
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
 	}
-	if cfg, err := LoadConfig(path); err != nil || cfg.Vibration {
-		t.Errorf("vibration %v after saving it off (%v)", cfg.Vibration, err)
+	if cfg, err := LoadConfig(path); err != nil || cfg.Vibration != vibrationOff {
+		t.Errorf("vibration %q after saving it off (%v)", cfg.Vibration, err)
 	}
 }

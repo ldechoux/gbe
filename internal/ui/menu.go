@@ -448,7 +448,7 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 func (m *menu) adjust(g *Game, delta int) {
 	if m.page == pageControls {
 		if m.tab == tabPad && m.cursor == padVibration() {
-			m.toggleVibration(g)
+			m.cycleVibration(g, delta)
 			return
 		}
 		m.switchTab(g, delta)
@@ -565,10 +565,11 @@ func cycle(ids []string, id string, delta int) string {
 	return ids[(i+delta%n+n)%n]
 }
 
-// toggleVibration turns the gamepad vibrations on or off.
-func (m *menu) toggleVibration(g *Game) {
+// cycleVibration moves to the vibration mode delta places after the current
+// one.
+func (m *menu) cycleVibration(g *Game, delta int) {
 	if padVibrates(g) {
-		g.cfg.Vibration = !g.cfg.Vibration
+		g.cfg.Vibration = cycle(vibrationModes, g.cfg.Vibration, delta)
 		g.saveConfig()
 	}
 }
@@ -631,7 +632,7 @@ func (m *menu) activate(g *Game) {
 			g.menuSound(menusound.Enter)
 			m.capturing = true
 		case m.cursor == padVibration():
-			m.adjustSounding(g, 1) // toggles the vibrations
+			m.adjustSounding(g, 1) // OK cycles like Right
 		case m.cursor == padTest():
 			if padVibrates(g) {
 				g.menuSound(menusound.Enter)
@@ -642,7 +643,7 @@ func (m *menu) activate(g *Game) {
 		case m.cursor == padDefaults():
 			g.menuSound(menusound.Enter)
 			g.cfg.Gamepad = defaultPad()
-			g.cfg.Vibration = true
+			g.cfg.Vibration = DefaultConfig().Vibration
 			g.saveConfig()
 		default:
 			g.menuSound(menusound.Back)
@@ -818,12 +819,12 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 		items = append(items, fmt.Sprintf("%-8s %s", bindingLabel(l, name), btn))
 	}
 	vibrates := padVibrates(g)
-	state := onOff(l, g.cfg.Vibration)
+	vibration := l.T("controls.vibration_mode", l.T("vibration."+g.cfg.Vibration))
 	if !vibrates {
-		state = l.T("controls.unavailable")
+		vibration = l.T("controls.vibration") + "  " + l.T("controls.unavailable")
 		disabled = map[int]bool{padVibration(): true, padTest(): true}
 	}
-	items = append(items, l.T("controls.vibration")+"  "+state, l.T("controls.vibration_test"),
+	items = append(items, vibration, l.T("controls.vibration_test"),
 		l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
 		name = name[:31] + "."

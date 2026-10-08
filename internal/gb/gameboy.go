@@ -186,6 +186,10 @@ func (g *GameBoy) RunFrame() {
 // cartridges without a motor.
 func (g *GameBoy) Rumble() float64 { return g.rumble }
 
+// HasMotor reports whether the cartridge has a rumble motor. Games without
+// one may still shake through SoundRumble.
+func (g *GameBoy) HasMotor() bool { return g.Cart.rumble }
+
 // Framebuffer returns the last complete frame in DMG mode, one shade (0-3)
 // per pixel.
 func (g *GameBoy) Framebuffer() *[ScreenWidth * ScreenHeight]byte { return &g.PPU.front }

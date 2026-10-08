@@ -24,9 +24,9 @@ func stepFrame(g *GameBoy) {
 // one by one: the whole state, the frame and the sound, after every frame.
 func TestHaltSkipSameState(t *testing.T) {
 	type run struct {
-		name     string
-		skip, by func() *GameBoy
-		inputs   func(*GameBoy, int)
+		name   string
+		newGB  func(testing.TB) *GameBoy
+		inputs func(*GameBoy, int)
 	}
 	var runs []run
 	for _, s := range benchScenes {
@@ -36,8 +36,7 @@ func TestHaltSkipSameState(t *testing.T) {
 			}
 			runs = append(runs, run{
 				name:   s.name + "/" + m.name,
-				skip:   func() *GameBoy { return newBenchROM(t, s, m.model) },
-				by:     func() *GameBoy { return newBenchROM(t, s, m.model) },
+				newGB:  func(t testing.TB) *GameBoy { return newBenchROM(t, s, m.model) },
 				inputs: benchInputs,
 			})
 		}
@@ -46,13 +45,12 @@ func TestHaltSkipSameState(t *testing.T) {
 	sml := filepath.Join(gameDir, "Super_Mario_Land_World_Rev1.gb")
 	runs = append(runs, run{
 		name:   "sml",
-		skip:   func() *GameBoy { return loadROMModel(t, sml, ModelDMG) },
-		by:     func() *GameBoy { return loadROMModel(t, sml, ModelDMG) },
+		newGB:  func(t testing.TB) *GameBoy { return loadROMModel(t, sml, ModelDMG) }, // skipped without it
 		inputs: func(g *GameBoy, f int) { g.SetButton(ButtonStart, f >= 200 && f < 210) },
 	})
 	for _, r := range runs {
 		t.Run(r.name, func(t *testing.T) {
-			a, b := r.skip(), r.by()
+			a, b := r.newGB(t), r.newGB(t)
 			var sa, sb []byte
 			for f := range 400 {
 				r.inputs(a, f)

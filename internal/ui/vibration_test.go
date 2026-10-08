@@ -158,15 +158,14 @@ func TestVibrationMenu(t *testing.T) {
 	// The strength: a slider, at its top by default, that Left and Right
 	// move within its bounds and OK leaves alone; the test follows it.
 	g.menu.cursor = padStrength()
-	if v := g.menu.view(g); v.items[padStrength()] != "Strength  [========|]" || v.disabled[padStrength()] {
-		t.Errorf("strength entry %q, disabled %v", v.items[padStrength()], v.disabled[padStrength()])
+	if v := g.menu.view(g); v.items[padStrength()] != "Strength  "+sliderSpace || v.sliders[padStrength()] != 1 || v.disabled[padStrength()] {
+		t.Errorf("strength entry %q at %v, disabled %v", v.items[padStrength()], v.sliders[padStrength()], v.disabled[padStrength()])
 	}
 	for _, c := range []struct {
 		actions menuActions
 		want    int
 	}{
 		{menuActions{right: true}, 80}, // already at the top
-		{menuActions{ok: true}, 80},
 		{menuActions{left: true}, 75},
 		{menuActions{left: true}, 70},
 	} {
@@ -176,18 +175,26 @@ func TestVibrationMenu(t *testing.T) {
 			t.Errorf("%+v: strength %d, tab %v; want %d, not the tab", c.actions, g.cfg.VibrationStrength, g.menu.tab, c.want)
 		}
 	}
-	if v := g.menu.view(g); v.items[padStrength()] != "Strength  [======|--]" {
-		t.Errorf("strength entry %q at 70%%", v.items[padStrength()])
+	if v := g.menu.view(g); v.sliders[padStrength()] != 0.75 {
+		t.Errorf("slider at %v for 70%%, want 0.75", v.sliders[padStrength()])
 	}
 	for range 10 {
 		g.actions = menuActions{left: true}
 		g.menu.update(g)
 	}
-	if v := g.menu.view(g); g.cfg.VibrationStrength != minStrength || v.items[padStrength()] != "Strength  [|--------]" {
-		t.Errorf("at the bottom: strength %d, entry %q", g.cfg.VibrationStrength, v.items[padStrength()])
+	if v := g.menu.view(g); g.cfg.VibrationStrength != minStrength || v.sliders[padStrength()] != 0 {
+		t.Errorf("at the bottom: strength %d, slider at %v", g.cfg.VibrationStrength, v.sliders[padStrength()])
 	}
 	if cfg, err := LoadConfig(g.cfgPath); err != nil || cfg.VibrationStrength != minStrength {
 		t.Errorf("strength not saved: %d %v", cfg.VibrationStrength, err)
+	}
+	// OK on the slider tries the strength, as the test does, without
+	// moving it.
+	pads.vibrations = nil
+	g.actions = menuActions{ok: true}
+	g.menu.update(g)
+	if g.cfg.VibrationStrength != minStrength || len(pads.vibrations) != 1 || pads.vibrations[0] != (vibration{0, 0.4, 500 * time.Millisecond}) {
+		t.Errorf("OK on the slider: strength %d, vibrations %+v", g.cfg.VibrationStrength, pads.vibrations)
 	}
 	pads.vibrations = nil
 	g.menu.cursor = padTest()
@@ -205,8 +212,11 @@ func TestVibrationMenu(t *testing.T) {
 	g.menu.cursor = padStrength()
 	g.actions = menuActions{right: true}
 	g.menu.update(g)
-	if g.cfg.VibrationStrength != minStrength {
-		t.Errorf("vibrations off: strength moved to %d", g.cfg.VibrationStrength)
+	pads.vibrations = nil
+	g.actions = menuActions{ok: true}
+	g.menu.update(g)
+	if g.cfg.VibrationStrength != minStrength || len(pads.vibrations) != 0 {
+		t.Errorf("vibrations off: strength moved to %d, vibrations %+v", g.cfg.VibrationStrength, pads.vibrations)
 	}
 
 	g.menu.cursor = padDefaults()

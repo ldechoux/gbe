@@ -116,6 +116,11 @@ func (c *CPU) Step() {
 		}
 	}
 	if c.halted {
+		if c.bus.frameEnd != 0 {
+			if n := c.bus.quietTicks(); n > 0 {
+				c.bus.skipQuiet(n)
+			}
+		}
 		c.tick()
 		return
 	}

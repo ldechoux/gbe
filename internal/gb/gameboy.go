@@ -171,9 +171,11 @@ func (g *GameBoy) whitePalettes() {
 func (g *GameBoy) RunFrame() {
 	start := g.Bus.cycles
 	g.PPU.frameReady = false
+	g.Bus.frameEnd = start + CyclesPerFrame
 	for !g.PPU.frameReady && g.Bus.cycles-start < CyclesPerFrame {
 		g.CPU.Step()
 	}
+	g.Bus.frameEnd = 0
 	if g.Cart.rumble {
 		g.rumble = g.Cart.motorShare(start, g.Bus.cycles)
 	}

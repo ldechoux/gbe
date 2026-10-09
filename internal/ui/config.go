@@ -46,9 +46,14 @@ type Config struct {
 	Keys       map[string]ebiten.Key `json:"keys"` // button or action name -> key
 	// Gamepad maps button and action names to standard layout gamepad buttons.
 	Gamepad map[string]padButton `json:"gamepad"`
-	// Vibration makes the gamepads shake with the motor of rumble
-	// cartridges (Pokemon Pinball...).
-	Vibration bool `json:"vibration"`
+	// Vibration is when the gamepads shake (see vibrationModes): with the
+	// motor of rumble cartridges (Pokemon Pinball...), and in all games
+	// from the sounds of shocks.
+	Vibration string `json:"vibration"`
+	// VibrationStrength is how hard they shake, in percent of the full
+	// strength of the gamepad motors: minStrength to maxStrength, in steps
+	// of strengthStep.
+	VibrationStrength int `json:"vibration_strength"`
 	// Screenshot is the key combination that saves a PNG of the screen.
 	Screenshot Hotkey `json:"screenshot"`
 	// FastForwardSpeed is how many frames run per frame while fast forwarding.
@@ -82,6 +87,41 @@ const (
 )
 
 var ghostingModes = []string{ghostingOff, ghostingSimple, ghostingAccurate}
+
+// Vibration modes (Config.Vibration), in the order of the menu.
+const (
+	vibrationOff       = "off"
+	vibrationCartridge = "cartridge" // rumble cartridges only
+	vibrationAll       = "all"       // also the other games, from their sounds
+)
+
+var vibrationModes = []string{vibrationOff, vibrationCartridge, vibrationAll}
+
+// Bounds and step of Config.VibrationStrength. Under minStrength, small
+// motors barely move.
+const (
+	minStrength  = 40
+	maxStrength  = 80
+	strengthStep = 5
+)
+
+// loadVibration reads the vibration setting of a config file: one of
+// vibrationModes, or a boolean before the modes, on being the cartridges
+// only. Absent, it is the default.
+func loadVibration(raw json.RawMessage) string {
+	var on bool
+	if json.Unmarshal(raw, &on) == nil {
+		if on {
+			return vibrationCartridge
+		}
+		return vibrationOff
+	}
+	var mode string
+	if json.Unmarshal(raw, &mode) == nil && slices.Contains(vibrationModes, mode) {
+		return mode
+	}
+	return vibrationCartridge
+}
 
 // ghostMode is the scaler mode of a Config.Ghosting value.
 func ghostMode(mode string) scaler.GhostMode {
@@ -149,22 +189,23 @@ func defaultKeys() map[string]ebiten.Key {
 // DefaultConfig returns the out-of-the-box settings.
 func DefaultConfig() *Config {
 	return &Config{
-		Palette:          Palettes[0].ID,
-		ColorCorrection:  true,
-		Vibration:        true,
-		Language:         i18n.Default,
-		Scale:            4,
-		Filter:           scaler.Filters[0].ID,
-		Ghosting:         ghostingOff,
-		Volume:           0.8,
-		Stereo:           audiofx.Stereo,
-		AudioFilter:      audiofx.Off,
-		MenuSounds:       true,
-		Keys:             defaultKeys(),
-		Gamepad:          defaultPad(),
-		Screenshot:       defaultScreenshotHotkey(),
-		FastForwardSpeed: 4,
-		CompatPalettes:   map[string]string{},
+		Palette:           Palettes[0].ID,
+		ColorCorrection:   true,
+		Vibration:         vibrationCartridge,
+		VibrationStrength: maxStrength,
+		Language:          i18n.Default,
+		Scale:             4,
+		Filter:            scaler.Filters[0].ID,
+		Ghosting:          ghostingOff,
+		Volume:            0.8,
+		Stereo:            audiofx.Stereo,
+		AudioFilter:       audiofx.Off,
+		MenuSounds:        true,
+		Keys:              defaultKeys(),
+		Gamepad:           defaultPad(),
+		Screenshot:        defaultScreenshotHotkey(),
+		FastForwardSpeed:  4,
+		CompatPalettes:    map[string]string{},
 	}
 }
 
@@ -193,10 +234,11 @@ func LoadConfig(path string) (*Config, error) {
 		Screenshot      *Hotkey `json:"screenshot"`       // nil when absent
 		ColorCorrection *bool   `json:"color_correction"` // same
 		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
-		Vibration       *bool   `json:"vibration"`        // same
 		MenuSounds      *bool   `json:"menu_sounds"`      // same
 		// A string, or a boolean before the ghosting modes: on was simple.
 		Ghosting json.RawMessage `json:"ghosting"`
+		// A string, or a boolean before the vibration modes.
+		Vibration json.RawMessage `json:"vibration"`
 	}
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return cfg, err
@@ -211,7 +253,10 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.ColorizeDMG = *loaded.ColorizeDMG
 	}
 	if loaded.Vibration != nil {
-		cfg.Vibration = *loaded.Vibration
+		cfg.Vibration = loadVibration(loaded.Vibration)
+	}
+	if s := loaded.VibrationStrength; s >= minStrength && s <= maxStrength && s%strengthStep == 0 {
+		cfg.VibrationStrength = s
 	}
 	if loaded.MenuSounds != nil {
 		cfg.MenuSounds = *loaded.MenuSounds

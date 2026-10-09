@@ -324,11 +324,24 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 ### Vibrations
 
 Les cartouches vibrantes (Pokémon Pinball, Perfect Dark, Top Gear Rally…) font vibrer la
-manette. La force suit celle du moteur de la cartouche, que le jeu fait varier. Les autres jeux
-ne font jamais vibrer.
+manette. La force suit celle du moteur de la cartouche, que le jeu fait varier.
 
-L'entrée **Vibrations** de l'onglet Manette les active ou les coupe (activées par défaut), et
-**Tester la vibration** fait vibrer la manette une demi-seconde.
+Les autres jeux peuvent aussi faire vibrer la manette, comme dans SameBoy : gbe devine les chocs
+d'après le son joué. Un bruit grave et fort (explosion, impact) ou une fréquence qui glisse vite
+(tir, chute) fait vibrer, d'autant plus fort que le son est fort, et la vibration s'éteint avec
+le son. La musique ne fait pas vibrer, sauf parfois une percussion grave.
+
+L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée) :
+
+| Valeur | Effet |
+|---|---|
+| non | Jamais |
+| cartouches Rumble | Seulement avec les cartouches à moteur (par défaut) |
+| tous les jeux | Aussi dans les autres jeux, d'après leurs sons |
+
+L'entrée **Intensité** règle leur force avec un curseur (←/→), du plus doux au plus fort (par
+défaut). Elle est grisée quand les vibrations sont coupées. Valider sur le curseur (A ou Entrée),
+comme **Tester la vibration**, fait vibrer la manette une demi-seconde à cette intensité.
 
 gbe ne peut pas toujours savoir si une manette vibre. Il le sait sous Windows : seules les
 manettes XInput (Xbox et compatibles) y vibrent, et les entrées sont grisées pour les autres.

@@ -257,8 +257,9 @@ type rumbler struct {
 // update follows share, the part of this tick's frames during which the
 // motor ran. Games set its strength by running it part of the time, often
 // every other frame: two ticks are averaged. Small motors barely move under
-// a quarter of their strength, hence the floor.
-func (r *rumbler) update(pads padReader, enabled bool, share float64) {
+// a quarter of their strength, hence the floor. scale is the share of the
+// full strength of the gamepads used (Config.VibrationStrength / 100).
+func (r *rumbler) update(pads padReader, enabled bool, share, scale float64) {
 	level := (r.last + share) / 2
 	r.last = share
 	if !enabled || level == 0 {
@@ -267,7 +268,7 @@ func (r *rumbler) update(pads padReader, enabled bool, share float64) {
 	}
 	for _, id := range pads.ids() {
 		if pads.canVibrate(id) {
-			pads.vibrate(id, 0.25+0.75*level, rumbleHold)
+			pads.vibrate(id, (0.25+0.75*level)*scale, rumbleHold)
 		}
 	}
 	r.on = true
@@ -287,11 +288,12 @@ func (r *rumbler) stop(pads padReader) {
 	r.on = false
 }
 
-// testVibration shakes the gamepads at full strength for half a second.
-func testVibration(pads padReader) {
+// testVibration shakes the gamepads for half a second, at scale of their
+// full strength (Config.VibrationStrength / 100).
+func testVibration(pads padReader, scale float64) {
 	for _, id := range pads.ids() {
 		if pads.canVibrate(id) {
-			pads.vibrate(id, 1, 500*time.Millisecond)
+			pads.vibrate(id, scale, 500*time.Millisecond)
 		}
 	}
 }

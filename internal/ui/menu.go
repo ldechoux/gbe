@@ -213,9 +213,10 @@ func controlsBack() int       { return len(bindingNames()) + 2 }
 
 // Gamepad tab layout: one entry per button and action, then these.
 func padVibration() int { return len(bindingNames()) }
-func padTest() int      { return len(bindingNames()) + 1 }
-func padDefaults() int  { return len(bindingNames()) + 2 }
-func padBack() int      { return len(bindingNames()) + 3 }
+func padStrength() int  { return len(bindingNames()) + 1 }
+func padTest() int      { return len(bindingNames()) + 2 }
+func padDefaults() int  { return len(bindingNames()) + 3 }
+func padBack() int      { return len(bindingNames()) + 4 }
 
 // padVibrates reports whether the gamepad shown on the Gamepad tab, the
 // first one, may vibrate: otherwise its vibration entries are greyed out.
@@ -448,7 +449,11 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 func (m *menu) adjust(g *Game, delta int) {
 	if m.page == pageControls {
 		if m.tab == tabPad && m.cursor == padVibration() {
-			m.toggleVibration(g)
+			m.cycleVibration(g, delta)
+			return
+		}
+		if m.tab == tabPad && m.cursor == padStrength() {
+			m.stepStrength(g, delta)
 			return
 		}
 		m.switchTab(g, delta)
@@ -496,7 +501,7 @@ func (m *menu) adjustSounding(g *Game, delta int) {
 		g.menuSound(menusound.Move)
 	case after != before:
 		g.menuSound(menusound.Change)
-	case strings.Contains(before, "<"), m.page == pageControls && m.tab == tabPad && m.cursor == padVibration():
+	case strings.Contains(before, "<"), m.page == pageControls && m.tab == tabPad && (m.cursor == padVibration() || m.cursor == padStrength()):
 		g.menuSound(menusound.Refuse)
 	}
 }
@@ -506,6 +511,9 @@ func (m *menu) selectedText(g *Game) string {
 	v := m.view(g)
 	if v.selected < 0 || v.selected >= len(v.items) {
 		return ""
+	}
+	if pos, ok := v.sliders[v.selected]; ok {
+		return fmt.Sprintf("%s%.3f", v.items[v.selected], pos)
 	}
 	return v.items[v.selected]
 }
@@ -565,12 +573,29 @@ func cycle(ids []string, id string, delta int) string {
 	return ids[(i+delta%n+n)%n]
 }
 
-// toggleVibration turns the gamepad vibrations on or off.
-func (m *menu) toggleVibration(g *Game) {
+// cycleVibration moves to the vibration mode delta places after the current
+// one.
+func (m *menu) cycleVibration(g *Game, delta int) {
 	if padVibrates(g) {
-		g.cfg.Vibration = !g.cfg.Vibration
+		g.cfg.Vibration = cycle(vibrationModes, g.cfg.Vibration, delta)
 		g.saveConfig()
 	}
+}
+
+// stepStrength moves the vibration strength delta steps, within its bounds,
+// while the gamepad vibrates.
+func (m *menu) stepStrength(g *Game, delta int) {
+	if padVibrates(g) && g.cfg.Vibration != vibrationOff {
+		s := g.cfg.VibrationStrength + delta*strengthStep
+		g.cfg.VibrationStrength = max(minStrength, min(maxStrength, s))
+		g.saveConfig()
+	}
+}
+
+// strengthPosition is where the vibration strength is on its slider, from
+// 0 at minStrength to 1 at maxStrength.
+func strengthPosition(strength int) float64 {
+	return float64(strength-minStrength) / (maxStrength - minStrength)
 }
 
 // switchTab moves between the Keyboard and Gamepad tabs. The latter is only
@@ -631,18 +656,19 @@ func (m *menu) activate(g *Game) {
 			g.menuSound(menusound.Enter)
 			m.capturing = true
 		case m.cursor == padVibration():
-			m.adjustSounding(g, 1) // toggles the vibrations
-		case m.cursor == padTest():
-			if padVibrates(g) {
+			m.adjustSounding(g, 1) // OK cycles like Right
+		case m.cursor == padTest(), m.cursor == padStrength(): // OK on the slider tries it, without moving it
+			if padVibrates(g) && (m.cursor == padTest() || g.cfg.Vibration != vibrationOff) {
 				g.menuSound(menusound.Enter)
-				testVibration(g.pads)
+				testVibration(g.pads, float64(g.cfg.VibrationStrength)/100)
 			} else {
 				g.menuSound(menusound.Refuse)
 			}
 		case m.cursor == padDefaults():
 			g.menuSound(menusound.Enter)
 			g.cfg.Gamepad = defaultPad()
-			g.cfg.Vibration = true
+			def := DefaultConfig()
+			g.cfg.Vibration, g.cfg.VibrationStrength = def.Vibration, def.VibrationStrength
 			g.saveConfig()
 		default:
 			g.menuSound(menusound.Back)
@@ -752,8 +778,11 @@ type menuView struct {
 	tabs     []menuTab
 	items    []string
 	disabled map[int]bool // items drawn greyed out
-	selected int          // highlighted item
-	footer   string       // one line or more
+	// sliders has the position, from 0 to 1, of the items that end with a
+	// slider: their text ends with sliderSpace, where it is drawn.
+	sliders  map[int]float64
+	selected int    // highlighted item
+	footer   string // one line or more
 	// altItems and altFooters are the other entries and footers the page
 	// may show as its settings and selection change: the panel keeps the
 	// size of the largest, instead of changing as the player goes through
@@ -770,7 +799,7 @@ func (m *menu) view(g *Game) menuView {
 			{label: l.T("controls.gamepad"), active: m.tab == tabPad, disabled: !connected},
 		}}
 		if m.tab == tabPad {
-			v.items, v.disabled, v.footer = m.padLines(g, name, family)
+			v.items, v.disabled, v.sliders, v.footer = m.padLines(g, name, family)
 		} else {
 			v.items, v.footer = m.keyboardLines(g)
 		}
@@ -808,7 +837,7 @@ func (m *menu) view(g *Game) menuView {
 	return v
 }
 
-func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, disabled map[int]bool, footer string) {
+func (m *menu) padLines(g *Game, name string, family padFamily) (items []string, disabled map[int]bool, sliders map[int]float64, footer string) {
 	l := g.tr()
 	for i, name := range bindingNames() {
 		btn := padLabel(l, family, g.cfg.Gamepad[name])
@@ -818,12 +847,16 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 		items = append(items, fmt.Sprintf("%-8s %s", bindingLabel(l, name), btn))
 	}
 	vibrates := padVibrates(g)
-	state := onOff(l, g.cfg.Vibration)
+	vibration := l.T("controls.vibration_mode", l.T("vibration."+g.cfg.Vibration))
 	if !vibrates {
-		state = l.T("controls.unavailable")
-		disabled = map[int]bool{padVibration(): true, padTest(): true}
+		vibration = l.T("controls.vibration") + "  " + l.T("controls.unavailable")
+		disabled = map[int]bool{padVibration(): true, padStrength(): true, padTest(): true}
+	} else if g.cfg.Vibration == vibrationOff {
+		disabled = map[int]bool{padStrength(): true}
 	}
-	items = append(items, l.T("controls.vibration")+"  "+state, l.T("controls.vibration_test"),
+	strength := l.T("controls.vibration_strength", sliderSpace)
+	sliders = map[int]float64{padStrength(): strengthPosition(g.cfg.VibrationStrength)}
+	items = append(items, vibration, strength, l.T("controls.vibration_test"),
 		l.T("controls.defaults"), l.T("controls.back"))
 	if len(name) > 32 {
 		name = name[:31] + "."
@@ -837,7 +870,7 @@ func (m *menu) padLines(g *Game, name string, family padFamily) (items []string,
 	case !vibrates && disabled[m.cursor]:
 		footer = l.T("controls.no_vibration")
 	}
-	return items, disabled, footer
+	return items, disabled, sliders, footer
 }
 
 func (m *menu) keyboardLines(g *Game) (items []string, footer string) {
@@ -1157,6 +1190,10 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 			s = "  " + s
 		}
 		drawText(dst, s, x+pad, ty, scale, fg)
+		if pos, ok := v.sliders[l.first+i]; ok && strings.HasSuffix(s, sliderSpace) {
+			sx := x + pad + advance(strings.TrimSuffix(s, sliderSpace))*scale
+			drawSlider(dst, sx, ty, scale, pos, fg)
+		}
 		// More entries above or below: a small arrow at the right.
 		if (i == 0 && l.above) || (i == len(l.items)-1 && l.below) {
 			drawScrollArrow(dst, x+w-pad/2-5*scale, ty+3*scale, scale, i == 0, fg)
@@ -1167,6 +1204,31 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 		drawText(dst, line, x+pad, ty+lineH*0.5, scale, pal[2])
 		ty += lineH
 	}
+}
+
+// sliderSpace is the room an entry leaves for its slider, at its end.
+const sliderSpace = "          "
+
+// Slider geometry, in pixels at scale 1: its track starts sliderInset
+// pixels into sliderSpace and is sliderTrack long, a multiple of the steps
+// of the vibration strength so that each falls on a whole pixel.
+const (
+	sliderInset = 3
+	sliderTrack = 64
+)
+
+// drawSlider draws a slider at pos (0 to 1) in the sliderSpace starting at
+// x, on the line of text at y: a thin track, thicker up to the handle,
+// with end caps, and the handle, all in c.
+func drawSlider(dst *ebiten.Image, x, y, scale, pos float64, c color.Color) {
+	x0 := x + sliderInset*scale
+	mid := y + 6*scale // middle of the 13 pixel high text line
+	knob := math.Round(pos * sliderTrack)
+	fillRect(dst, x0, mid, sliderTrack*scale, scale, c)                 // track
+	fillRect(dst, x0, mid-scale, knob*scale, 3*scale, c)                // filled part
+	fillRect(dst, x0-scale, mid-2*scale, scale, 5*scale, c)             // end caps
+	fillRect(dst, x0+sliderTrack*scale, mid-2*scale, scale, 5*scale, c) //
+	fillRect(dst, x0+(knob-1)*scale, mid-4*scale, 3*scale, 9*scale, c)  // handle
 }
 
 // drawScrollArrow draws a small triangle pointing up or down, 5 pixels

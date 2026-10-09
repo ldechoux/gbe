@@ -62,7 +62,7 @@ func TestMenuNavigation(t *testing.T) {
 		{"sound", pageSound, tabKeyboard, soundItems},
 		{"start", pageStart, tabKeyboard, startItems},
 		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
-		{"gamepad", pageControls, tabPad, len(bindingNames()) + 4}, // vibration, test, defaults, back
+		{"gamepad", pageControls, tabPad, len(bindingNames()) + 5}, // vibration, strength, test, defaults, back
 		{"recent", pageRecent, tabKeyboard, 3},                     // two games and back
 	} {
 		m := menu{page: c.page, tab: c.tab}

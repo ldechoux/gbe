@@ -565,14 +565,27 @@ func (g *Game) advance(fast, rewind bool) {
 		g.oddFrame = !g.oddFrame
 		g.fps.frame()
 		g.rewind.record(g.gb)
-		rumble += g.gb.Rumble()
+		rumble += g.frameRumble()
 	}
 	samples := g.gb.APU.DrainSamples()
 	if g.fx != nil {
 		g.fx.Process(samples) // in place: the APU fills the slice again next frame
 	}
 	g.stream.push(samples)
-	g.rumble.update(g.pads, g.cfg.Vibration, rumble/float64(n))
+	g.rumble.update(g.pads, g.cfg.Vibration != vibrationOff, rumble/float64(n), float64(g.cfg.VibrationStrength)/100)
+}
+
+// frameRumble is how hard the gamepads shake for the last frame: with the
+// motor of the cartridge, or, for the other games when the setting allows
+// it, from the sounds of shocks.
+func (g *Game) frameRumble() float64 {
+	switch {
+	case g.gb.HasMotor():
+		return g.gb.Rumble()
+	case g.cfg.Vibration == vibrationAll:
+		return g.gb.SoundRumble()
+	}
+	return 0
 }
 
 // keepPrevious keeps the current frame of the console as the previous one,

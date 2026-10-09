@@ -38,8 +38,9 @@ func main() {
 	inputs := flag.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
 	wav := flag.String("wav", "", "headless mode: record the audio to this WAV file (with -stereo and -audio-filter only, not the config)")
 	showVersion := flag.Bool("version", false, "print the version and exit")
-	rumbleRecord := flag.String("rumble-record", "", "development: record stretches of play in this folder, with Space to mark the shocks that should shake, to tune the rumble detector with tools/rumblelab")
+	rumbleRecord := flag.String("rumble-record", "", "development: record stretches of play in this folder, to tune the rumble detector (tools/rumblelab, -rumble-tune)")
 	rumbleDebug := flag.Bool("rumble-debug", false, "development: show what the rumble detector hears")
+	rumbleTune := flag.String("rumble-tune", "", "development: run this tuning session of the rumble detector, comparing its settings on recorded play")
 	flag.Parse()
 
 	if *showVersion {
@@ -129,6 +130,7 @@ func main() {
 		ScreenshotDir: *shotDir,
 		RumbleRecord:  *rumbleRecord,
 		RumbleDebug:   *rumbleDebug,
+		RumbleTune:    *rumbleTune,
 		// A dropped game opens with the same -model and -bios.
 		Open: func(path string, colorize bool) (*rom.Game, error) {
 			o := opts

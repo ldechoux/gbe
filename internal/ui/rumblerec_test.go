@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// A recording keeps the state it starts from, the buttons of each frame and
-// the marks; a jump in time starts another.
+// A recording keeps the state it starts from and the buttons of each
+// frame; a jump in time starts another.
 func TestRumbleRecorder(t *testing.T) {
 	dir := t.TempDir()
 	g := withGameBoy(t, newTestGame(t, newFakePads()), 0x18, 0xFE) // JR -2
@@ -19,9 +19,6 @@ func TestRumbleRecorder(t *testing.T) {
 		g.down = [8]bool{}
 		g.down[4] = f >= 10 && f < 20 // A
 		g.down[3] = f >= 15           // Right
-		if f == 50 {
-			g.recorder.mark()
-		}
 		g.advance(false, false)
 	}
 	// Back in time: the first stretch is written, and another begins.
@@ -44,12 +41,11 @@ func TestRumbleRecorder(t *testing.T) {
 	var rec struct {
 		ROM, State, Input string
 		Frames            int
-		Marks             []int
 	}
 	if err := json.Unmarshal(data, &rec); err != nil {
 		t.Fatal(err)
 	}
-	if rec.ROM != "/games/test.gb" || rec.Frames != 100 || rec.Input != "a:10-20,right:15-100" || len(rec.Marks) != 1 || rec.Marks[0] != 50 {
+	if rec.ROM != "/games/test.gb" || rec.Frames != 100 || rec.Input != "a:10-20,right:15-100" {
 		t.Errorf("recording %+v", rec)
 	}
 	if _, err := os.Stat(filepath.Join(dir, rec.State)); err != nil || filepath.Base(rec.State) != rec.State {

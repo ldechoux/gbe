@@ -13,9 +13,8 @@ import (
 )
 
 // A rumble recording keeps a stretch of play, to tune the rumble detector
-// with tools/rumblelab (-rumble-record): the save state it starts from, the
-// buttons held on each frame, and the frames the player marked (Space) as
-// shocks that should shake. A stretch ends when the game jumps in time
+// with tools/rumblelab and gbe -rumble-tune (-rumble-record): the save state
+// it starts from and the buttons held on each frame. A stretch ends when the game jumps in time
 // (rewind, state loaded, reset), another game opens or gbe quits.
 
 // recording is a stretch of play being recorded.
@@ -28,7 +27,6 @@ type recording struct {
 	console *gb.GameBoy
 	held    [8]int // frame each button was pressed on, -1 if released
 	presses []string
-	marks   []int
 }
 
 // rumbleRecorder writes the recordings in dir.
@@ -71,13 +69,6 @@ func (r *rumbleRecorder) press(i int, down bool) {
 	}
 }
 
-// mark notes that the frame being played should shake.
-func (r *rumbleRecorder) mark() {
-	if r.rec != nil {
-		r.rec.marks = append(r.rec.marks, r.rec.frames)
-	}
-}
-
 // finish writes the recording, if any: name.state and name.json.
 func (r *rumbleRecorder) finish() {
 	rec := r.rec
@@ -100,7 +91,7 @@ func (r *rumbleRecorder) finish() {
 	base := filepath.Join(r.dir, name)
 	data, err := json.MarshalIndent(map[string]any{
 		"rom": rec.rom, "state": name + ".state", "frames": rec.frames,
-		"input": strings.Join(rec.presses, ","), "marks": rec.marks,
+		"input": strings.Join(rec.presses, ","),
 	}, "", "  ")
 	if err == nil {
 		err = os.MkdirAll(r.dir, 0o755)
@@ -115,5 +106,5 @@ func (r *rumbleRecorder) finish() {
 		log.Printf("rumble recording: %v", err)
 		return
 	}
-	log.Printf("rumble recording: %s.json, %d frames, %d marks", base, rec.frames, len(rec.marks))
+	log.Printf("rumble recording: %s.json, %d frames", base, rec.frames)
 }

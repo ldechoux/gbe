@@ -36,6 +36,10 @@ type GameBoy struct {
 	boot   []byte
 	rumble float64         // see Rumble
 	guess  *rumbleDetector // see GuessRumble, nil while off
+	// rumbleParams are the settings of the detector, once rumbleTuned
+	// (see SetRumbleParams).
+	rumbleParams RumbleParams
+	rumbleTuned  bool
 }
 
 // New creates a Game Boy running the given cartridge, on a CGB if the game

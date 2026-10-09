@@ -418,17 +418,34 @@ Un mode sans fenêtre sert au débogage :
 
 ### Régler les vibrations de tous les jeux
 
-Le détecteur de chocs (`internal/gb/rumbledetect.go`) se règle sur de vraies parties :
+Le détecteur de chocs (`internal/gb/rumbledetect.go`) se règle sur de vraies parties, au
+ressenti :
 
-- `gbe -rumble-debug` affiche en bas de l'écran la force de la vibration et la dernière note
-  des voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et sa force.
-- `gbe -rumble-record dossier` enregistre les moments joués, chacun avec l'état de départ, les
-  boutons de chaque image et les repères posés avec **Espace** quand un choc devrait vibrer. Un
-  moment se termine au rembobinage, au chargement d'un état, à la réinitialisation ou en
-  quittant.
-- `tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des
-  boutons scriptés. Il écrit une page avec les notes de chaque voie, la vibration devinée, les
-  repères, le moteur des cartouches Rumble (référence : Pokémon Pinball), l'écran et le son :
+1. `gbe -rumble-record dossier` enregistre les moments joués, chacun avec l'état de départ et
+   les boutons de chaque image. Un moment se termine au rembobinage, au chargement d'un état, à
+   la réinitialisation ou en quittant.
+2. `gbe -rumble-tune séance.json` compare des réglages du détecteur (`gb.RumbleParams`) sur
+   des extraits de ces moments. Chaque extrait est rejoué deux fois, avec deux réglages tirés
+   dans un ordre au hasard, la manette vibrant comme en jeu. On regarde seulement, puis on
+   répond : **←** la version 1 vibrait mieux, **→** la version 2, **↓** pareil, **B** pour revoir.
+   On dit ensuite si la version choisie vibrait pas assez (**←**), bien (**A**) ou trop (**→**).
+   Les réponses s'ajoutent à `séance-answers.json`, et une séance interrompue reprend là où elle
+   s'était arrêtée.
+
+```json
+{
+  "variants": {"base": {}, "sensible": {"floor": 0.1}},
+  "pairs": [{"clip": "ZELDA-20261010-153000.json", "from": 600, "to": 1500, "a": "base", "b": "sensible"}]
+}
+```
+
+`gbe -rumble-debug` affiche en bas de l'écran la force de la vibration et la dernière note des
+voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et sa force.
+
+`tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des boutons
+scriptés, avec les réglages par défaut ou ceux de `-params`. Il écrit une page avec les notes de
+chaque voie, la vibration devinée, le moteur des cartouches Rumble (référence : Pokémon
+Pinball), l'écran et le son :
 
 ```sh
 go run ./tools/rumblelab -out /tmp/lab dossier/ZELDA-20261010-153000.json

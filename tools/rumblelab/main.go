@@ -9,7 +9,8 @@
 //
 // The game starts from its save state (game.state next to it) when there is
 // one. A recording made with gbe -rumble-record replays a stretch of play
-// instead, with the frames the player marked as shocks. The game also runs a second time without pressing anything: the notes that
+// instead. -params runs the detector with other settings (a JSON file of
+// gb.RumbleParams). The game also runs a second time without pressing anything: the notes that
 // the buttons did not change are the music and the sounds of the game
 // itself, those that only the first run plays answer the player. The page
 // marks them, which tells how well the detector separates music from
@@ -133,7 +134,6 @@ type recording struct {
 	State  string `json:"state"`
 	Frames int    `json:"frames"`
 	Input  string `json:"input"`
-	Marks  []int  `json:"marks"`
 }
 
 // note is a note on the page.
@@ -154,10 +154,9 @@ type run struct {
 	motor   []float64 // of a rumble cartridge, per frame
 	samples []int16   // mono
 	thumbs  []image.Image
-	marks   []int // frames the player marked as shocks
 }
 
-func play(path, state string, frames int, buttons buttonsAt, record bool) (*run, error) {
+func play(path, state string, frames int, buttons buttonsAt, params gb.RumbleParams, record bool) (*run, error) {
 	game, err := rom.Open(path, rom.Options{Model: gb.ModelAuto, BootROM: "none", Fresh: state != ""})
 	if err != nil {
 		return nil, err
@@ -173,6 +172,7 @@ func play(path, state string, frames int, buttons buttonsAt, record bool) (*run,
 	}
 	g.APU.SetSampleRate(sampleRate)
 	g.GuessRumble(true)
+	g.SetRumbleParams(params)
 	g.TraceRumble(true)
 	start := float64(-1)
 	r := &run{}
@@ -258,14 +258,24 @@ func main() {
 	frames := flag.Int("frames", 3600, "frames to run (60 s)")
 	script := flag.String("buttons", "right:180/240,a:12/40,b:5/90", "buttons held: name:held/period,...")
 	out := flag.String("out", "rumblelab", "folder for the page")
+	paramsFile := flag.String("params", "", "settings of the detector: a JSON file of gb.RumbleParams, missing ones at their default")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		flag.Usage()
 		os.Exit(2)
 	}
 	path, state, name := flag.Arg(0), "", filepath.Base(flag.Arg(0))
+	params := gb.DefaultRumbleParams()
+	if *paramsFile != "" {
+		data, err := os.ReadFile(*paramsFile)
+		if err == nil {
+			err = json.Unmarshal(data, &params)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	var buttons buttonsAt
-	var marks []int
 	if strings.HasSuffix(path, ".json") {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -279,7 +289,7 @@ func main() {
 			log.Fatal(err)
 		}
 		state = filepath.Join(filepath.Dir(path), rec.State)
-		path, *frames, marks = rec.ROM, rec.Frames, rec.Marks
+		path, *frames = rec.ROM, rec.Frames
 	} else {
 		ps, err := parseButtons(*script)
 		if err != nil {
@@ -287,12 +297,11 @@ func main() {
 		}
 		buttons = scripted(ps)
 	}
-	r, err := play(path, state, *frames, buttons, true)
+	r, err := play(path, state, *frames, buttons, params, true)
 	if err != nil {
 		log.Fatal(err)
 	}
-	r.marks = marks
-	quiet, err := play(path, state, *frames, func(int) [8]bool { return [8]bool{} }, false)
+	quiet, err := play(path, state, *frames, func(int) [8]bool { return [8]bool{} }, params, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -357,19 +366,6 @@ func summary(w *os.File, r *run) {
 	if motor > 0 {
 		fmt.Fprintf(w, "motor: %d frames, %d of them with a guessed vibration within 3 frames\n", motor, both)
 	}
-	// A mark comes a little after the shock: the player reacts.
-	felt := 0
-	for _, m := range r.marks {
-		for f := max(0, m-45); f <= m && f < len(r.level); f++ {
-			if r.level[f] > 0 {
-				felt++
-				break
-			}
-		}
-	}
-	if len(r.marks) > 0 {
-		fmt.Fprintf(w, "marks: %d, %d of them with a guessed vibration in the 0.75 s before\n", len(r.marks), felt)
-	}
 }
 
 // write writes the page, its sound and its thumbnails in dir.
@@ -407,7 +403,7 @@ func write(dir, name, script string, r *run) error {
 		return err
 	}
 	data, err := json.Marshal(map[string]any{
-		"name": name, "script": script, "notes": r.notes, "level": r.level, "motor": r.motor, "marks": r.marks,
+		"name": name, "script": script, "notes": r.notes, "level": r.level, "motor": r.motor,
 		"thumbEvery": thumbEvery, "thumbCols": thumbCols, "tw": tw, "th": th,
 	})
 	if err != nil {
@@ -443,8 +439,7 @@ canvas{display:block}
 <span class="k" style="background:#d02020"></span>shock (height: strength)
 <span class="k" style="border:2px solid #2060f0;box-sizing:border-box"></span>answers the buttons
 <span class="k" style="background:#2a9d3a"></span>guessed vibration
-<span class="k" style="background:#7a3fc0"></span>cartridge motor
-<span class="k" style="background:#2060f0;clip-path:polygon(50% 100%,0 0,100% 0)"></span>marked by the player</p>
+<span class="k" style="background:#7a3fc0"></span>cartridge motor</p>
 <p>Click the timeline to go there. Hover a note for its registers.</p>
 <div id="info"></div></div></div>
 <div id="wrap"><canvas id="c"></canvas></div>
@@ -472,7 +467,6 @@ function draw(cursor) {
     if (D.motor[f] > 0) { x.fillStyle = '#7a3fc0'; x.fillRect(f * px, base - 100 - 8, px, 8 * D.motor[f]); }
     x.fillStyle = '#2a9d3a'; x.fillRect(f * px, base - 90 * D.level[f], px, 90 * D.level[f]);
   }
-  for (const m of D.marks || []) { x.fillStyle = '#2060f0'; x.beginPath(); x.moveTo(m * px, H - 2); x.lineTo(m * px - 6, H - 12); x.lineTo(m * px + 6, H - 12); x.fill(); }
   x.fillStyle = '#000'; x.fillRect(cursor * px, 0, 1, H);
 }
 const audio = document.getElementById('audio'), shot = document.getElementById('shot'), info = document.getElementById('info');

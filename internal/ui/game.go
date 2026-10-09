@@ -63,6 +63,9 @@ type Options struct {
 	// RumbleDebug shows what the rumble detector hears, at the top of the
 	// screen.
 	RumbleDebug bool
+	// RumbleTune, when set, is a tuning session to run instead of a game
+	// (see tuner).
+	RumbleTune string
 }
 
 // Game implements ebiten.Game.
@@ -153,6 +156,7 @@ type Game struct {
 	// detector hears.
 	down        [8]bool
 	recorder    *rumbleRecorder
+	tune        *tuner // nil unless -rumble-tune
 	rumbleDebug bool
 	lastNote    gb.RumbleNote // of channel 1 or 4, for rumbleDebug
 	rewindTick  int           // ticks spent rewinding, which steps back every other tick
@@ -215,6 +219,12 @@ func Run(opts Options) error {
 
 	if opts.RumbleRecord != "" {
 		g.recorder = &rumbleRecorder{dir: opts.RumbleRecord}
+	}
+	if opts.RumbleTune != "" {
+		if g.tune, err = loadTuner(opts.RumbleTune); err != nil {
+			return err
+		}
+		cfg.Vibration = vibrationAll // for this session only: the config is not saved
 	}
 
 	ctx := audio.NewContext(sampleRate)
@@ -502,6 +512,13 @@ func (g *Game) Update() error {
 		g.toggleFullscreen()
 	}
 	g.actions = keyboardActions(g.staleKeys).or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
+	if g.tune != nil {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.quit = true
+		}
+		g.tune.update(g)
+		return nil
+	}
 	if g.menu.open {
 		g.rumble.stop(g.pads) // the game is paused
 		g.menu.update(g)
@@ -537,11 +554,6 @@ func (g *Game) Update() error {
 		k := g.cfg.Key(b)
 		g.down[i] = (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b]
 		g.gb.SetButton(b, g.down[i])
-	}
-	// Space: the same key on every keyboard layout.
-	if g.recorder != nil && inpututil.IsKeyJustPressed(ebiten.KeySpace) && !g.cfg.bound(ebiten.KeySpace) {
-		g.recorder.mark()
-		g.notify("rumble mark")
 	}
 	g.applyCompatChoice()
 	g.advance(g.held(actionFastForward), g.held(actionRewind))
@@ -714,6 +726,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if badge := g.speedBadge(); badge != "" && !g.menu.open {
 		drawBadge(screen, badge, g.menuPalette())
+	}
+	if g.tune != nil {
+		drawBox(screen, g.tune.text(), g.menuPalette(), false)
 	}
 	if g.rumbleDebug && g.gb != nil && !g.menu.open {
 		drawBox(screen, rumbleDebugText(g.gb.GuessedRumble(), g.lastNote), g.menuPalette(), false)

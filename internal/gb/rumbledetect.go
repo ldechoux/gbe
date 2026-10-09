@@ -35,16 +35,36 @@ type RumbleNote struct {
 	Shock   float64 // how hard it shakes, from 0 to 1, after Music
 }
 
+// RumbleParams are the settings of the rumble detector a player would feel,
+// to tune it (see DefaultRumbleParams).
+type RumbleParams struct {
+	Floor    float64 `json:"floor"`    // a weaker shock, from 0 to 1, does not shake
+	Gain     float64 `json:"gain"`     // shocks are scored, then multiplied by it
+	Music    float64 `json:"music"`    // a note this likely music, from 0 to 1, never shakes
+	Duration float64 `json:"duration"` // how long pulses last, 1 for pulseMinHold to pulseMaxHold
+	Sweeps   float64 `json:"sweeps"`   // weight of the channel 1 sweeps against the noise
+}
+
+// DefaultRumbleParams are the settings the detector runs with unless told
+// otherwise.
+func DefaultRumbleParams() RumbleParams {
+	return RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8}
+}
+
+// SetRumbleParams changes the settings of the rumble detector.
+func (g *GameBoy) SetRumbleParams(p RumbleParams) {
+	g.rumbleParams = p
+	g.rumbleTuned = true
+}
+
 // Detector settings, in frames and from 0 to 1.
 const (
 	sigHalfLife   = 30 * 60 // how fast notes heard long ago are forgotten
 	regularTol    = 0.75    // how far from a former interval a regular one may be
 	regularShare  = 0.03    // or, for long ones, this share of it
-	pulseMinHold  = 4       // frames a pulse lasts at least (about 67 ms)
+	pulseMinHold  = 4       // frames a pulse lasts at least (about 67 ms), at Duration 1
 	pulseMaxHold  = 30      // and at most (half a second)
-	shockFloor    = 0.2     // a weaker shock does not shake
 	burstPerFrame = 0.5     // notes of one kind per frame beyond which they are a buzz, not shocks
-	shockGain     = 1.6     // so that the loudest, lowest, longest noises shake at full strength
 )
 
 // noteSig identifies an instrument: the registers of a note but its pitch on
@@ -128,6 +148,19 @@ func (g *GameBoy) DrainRumbleNotes() []RumbleNote {
 
 func (d *rumbleDetector) attach() { d.g.APU.watch = d.write }
 
+// params are the settings the detector runs with.
+func (d *rumbleDetector) params() RumbleParams {
+	if d.g.rumbleTuned {
+		return d.g.rumbleParams
+	}
+	return DefaultRumbleParams()
+}
+
+// minHold and maxHold are how long pulses last at least and at most, in
+// frames.
+func (d *rumbleDetector) minHold() float64 { return pulseMinHold * d.params().Duration }
+func (d *rumbleDetector) maxHold() float64 { return pulseMaxHold * d.params().Duration }
+
 // restart forgets the pulses and when each note was last heard, after the
 // machine jumped in time (rewind, state loaded). What was learned of the
 // game is kept.
@@ -189,8 +222,9 @@ func (d *rumbleDetector) trigger(i int) {
 	}
 	music := d.music(pc, i, s, t)
 	shock := 0.0
-	if music < 0.5 { // likely music: never a shock
-		shock = math.Min(1, shockGain*d.shock(i)) * (1 - music)
+	p := d.params()
+	if music < p.Music { // likely music: never a shock
+		shock = math.Min(1, p.Gain*d.shock(i)) * (1 - music)
 	}
 	// The same note again and again, every frame or so, is a buzz.
 	if s.burst > burstPerFrame*4 {
@@ -198,7 +232,7 @@ func (d *rumbleDetector) trigger(i int) {
 	}
 	s.remember(t)
 	d.lastSig[i] = sig
-	if shock >= shockFloor {
+	if shock >= p.Floor && shock > 0 {
 		c := &a.ch[i]
 		d.pulses[i] = pulse{strength: shock, start: t, hold: d.duration(i), volume: c.env.volume, active: true}
 	} else if d.pulses[i].active {
@@ -301,7 +335,7 @@ func (d *rumbleDetector) shock(i int) float64 {
 		if nr10&0x08 == 0 {
 			dir = 0.6 // rising: jumps and coins more often than blows
 		}
-		return 0.8 * loud * fast * dir * (0.4 + 0.6*long)
+		return d.params().Sweeps * loud * fast * dir * (0.4 + 0.6*long)
 	}
 }
 
@@ -337,10 +371,10 @@ func (d *rumbleDetector) output(i int) float64 {
 }
 
 // duration tells how many frames the note of channel i plays: until its
-// envelope fades out or its length runs out, at most pulseMaxHold.
+// envelope fades out or its length runs out, at most maxHold.
 func (d *rumbleDetector) duration(i int) float64 {
 	c := &d.g.APU.ch[i]
-	f := float64(pulseMaxHold)
+	f := d.maxHold()
 	if c.env.period != 0 && !c.env.up {
 		// One volume step every period/64 s.
 		f = math.Min(f, float64(c.env.volume)*float64(c.env.period)*60/64)
@@ -361,7 +395,7 @@ func (d *rumbleDetector) lower() {
 	}
 	if l := noiseLowness(d.g.APU.regs[0x12]); l > 0.5 {
 		p.strength = math.Min(1, p.strength+0.1*l)
-		p.hold = math.Min(pulseMaxHold, p.hold+4)
+		p.hold = math.Min(d.maxHold(), p.hold+4)
 	}
 }
 
@@ -379,10 +413,10 @@ func (d *rumbleDetector) frame() {
 		c := &d.g.APU.ch[i]
 		var v float64
 		switch {
-		case age > math.Max(p.hold, pulseMinHold):
+		case age > math.Max(p.hold, d.minHold()):
 			p.active = false
 			continue
-		case age < pulseMinHold:
+		case age < d.minHold():
 			v = p.strength // felt at full strength first
 		case !c.enabled:
 			p.active = false

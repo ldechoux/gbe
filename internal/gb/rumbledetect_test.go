@@ -134,16 +134,18 @@ func TestRumbleDetectorBuzz(t *testing.T) {
 	}
 }
 
-// When a routine writes the melody and channel 1, and another only channel
-// 1, the first plays music and the second effects.
+// When a routine writes the melody of channel 2 and channel 1, and others
+// channel 1 but not channel 2, the first plays music and the others
+// effects.
 func TestRumbleDetectorWriters(t *testing.T) {
 	g := detectorGB(t)
 	d := g.guess
 	d.writers[0x4000] = &writer{channels: 1<<0 | 1<<1 | 1<<2}
+	d.writers[0x6000] = &writer{channels: 1<<0 | 1<<2} // effects on the wave too
 	d.writers[0x5000] = &writer{channels: 1 << 0}
 	s := &sigStats{last: -1e9}
-	if m, e := d.music(0x4000, 0, s, 0), d.music(0x5000, 0, s, 0); m < 0.5 || e >= 0.5 {
-		t.Errorf("music writer %.2f, effect writer %.2f", m, e)
+	if m, e, w := d.music(0x4000, 0, s, 0), d.music(0x5000, 0, s, 0), d.music(0x6000, 0, s, 0); m < 0.5 || e >= 0.5 || w >= 0.5 {
+		t.Errorf("music writer %.2f, effect writers %.2f and %.2f", m, e, w)
 	}
 }
 
@@ -167,5 +169,31 @@ func TestRumbleDetectorWatchOnly(t *testing.T) {
 	levels(a, 1)
 	if err := a.Restore(snap); err != nil || a.GuessedRumble() != 0 {
 		t.Errorf("after a rewind: %.2f %v", a.GuessedRumble(), err)
+	}
+}
+
+// Restored with what it had learned, the detector judges a moment played
+// again as the first time.
+func TestRumbleMemory(t *testing.T) {
+	g := detectorGB(t)
+	for range 5 {
+		noise(g, 0xA2, 0x70) // a beat, learned as music
+		levels(g, 13)
+	}
+	snap, mem := g.Snapshot(nil), g.RumbleMemory()
+	play := func() float64 {
+		noise(g, 0xF5, 0x60) // a new noise: a shock
+		return levels(g, 1)[0]
+	}
+	first := play()
+	for range 20 {
+		play() // heard again and again: familiar
+	}
+	if err := g.Restore(snap); err != nil {
+		t.Fatal(err)
+	}
+	g.SetRumbleMemory(mem)
+	if again := play(); again != first || first == 0 {
+		t.Errorf("played again %.2f, first %.2f", again, first)
 	}
 }

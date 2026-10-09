@@ -224,6 +224,7 @@ func Run(opts Options) error {
 		if g.tune, err = loadTuner(opts.RumbleTune); err != nil {
 			return err
 		}
+		g.tune.bootROMs = opts.BootROMs
 		cfg.Vibration = vibrationAll // for this session only: the config is not saved
 	}
 

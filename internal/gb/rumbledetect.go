@@ -148,6 +148,46 @@ func (g *GameBoy) DrainRumbleNotes() []RumbleNote {
 
 func (d *rumbleDetector) attach() { d.g.APU.watch = d.write }
 
+// RumbleMemory is what the rumble detector learned of a game (see
+// RumbleMemory).
+type RumbleMemory struct {
+	sigs    map[noteSig]sigStats
+	writers map[uint16]writer
+}
+
+// RumbleMemory copies what the rumble detector learned of the game, for
+// SetRumbleMemory: with Snapshot and Restore, the same moment can be
+// played again with the detector in the same mind.
+func (g *GameBoy) RumbleMemory() RumbleMemory {
+	m := RumbleMemory{sigs: map[noteSig]sigStats{}, writers: map[uint16]writer{}}
+	if d := g.guess; d != nil {
+		for k, s := range d.sigs {
+			m.sigs[k] = *s
+		}
+		for k, w := range d.writers {
+			m.writers[k] = *w
+		}
+	}
+	return m
+}
+
+// SetRumbleMemory gives the rumble detector what it learned at the time
+// of RumbleMemory, and forgets its pulses. Call it after Restore.
+func (g *GameBoy) SetRumbleMemory(m RumbleMemory) {
+	d := g.guess
+	if d == nil {
+		return
+	}
+	d.restart()
+	d.sigs, d.writers = map[noteSig]*sigStats{}, map[uint16]*writer{}
+	for k, s := range m.sigs {
+		d.sigs[k] = &s
+	}
+	for k, w := range m.writers {
+		d.writers[k] = &w
+	}
+}
+
 // params are the settings the detector runs with.
 func (d *rumbleDetector) params() RumbleParams {
 	if d.g.rumbleTuned {
@@ -263,12 +303,13 @@ func (s *sigStats) remember(t float64) {
 // is music, from 0 to 1.
 func (d *rumbleDetector) music(pc uint16, i int, s *sigStats, t float64) float64 {
 	m := 0.0
-	// The writer. When some code writes the melody and this channel, and
-	// other code writes only this channel or the other noisy one, the game
-	// may have a routine for its music and one for its effects. Only the
-	// first is a hint: some games write each channel with its own routine,
-	// music and effects alike.
-	const melody = 1<<1 | 1<<2
+	// The writer. When some code writes the melody of channel 2 and this
+	// channel, and other code writes this channel but not channel 2, the
+	// game may have a routine for its music and one for its effects. Only
+	// the first is a hint: some games write each channel with its own
+	// routine, music and effects alike. Channel 3 tells nothing: its wave
+	// plays effects too (Zelda).
+	const melody = 1 << 1
 	musicWriter, effectWriter := false, false
 	for _, w := range d.writers {
 		switch {

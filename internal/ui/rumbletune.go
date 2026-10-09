@@ -77,6 +77,13 @@ type tuner struct {
 	gap      int        // ticks left before the version plays
 	frame    int        // of the recording, while playing
 	buttons  []tuneSpan // of the recording
+	bootROMs *rom.BootROMSearch
+	// ready is the console of the pair, at the start of its stretch as
+	// snapshot, the detector having learned memory.
+	ready    *gb.GameBoy
+	title    string
+	snapshot []byte
+	memory   gb.RumbleMemory
 	choice   string
 	recorded map[string]*recordedPlay
 }
@@ -146,7 +153,7 @@ func (t *tuner) start() {
 	if rand.IntN(2) == 1 {
 		t.order = [2]string{p.B, p.A}
 	}
-	t.version = 0
+	t.version, t.ready = 0, nil
 	t.step, t.gap = tuneLoad, tuneGapTicks
 }
 
@@ -177,15 +184,7 @@ func (t *tuner) update(g *Game) {
 			t.replay()
 			return
 		}
-		for i, b := range gb.Buttons {
-			down := false
-			for _, s := range t.buttons {
-				if s.button == i && t.frame >= s.from && t.frame < s.to {
-					down = true
-				}
-			}
-			g.gb.SetButton(b, down)
-		}
+		t.press(g.gb, t.frame)
 		g.advance(false, false)
 		t.frame++
 		if t.frame >= t.pairs[t.pair].To {
@@ -223,13 +222,38 @@ func (t *tuner) update(g *Game) {
 
 // load makes the console of the version to play ready: the recording, run
 // to the start of the stretch with the detector listening, as in the game.
+// It runs once per pair: both versions start from the same snapshot, the
+// detector having learned the same.
 func (t *tuner) load(g *Game) error {
+	if t.ready == nil {
+		if err := t.prepare(); err != nil {
+			return err
+		}
+	}
+	console := t.ready
+	if err := console.Restore(t.snapshot); err != nil {
+		return err
+	}
+	console.SetRumbleMemory(t.memory)
+	console.SetRumbleParams(t.params[t.order[t.version]])
+	t.frame = t.pairs[t.pair].From
+	g.gb, g.title = console, t.title
+	g.rewind.clear()
+	if g.stream != nil {
+		g.stream.reset()
+	}
+	g.keepPrevious()
+	return nil
+}
+
+// prepare runs the recording of the pair to the start of its stretch.
+func (t *tuner) prepare() error {
 	p := t.pairs[t.pair]
 	rec, err := t.recording(p.Clip)
 	if err != nil {
 		return err
 	}
-	game, err := rom.Open(rec.ROM, rom.Options{Model: gb.ModelAuto, BootROM: "none", Fresh: true})
+	game, err := rom.Open(rec.ROM, rom.Options{Model: gb.ModelAuto, BootROMs: t.bootROMs, Fresh: true})
 	if err != nil {
 		return err
 	}
@@ -243,27 +267,27 @@ func (t *tuner) load(g *Game) error {
 	}
 	t.buttons = spans(rec.Input)
 	console.GuessRumble(true)
-	console.SetRumbleParams(t.params[t.order[t.version]])
-	for t.frame = 0; t.frame < p.From; t.frame++ {
-		for i, b := range gb.Buttons {
-			down := false
-			for _, s := range t.buttons {
-				if s.button == i && t.frame >= s.from && t.frame < s.to {
-					down = true
-				}
-			}
-			console.SetButton(b, down)
-		}
+	for f := 0; f < p.From; f++ {
+		t.press(console, f)
 		console.RunFrame()
 		console.APU.DrainSamples()
 	}
-	g.gb, g.title = console, game.Title
-	g.rewind.clear()
-	if g.stream != nil {
-		g.stream.reset()
-	}
-	g.keepPrevious()
+	t.ready, t.title = console, game.Title
+	t.snapshot, t.memory = console.Snapshot(nil), console.RumbleMemory()
 	return nil
+}
+
+// press holds the buttons of the recording on frame f.
+func (t *tuner) press(console *gb.GameBoy, f int) {
+	for i, b := range gb.Buttons {
+		down := false
+		for _, s := range t.buttons {
+			if s.button == i && f >= s.from && f < s.to {
+				down = true
+			}
+		}
+		console.SetButton(b, down)
+	}
 }
 
 // recording reads the recording at path, relative to the session.

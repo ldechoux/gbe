@@ -38,6 +38,9 @@ import (
 	"github.com/ldechoux/gbe/internal/rom"
 )
 
+// bootROMDirs are where the boot ROMs are searched (-bios).
+var bootROMDirs = []string{"bios"}
+
 const (
 	sampleRate = 24000 // mono, for the page
 	thumbEvery = 10    // frames between screen thumbnails
@@ -157,7 +160,9 @@ type run struct {
 }
 
 func play(path, state string, frames int, buttons buttonsAt, params gb.RumbleParams, record bool) (*run, error) {
-	game, err := rom.Open(path, rom.Options{Model: gb.ModelAuto, BootROM: "none", Fresh: state != ""})
+	// The boot ROM, when the state was saved while it ran, is searched for
+	// as gbe does, from the working folder.
+	game, err := rom.Open(path, rom.Options{Model: gb.ModelAuto, BootROMs: &rom.BootROMSearch{Defaults: bootROMDirs}, Fresh: state != ""})
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +264,10 @@ func main() {
 	script := flag.String("buttons", "right:180/240,a:12/40,b:5/90", "buttons held: name:held/period,...")
 	out := flag.String("out", "rumblelab", "folder for the page")
 	paramsFile := flag.String("params", "", "settings of the detector: a JSON file of gb.RumbleParams, missing ones at their default")
+	bios := flag.String("bios", "bios", "folder of the boot ROMs, for the states saved while one ran")
+	quick := flag.Bool("quick", false, "only the notes and the vibration, in data.json: no page, no run without buttons")
 	flag.Parse()
+	bootROMDirs = []string{*bios}
 	if flag.NArg() != 1 {
 		flag.Usage()
 		os.Exit(2)
@@ -297,9 +305,23 @@ func main() {
 		}
 		buttons = scripted(ps)
 	}
-	r, err := play(path, state, *frames, buttons, params, true)
+	r, err := play(path, state, *frames, buttons, params, !*quick)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *quick {
+		data, err := json.Marshal(map[string]any{"notes": r.notes, "level": r.level})
+		if err == nil {
+			err = os.MkdirAll(*out, 0o755)
+		}
+		if err == nil {
+			err = os.WriteFile(filepath.Join(*out, "data.json"), data, 0o644)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		summary(os.Stdout, r)
+		return
 	}
 	quiet, err := play(path, state, *frames, func(int) [8]bool { return [8]bool{} }, params, false)
 	if err != nil {

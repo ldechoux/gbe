@@ -423,7 +423,7 @@ Le détecteur de chocs (`internal/gb/rumbledetect.go`) se règle sur de vraies p
 - `gbe -rumble-debug` affiche en bas de l'écran la force de la vibration et la dernière note
   des voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et sa force.
 - `gbe -rumble-record dossier` enregistre les moments joués, chacun avec l'état de départ, les
-  boutons de chaque image et les repères posés avec **M** quand un choc devrait vibrer. Un
+  boutons de chaque image et les repères posés avec **Espace** quand un choc devrait vibrer. Un
   moment se termine au rembobinage, au chargement d'un état, à la réinitialisation ou en
   quittant.
 - `tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des

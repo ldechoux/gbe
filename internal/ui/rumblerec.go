@@ -14,7 +14,7 @@ import (
 
 // A rumble recording keeps a stretch of play, to tune the rumble detector
 // with tools/rumblelab (-rumble-record): the save state it starts from, the
-// buttons held on each frame, and the frames the player marked (M) as
+// buttons held on each frame, and the frames the player marked (Space) as
 // shocks that should shake. A stretch ends when the game jumps in time
 // (rewind, state loaded, reset), another game opens or gbe quits.
 

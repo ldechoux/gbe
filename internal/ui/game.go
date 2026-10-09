@@ -538,7 +538,8 @@ func (g *Game) Update() error {
 		g.down[i] = (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b]
 		g.gb.SetButton(b, g.down[i])
 	}
-	if g.recorder != nil && inpututil.IsKeyJustPressed(ebiten.KeyM) && !g.cfg.bound(ebiten.KeyM) {
+	// Space: the same key on every keyboard layout.
+	if g.recorder != nil && inpututil.IsKeyJustPressed(ebiten.KeySpace) && !g.cfg.bound(ebiten.KeySpace) {
 		g.recorder.mark()
 		g.notify("rumble mark")
 	}

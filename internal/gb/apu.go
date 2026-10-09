@@ -128,6 +128,11 @@ type APU struct {
 	// (all of them after a register write).
 	dirty byte
 	dac   [4]int
+
+	// watch, when set, sees every write to the sound registers NR10-NR51
+	// while the APU is on, once applied (see rumbleDetector). It is not part
+	// of the state of the console.
+	watch func(addr uint16, v byte)
 }
 
 func newAPU(bus *Bus) *APU {
@@ -255,6 +260,9 @@ func (a *APU) write(addr uint16, v byte) {
 		return
 	}
 	a.regs[off] = v
+	if a.watch != nil {
+		defer a.watch(addr, v) // once the write is applied
+	}
 
 	switch addr {
 	// Channel 1

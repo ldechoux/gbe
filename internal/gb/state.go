@@ -285,6 +285,9 @@ func (g *GameBoy) Restore(data []byte) error {
 	g.PPU.frameReady = false
 	g.Cart.stopMotor()
 	g.rumble = 0
+	if g.guess != nil {
+		g.guess.restart()
+	}
 	g.Joypad.pressed = [8]bool{}
 	g.Serial.Output = nil
 	g.APU.samples = g.APU.samples[:0]

@@ -43,12 +43,19 @@ type RumbleParams struct {
 	Music    float64 `json:"music"`    // a note this likely music, from 0 to 1, never shakes
 	Duration float64 `json:"duration"` // how long pulses last, 1 for pulseMinHold to pulseMaxHold
 	Sweeps   float64 `json:"sweeps"`   // weight of the channel 1 sweeps against the noise
+	// Steady is how many frames a note of steady volume is taken to last,
+	// at Duration 1: games that fade their sounds themselves trigger it
+	// again and again, lower each time (Street Fighter Alpha, Zelda).
+	Steady float64 `json:"steady"`
 }
 
 // DefaultRumbleParams are the settings the detector runs with unless told
 // otherwise.
 func DefaultRumbleParams() RumbleParams {
-	return RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8}
+	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
+	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3 and Zelda:
+	// Link's Awakening (gbe -rumble-tune).
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.
@@ -416,6 +423,9 @@ func (d *rumbleDetector) output(i int) float64 {
 func (d *rumbleDetector) duration(i int) float64 {
 	c := &d.g.APU.ch[i]
 	f := d.maxHold()
+	if c.env.period == 0 && !c.lengthOn {
+		f = math.Min(f, d.params().Steady*d.params().Duration) // see RumbleParams.Steady
+	}
 	if c.env.period != 0 && !c.env.up {
 		// One volume step every period/64 s.
 		f = math.Min(f, float64(c.env.volume)*float64(c.env.period)*60/64)

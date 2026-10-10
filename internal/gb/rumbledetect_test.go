@@ -2,12 +2,17 @@ package gb
 
 import "testing"
 
+// testParams are the settings the tests of the detector run with: they
+// check how it works, whatever its settings by default.
+var testParams = RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8, Steady: 30}
+
 // detectorGB is a console looping on itself, with the rumble detector on
-// and the sound sent full volume to both sides.
+// (testParams) and the sound sent full volume to both sides.
 func detectorGB(t *testing.T) *GameBoy {
 	t.Helper()
 	g := newTestGB(t, 0x18, 0xFE) // JR -2
 	g.GuessRumble(true)
+	g.SetRumbleParams(testParams)
 	g.TraceRumble(true)
 	g.APU.write(0xFF24, 0x77)
 	g.APU.write(0xFF25, 0xFF)
@@ -195,5 +200,48 @@ func TestRumbleMemory(t *testing.T) {
 	g.SetRumbleMemory(mem)
 	if again := play(); again != first || first == 0 {
 		t.Errorf("played again %.2f, first %.2f", again, first)
+	}
+}
+
+// With its settings by default, an explosion shakes, a hi-hat does not, and
+// a sound the game fades itself, a steady note triggered again lower and
+// lower, shakes about as long as it plays.
+func TestRumbleDetectorDefaults(t *testing.T) {
+	peak := func(play func(*GameBoy)) (float64, int) {
+		t.Helper()
+		g := detectorGB(t)
+		g.SetRumbleParams(DefaultRumbleParams())
+		play(g)
+		p, n := 0.0, 0
+		for _, v := range levels(g, 60) {
+			p = max(p, v)
+			if v > 0 {
+				n++
+			}
+		}
+		return p, n
+	}
+	if p, _ := peak(func(g *GameBoy) { noise(g, 0xF5, 0x70) }); p < 0.4 {
+		t.Errorf("explosion %.2f", p)
+	}
+	if p, _ := peak(func(g *GameBoy) { noise(g, 0xF1, 0x00) }); p != 0 {
+		t.Errorf("hi-hat %.2f", p)
+	}
+	g := detectorGB(t)
+	g.SetRumbleParams(DefaultRumbleParams())
+	var l []float64
+	for v := byte(0xF); v >= 0xB; v-- { // 5 steps, 2 frames apart
+		noise(g, v<<4, 0x43)
+		l = append(l, levels(g, 2)...)
+	}
+	l = append(l, levels(g, 50)...)
+	n := 0
+	for _, v := range l {
+		if v > 0 {
+			n++
+		}
+	}
+	if n < 8 || n > 20 {
+		t.Errorf("a fade of 10 frames shook %d frames", n)
 	}
 }

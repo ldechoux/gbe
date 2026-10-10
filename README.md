@@ -326,10 +326,14 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 Les cartouches vibrantes (Pokémon Pinball, Perfect Dark, Top Gear Rally…) font vibrer la
 manette. La force suit celle du moteur de la cartouche, que le jeu fait varier.
 
-Les autres jeux peuvent aussi faire vibrer la manette, comme dans SameBoy : gbe devine les chocs
-d'après le son joué. Un bruit grave et fort (explosion, impact) ou une fréquence qui glisse vite
-(tir, chute) fait vibrer, d'autant plus fort que le son est fort, et la vibration s'éteint avec
-le son. La musique ne fait pas vibrer, sauf parfois une percussion grave.
+Les autres jeux peuvent aussi faire vibrer la manette : gbe devine les chocs d'après les sons
+joués. Il suit chaque note des voies de bruit et de *sweep*, et commence par écarter la musique.
+Celle-ci revient en rythme et rejoue sans cesse les mêmes instruments, souvent depuis une autre
+routine du jeu que les bruitages. Parmi les bruitages, un bruit grave, fort et long (explosion,
+impact, tonnerre) vibre fort. Une fréquence qui glisse vite vibre moins, encore moins si elle
+monte (saut, bonus) que si elle descend (chute, coup). Une note répétée à chaque image ne fait
+que bourdonner, et ne vibre pas. Chaque choc donne une secousse franche, ressentie même quand
+le son est très bref, qui s'éteint avec lui.
 
 L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée) :
 
@@ -411,6 +415,45 @@ quelques jeux gardés dans `roms/` : une optimisation ne doit pas changer un seu
 
 Un mode sans fenêtre sert au débogage :
 `./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
+
+### Régler les vibrations de tous les jeux
+
+Le détecteur de chocs (`internal/gb/rumbledetect.go`) se règle sur de vraies parties, au
+ressenti :
+
+1. `gbe -rumble-record dossier` enregistre les moments joués, chacun avec l'état de départ et
+   les boutons de chaque image. Un moment se termine au rembobinage, au chargement d'un état, à
+   la réinitialisation ou en quittant.
+2. `gbe -rumble-tune séance.json` compare des réglages du détecteur (`gb.RumbleParams`) sur
+   des extraits de ces moments. Chaque extrait est rejoué deux fois, avec deux réglages tirés
+   dans un ordre au hasard, la manette vibrant comme en jeu. On regarde seulement, puis on
+   répond : **←** la version 1 vibrait mieux, **→** la version 2, **↓** pareil, **B** pour revoir.
+   On dit ensuite si la version choisie vibrait pas assez (**←**), bien (**A**) ou trop (**→**).
+   Les réponses s'ajoutent à `séance-answers.json`, et une séance interrompue reprend là où elle
+   s'était arrêtée.
+
+```json
+{
+  "variants": {"base": {}, "sensible": {"floor": 0.1}},
+  "pairs": [{"clip": "ZELDA-20261010-153000.json", "from": 600, "to": 1500, "a": "base", "b": "sensible"}]
+}
+```
+
+`gbe -rumble-debug` affiche en bas de l'écran la force de la vibration et la dernière note des
+voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et sa force.
+
+`tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des boutons
+scriptés, avec les réglages par défaut ou ceux de `-params`. Il écrit une page avec les notes de
+chaque voie, la vibration devinée, le moteur des cartouches Rumble (référence : Pokémon
+Pinball), l'écran et le son :
+
+```sh
+go run ./tools/rumblelab -out /tmp/lab dossier/ZELDA-20261010-153000.json
+open /tmp/lab/index.html
+```
+
+Il rejoue aussi la partie sans appuyer sur rien : les notes que les boutons ne changent pas
+(la musique, les sons du décor) sont distinguées de celles qui répondent au joueur.
 
 ## Performances
 

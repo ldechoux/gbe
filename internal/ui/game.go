@@ -8,9 +8,11 @@ import (
 	"image/color"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,6 +57,15 @@ type Options struct {
 	// Open opens a game dropped on the window, colorize being the setting
 	// of the menu (see rom.Options).
 	Open func(path string, colorize bool) (*rom.Game, error)
+	// RumbleRecord, when set, is the folder where stretches of play are
+	// recorded to tune the rumble detector (see rumbleRecorder).
+	RumbleRecord string
+	// RumbleDebug shows what the rumble detector hears, at the top of the
+	// screen.
+	RumbleDebug bool
+	// RumbleTune, when set, is a tuning session to run instead of a game
+	// (see tuner).
+	RumbleTune string
 }
 
 // Game implements ebiten.Game.
@@ -138,10 +149,18 @@ type Game struct {
 	// release: they are ignored until it is seen (see screen.go).
 	staleKeys map[ebiten.Key]bool
 
-	rewind     rewinder
-	rumble     rumbler
-	rewindTick int      // ticks spent rewinding, which steps back every other tick
-	speed      playMode // shown on screen while not normal
+	rewind rewinder
+	rumble rumbler
+	// down are the buttons held this tick, recorder records them (nil
+	// unless -rumble-record), and rumbleDebug shows what the rumble
+	// detector hears.
+	down        [8]bool
+	recorder    *rumbleRecorder
+	tune        *tuner // nil unless -rumble-tune
+	rumbleDebug bool
+	lastNote    gb.RumbleNote // of channel 1 or 4, for rumbleDebug
+	rewindTick  int           // ticks spent rewinding, which steps back every other tick
+	speed       playMode      // shown on screen while not normal
 
 	toast      string // short on-screen notification
 	toastUntil int64  // tick at which the toast disappears
@@ -186,6 +205,7 @@ func Run(opts Options) error {
 		cfg:         cfg,
 		cfgPath:     cfgPath,
 		shotDir:     opts.ScreenshotDir,
+		rumbleDebug: opts.RumbleDebug,
 		open:        opts.Open,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
@@ -195,6 +215,17 @@ func Run(opts Options) error {
 		ignoredPad:  map[padButton]bool{},
 		pads:        &ebitenPads{},
 		monitors:    &ebitenMonitors{},
+	}
+
+	if opts.RumbleRecord != "" {
+		g.recorder = &rumbleRecorder{dir: opts.RumbleRecord}
+	}
+	if opts.RumbleTune != "" {
+		if g.tune, err = loadTuner(opts.RumbleTune); err != nil {
+			return err
+		}
+		g.tune.bootROMs = opts.BootROMs
+		cfg.Vibration = vibrationAll // for this session only: the config is not saved
 	}
 
 	ctx := audio.NewContext(sampleRate)
@@ -462,6 +493,9 @@ func (g *Game) ignoreHeldInputs() {
 func (g *Game) Update() error {
 	if g.quit {
 		g.rumble.stop(g.pads)
+		if g.recorder != nil {
+			g.recorder.finish()
+		}
 		return ebiten.Termination
 	}
 	if fsys := ebiten.DroppedFiles(); fsys != nil {
@@ -479,6 +513,13 @@ func (g *Game) Update() error {
 		g.toggleFullscreen()
 	}
 	g.actions = keyboardActions(g.staleKeys).or(padActions(g.pads, g.cfg.Gamepad, &g.stick))
+	if g.tune != nil {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.quit = true
+		}
+		g.tune.update(g)
+		return nil
+	}
 	if g.menu.open {
 		g.rumble.stop(g.pads) // the game is paused
 		g.menu.update(g)
@@ -510,9 +551,10 @@ func (g *Game) Update() error {
 		}
 	}
 	pad := padGameButtons(g.pads, g.cfg.Gamepad, g.ignoredPad)
-	for _, b := range gb.Buttons {
+	for i, b := range gb.Buttons {
 		k := g.cfg.Key(b)
-		g.gb.SetButton(b, (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b])
+		g.down[i] = (ebiten.IsKeyPressed(k) && !g.ignoredKeys[k]) || pad[b]
+		g.gb.SetButton(b, g.down[i])
 	}
 	g.applyCompatChoice()
 	g.advance(g.held(actionFastForward), g.held(actionRewind))
@@ -556,16 +598,29 @@ func (g *Game) advance(fast, rewind bool) {
 	// still queues one frame's worth of audio: the sound plays faster
 	// instead of piling up.
 	g.gb.APU.SetSampleRate(emulatedRate(g.stream.buffered()) / float64(n))
+	g.gb.GuessRumble(g.rumbleDebug || g.cfg.Vibration == vibrationAll && !g.gb.HasMotor())
+	g.gb.TraceRumble(g.rumbleDebug)
 	rumble := 0.0
 	for i := range n {
 		if i == n-1 {
 			g.keepPrevious() // the frame before the one shown
 		}
+		if g.recorder != nil {
+			g.recorder.begin(g.gb, g.title, g.romPath)
+		}
 		g.gb.RunFrame()
+		if g.recorder != nil {
+			g.recorder.frame(g.gb, g.down)
+		}
 		g.oddFrame = !g.oddFrame
 		g.fps.frame()
 		g.rewind.record(g.gb)
 		rumble += g.frameRumble()
+	}
+	for _, n := range g.gb.DrainRumbleNotes() {
+		if n.Channel == 1 || n.Channel == 4 {
+			g.lastNote = n
+		}
 	}
 	samples := g.gb.APU.DrainSamples()
 	if g.fx != nil {
@@ -583,7 +638,7 @@ func (g *Game) frameRumble() float64 {
 	case g.gb.HasMotor():
 		return g.gb.Rumble()
 	case g.cfg.Vibration == vibrationAll:
-		return g.gb.SoundRumble()
+		return g.gb.GuessedRumble()
 	}
 	return 0
 }
@@ -673,6 +728,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if badge := g.speedBadge(); badge != "" && !g.menu.open {
 		drawBadge(screen, badge, g.menuPalette())
 	}
+	if g.tune != nil {
+		drawBox(screen, g.tune.text(), g.menuPalette(), false)
+	}
+	if g.rumbleDebug && g.gb != nil && !g.menu.open {
+		drawBox(screen, rumbleDebugText(g.gb.GuessedRumble(), g.lastNote), g.menuPalette(), false)
+	}
+}
+
+// rumbleDebugText tells what the rumble detector hears: how hard it
+// shakes, and the last note of channel 1 or 4 it judged.
+func rumbleDebugText(level float64, n gb.RumbleNote) string {
+	bar := int(math.Round(level * 10))
+	s := fmt.Sprintf("rumble [%s%s] %.2f", strings.Repeat("#", bar), strings.Repeat("-", 10-bar), level)
+	if n.Channel != 0 {
+		kind := "fx"
+		if n.Music >= 0.5 {
+			kind = "music"
+		}
+		s += fmt.Sprintf("\nch%d %02X %02X %02X %02X %s %.2f shock %.2f", n.Channel, n.Regs[0], n.Regs[1], n.Regs[2], n.Regs[3], kind, n.Music, n.Shock)
+	}
+	return s
 }
 
 func (g *Game) Layout(w, h int) (int, int) { return w, h }

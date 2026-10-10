@@ -103,7 +103,7 @@ func TestGameRumble(t *testing.T) {
 		g.cfg.Vibration = c.mode
 		g.advance(false, false)
 		g.advance(false, false)
-		shook := len(pads.vibrations) > 0 && pads.vibrations[len(pads.vibrations)-1].strength > 0.75
+		shook := len(pads.vibrations) > 0 && pads.vibrations[len(pads.vibrations)-1].strength > 0.3
 		if shook != c.shake || !c.shake && len(pads.vibrations) != 0 {
 			t.Errorf("%s: vibrations %+v for a cartridge without a motor", c.mode, pads.vibrations)
 		}

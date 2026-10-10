@@ -34,7 +34,12 @@ type GameBoy struct {
 
 	model  Model // ModelDMG or ModelCGB
 	boot   []byte
-	rumble float64 // see Rumble
+	rumble float64         // see Rumble
+	guess  *rumbleDetector // see GuessRumble, nil while off
+	// rumbleParams are the settings of the detector, once rumbleTuned
+	// (see SetRumbleParams).
+	rumbleParams RumbleParams
+	rumbleTuned  bool
 }
 
 // New creates a Game Boy running the given cartridge, on a CGB if the game
@@ -92,6 +97,10 @@ func (g *GameBoy) Reset() {
 	g.CPU = &CPU{bus: bus}
 	g.PPU = &PPU{bus: bus}
 	g.APU = newAPU(bus)
+	if g.guess != nil {
+		g.guess.attach()
+		g.guess.restart()
+	}
 	g.Timer = &Timer{bus: bus}
 	g.Joypad = &Joypad{bus: bus, sel: 0x30}
 	g.Serial = &Serial{bus: bus}
@@ -176,6 +185,9 @@ func (g *GameBoy) RunFrame() {
 		g.CPU.Step()
 	}
 	g.Bus.frameEnd = 0
+	if g.guess != nil {
+		g.guess.frame()
+	}
 	if g.Cart.rumble {
 		g.rumble = g.Cart.motorShare(start, g.Bus.cycles)
 	}
@@ -187,7 +199,7 @@ func (g *GameBoy) RunFrame() {
 func (g *GameBoy) Rumble() float64 { return g.rumble }
 
 // HasMotor reports whether the cartridge has a rumble motor. Games without
-// one may still shake through SoundRumble.
+// one may still shake through GuessedRumble.
 func (g *GameBoy) HasMotor() bool { return g.Cart.rumble }
 
 // Framebuffer returns the last complete frame in DMG mode, one shade (0-3)
@@ -200,6 +212,10 @@ func (g *GameBoy) ColorFramebuffer() *[ScreenWidth * ScreenHeight]uint16 { retur
 
 // SetButton updates the state of one button.
 func (g *GameBoy) SetButton(b Button, pressed bool) { g.Joypad.set(b, pressed) }
+
+// Cycles returns the T-cycles run since power on, at the normal speed: it
+// goes back when a state is loaded.
+func (g *GameBoy) Cycles() uint64 { return g.Bus.cycles }
 
 // PC returns the program counter (handy for tests and debugging).
 func (g *GameBoy) PC() uint16 { return g.CPU.pc }

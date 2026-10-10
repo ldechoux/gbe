@@ -15,7 +15,7 @@ on:
   # Changes to the site itself.
   push:
     branches: [main]
-    paths: [site/**, tools/sitegen/**, screenshots/**, internal/ui/palettes.go, .github/workflows/pages.yml]
+    paths: [site/**, tools/sitegen/**, screenshots/**, assets/icon/**, internal/ui/palettes.go, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:
@@ -68,7 +68,14 @@ jobs:
             "repos/$GITHUB_REPOSITORY/releases" | jq 'add // []' > releases.json
 
       - name: Generate site
-        run: go run ./tools/sitegen -repo "$GITHUB_REPOSITORY" -releases releases.json -out _site
+        env:
+          # The token of the Google Search Console meta tag, a variable of
+          # the repository (Settings > Secrets and variables > Actions >
+          # Variables): the page has no such tag without it.
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+        run: |
+          go run ./tools/sitegen -repo "$GITHUB_REPOSITORY" -releases releases.json -out _site \
+            -google-verification "$GOOGLE_SITE_VERIFICATION"
 
       - uses: actions/upload-pages-artifact@v4
         with:

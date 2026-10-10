@@ -66,6 +66,15 @@ type page struct {
 	Older     []Release // the others, linked to their GitHub page
 	Palettes  []ui.Palette
 	Built     string
+
+	// For the search engines and the shared links (see seo.go).
+	URL          string // where the site is served, ending with /
+	Owner        string // of the repository
+	Updated      string // the day the page was built, as 2006-01-02
+	Description  string
+	ShareImage   string // path of the image of a shared link
+	Verification string // the Google Search Console token, "" for none
+	Structured   template.JS
 }
 
 // detailedReleases is how many releases, the newest, the page shows with
@@ -119,7 +128,11 @@ func frenchDate(t time.Time) string {
 // buildPage keeps published releases (newest first, as returned by the API)
 // and groups the assets of the latest stable one by platform.
 func buildPage(repo string, all []Release) page {
-	p := page{Repo: repo, Palettes: ui.Palettes, Built: frenchDate(time.Now())}
+	now := time.Now()
+	owner, _, _ := strings.Cut(repo, "/")
+	p := page{Repo: repo, Palettes: ui.Palettes, Built: frenchDate(now),
+		URL: pagesURL(repo), Owner: owner, Updated: now.Format("2006-01-02"),
+		Description: description, ShareImage: shareFile}
 	for _, r := range all {
 		if r.Draft {
 			continue
@@ -234,6 +247,9 @@ func main() {
 	siteDir := flag.String("site", "site", "directory with index.html.tmpl and static files")
 	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP, subdirectories included)")
 	outDir := flag.String("out", "_site", "output directory")
+	siteURL := flag.String("url", "", "address of the site, ending with / (default: the GitHub Pages one of -repo)")
+	verification := flag.String("google-verification", "", "Google Search Console verification token (the content of its meta tag)")
+	iconPath := flag.String("icon", "assets/icon/icon-512.png", "application icon, for the icon of a home screen")
 	flag.Parse()
 
 	var releases []Release
@@ -267,7 +283,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := tmpl.Execute(f, buildPage(*repo, releases)); err != nil {
+	p := buildPage(*repo, releases)
+	if *siteURL != "" {
+		p.URL = strings.TrimSuffix(*siteURL, "/") + "/"
+	}
+	p.Verification = *verification
+	if p.Structured, err = structuredData(p); err != nil {
+		log.Fatal(err)
+	}
+	if err := tmpl.Execute(f, p); err != nil {
 		log.Fatal(err)
 	}
 	if err := f.Close(); err != nil {
@@ -296,6 +320,23 @@ func main() {
 		if err := copyFile(dst, src); err != nil {
 			log.Fatal(err)
 		}
+	}
+	share, err := shareImage(*shotsDir)
+	if err == nil {
+		err = writePNG(filepath.Join(*outDir, shareFile), share)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	icon, err := touchIcon(*iconPath)
+	if err == nil {
+		err = writePNG(filepath.Join(*outDir, touchFile), icon)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(*outDir, "sitemap.xml"), sitemap(p), 0o644); err != nil {
+		log.Fatal(err)
 	}
 	// Pages must serve files as-is (no Jekyll processing).
 	if err := os.WriteFile(filepath.Join(*outDir, ".nojekyll"), nil, 0o644); err != nil {

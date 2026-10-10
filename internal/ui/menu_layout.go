@@ -25,6 +25,9 @@ type menuLayout struct {
 	above      bool // entries hidden above items, and below
 	below      bool
 	footer     []string
+	// The scroll bar of a long list: where its entries shown start, of
+	// how many, and how many it has room for.
+	listFirst, listTotal, rows int
 }
 
 // advance is the width of s in the menu font, before scaling.
@@ -108,16 +111,21 @@ func layoutMenu(v menuView, minWidth, sw, sh float64) menuLayout {
 		if v.footer != "" || !compact {
 			l.footer = wrapText(v.footer, maxW)
 		}
+		// A long list keeps room for its scroll bar, at the right.
+		bar := 0.0
+		if v.total > 0 {
+			bar = scrollBarSpace
+		}
 		l.items = make([]string, len(v.items))
 		for i, s := range v.items {
-			l.items[i] = shorten(s, maxW-advance("> "))
+			l.items[i] = shorten(s, maxW-advance("> ")-bar)
 		}
 		width := math.Max(advance("  "+v.title), tabsW)
 		for _, s := range l.items {
-			width = math.Max(width, advance("> "+s))
+			width = math.Max(width, advance("> "+s)+bar)
 		}
 		for _, s := range v.altItems {
-			width = math.Max(width, advance("> "+shorten(s, maxW-advance("> "))))
+			width = math.Max(width, advance("> "+shorten(s, maxW-advance("> ")-bar))+bar)
 		}
 		lines := len(l.footer)
 		for _, f := range v.altFooters {
@@ -149,11 +157,25 @@ func layoutMenu(v menuView, minWidth, sw, sh float64) menuLayout {
 	}
 
 	avail := sh - 2*border
+	total := len(v.items)
+	if v.total > 0 {
+		total = v.total
+		// A long list leaves a margin around it, as the other pages do
+		// unless the window is tiny.
+		avail = math.Max(sh/2, avail-2*16*l.scale)
+	}
+	rows := max(total, v.rows) // the entries the panel would have room for
+	// A long list scrolls anyway: it only gets compact when a page of the
+	// size of the main one does not fit.
+	need := rows
+	if v.total > 0 {
+		need = min(rows, mainItems)
+	}
 	fit(false)
-	if height(len(l.items)) > avail || l.width < math.Max(width0(v, tabsW), minWidth) {
+	if height(need) > avail || l.width < math.Max(width0(v, tabsW), minWidth) {
 		fit(true)
 	}
-	n := len(l.items)
+	n := rows
 	if height(n) > avail {
 		// Scroll: as many entries as fit, at least 3, before the footer.
 		fixed := height(0)
@@ -163,22 +185,27 @@ func layoutMenu(v menuView, minWidth, sw, sh float64) menuLayout {
 		}
 		n = max(1, min(n, int((avail-fixed)/l.lineH)))
 	}
-	l.selected = v.selected
+	l.selected, l.rows = v.selected, n
 	if n < len(l.items) {
 		l.first = min(max(0, v.selected-n/2), len(l.items)-n)
-		l.above, l.below = l.first > 0, l.first+n < len(l.items)
 		l.items = l.items[l.first : l.first+n]
 		l.selected = v.selected - l.first
 	}
+	l.listFirst, l.listTotal = v.offset+l.first, total
+	l.above, l.below = l.listFirst > 0, l.listFirst+len(l.items) < total
 	if l.selected < 0 || l.selected >= len(l.items) {
 		l.selected = -1
 	}
 
 	l.w = l.width*l.scale + 2*l.pad
-	l.h = math.Min(height(len(l.items)), avail)
+	l.h = math.Min(height(n), avail)
 	l.x, l.y = math.Round((sw-l.w)/2), math.Round((sh-l.h)/2)
 	return l
 }
+
+// scrollBarSpace is the room a long list keeps for its scroll bar, at the
+// right of its entries, before scaling.
+const scrollBarSpace = 8
 
 // width0 is the width the view needs, before scaling, unshortened.
 func width0(v menuView, tabsW float64) float64 {

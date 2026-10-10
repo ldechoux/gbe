@@ -78,11 +78,11 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.colorize` | `%s` `setting.on` ou `setting.off` | Entrée de la page Affichage qui active la colorisation des jeux DMG (appliquée par Réinitialiser), absente pour les jeux Game Boy Color et avec `-model` |
 | `setting.on` | | Réglage activé |
 | `setting.off` | | Réglage désactivé |
-| `menu.recent` | | Entrée qui ouvre la page Jeux récents (grisée tant qu'aucun jeu n'a été lancé) |
+| `menu.games` | | Entrée qui ouvre la page Jeux (grisée sans jeu récent ni jeu dans le dossier des jeux) |
 | `menu.display` | | Entrée qui ouvre la page Affichage |
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.sound` | | Entrée qui ouvre la page Son |
-| `menu.boot_rom` | | Entrée qui ouvre la page Boot ROM |
+| `menu.folders` | | Entrée qui ouvre la page Dossiers : dossier des jeux et dossier des boot ROM |
 | `menu.volume` | `%d` volume en pourcent | Entrée de la page Son : réglage du volume (`%%` affiche `%`) |
 | `menu.stereo` | `%s` mode de sortie (`stereo.*`) | Entrée de la page Son : comment la stéréo arrive aux oreilles (grisée sur `stereo.mono` avec le filtre `audio_filter.speaker`, qui est mono) |
 | `stereo.stereo` | | Sortie : les deux côtés comme la console les mixe |
@@ -150,9 +150,35 @@ explique la sortie ou le filtre sélectionnés, et sinon reprend celle du menu P
 | `sound.help_menu_sounds` | | Aide en bas de la page : l'entrée `menu.menu_sounds` |
 
 
-### `boot_rom.*` — page Boot ROM
+### `folders.*` — page Dossiers (menu Pause)
 
-Le dossier des boot ROM choisi par le joueur, et si elles sont trouvées.
+Deux onglets : le dossier des jeux (`games_dir.*`) et celui des boot ROM (`boot_rom.*`).
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `folders.title` | | Titre de la page |
+| `folders.games` | | Onglet du dossier des jeux |
+| `folders.boot_rom` | | Onglet du dossier des boot ROM |
+
+### `games_dir.*` — page Dossiers, onglet des jeux
+
+Le dossier où gbe liste les jeux (ses sous-dossiers compris), pour la page Jeux.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `games_dir.choose` | | Entrée qui ouvre le dialogue du système pour choisir le dossier |
+| `games_dir.count` | `%d` nombre de jeux | Ligne d'information : les jeux trouvés dans le dossier |
+| `games_dir.none` | | Ligne d'information : aucun dossier choisi |
+| `games_dir.scanning` | | Ligne d'information : le dossier est en cours de lecture |
+| `games_dir.forget` | | Entrée qui oublie le dossier choisi (grisée sans dossier) |
+| `games_dir.folder_none` | | Pied de page : aucun dossier choisi (sinon `boot_rom.folder`) |
+| `games_dir.dialog_title` | | Titre du dialogue du système (police du système : accents permis) |
+| `games_dir.empty` | | Notification : le dossier choisi n'a aucun jeu |
+
+### `boot_rom.*` — page Dossiers, onglet des boot ROM
+
+Le dossier des boot ROM choisi par le joueur, et si elles sont trouvées. `boot_rom.folder` et
+`boot_rom.back` servent aussi à l'onglet des jeux.
 
 | Clé | Paramètres | Usage |
 |---|---|---|
@@ -196,6 +222,8 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `drop.hint` | | Aide en bas de l'écran : comment ouvrir le menu |
 | `drop.recent` | | Titre de la liste des derniers jeux lancés, sous l'invite |
 | `drop.hint_recent` | | Aide en bas de l'écran quand la liste des derniers jeux est affichée : comment lancer un jeu et ouvrir le menu |
+| `drop.all_games` | | Entrée sous les derniers jeux, qui ouvre la liste de tous les jeux du dossier des jeux (grisée sans jeu dans le dossier) |
+| `drop.all_games_count` | `%d` nombre de jeux | La même, quand le dossier a des jeux |
 
 ### `switch.*` — page Nouveau jeu (une ROM déposée pendant une partie)
 
@@ -206,12 +234,26 @@ contenir aucun de ces nombres ni de mots comme `Jan` ou `Mon`, que Go interprét
 | `switch.keep` | | Entrée qui garde la partie en cours |
 | `switch.footer` | | Bas de la page : la partie en cours sera sauvegardée avant de changer de jeu |
 
-### `recent.*` — page Jeux récents (menu Pause)
+### `games.*` — page Jeux (menu Pause)
+
+Deux onglets : les derniers jeux lancés, et tous ceux du dossier des jeux. Les jeux y sont
+nommés par leur nom de fichier, qui n'est pas traduit.
 
 | Clé | Paramètres | Usage |
 |---|---|---|
-| `recent.title` | | Titre de la page |
-| `recent.current` | `%s` titre du jeu | Le jeu de la liste qui est en cours |
+| `games.title` | | Titre de la page |
+| `games.recent` | | Onglet des derniers jeux lancés |
+| `games.all` | | Onglet de tous les jeux du dossier (grisé sans jeu) |
+| `games.all_count` | `%d` nombre de jeux | Le même, quand le dossier a des jeux |
+| `games.empty` | | Seule ligne de l'onglet de tous les jeux quand le dossier n'en a aucun |
+| `games.position` | `%d` rang du jeu sélectionné, `%d` nombre de jeux | Bas de la page : la place du jeu dans la liste |
+| `games.saved_at` | `%s` date au format `start.date_format` | Bas de la page : quand le jeu sélectionné a été sauvegardé (save state) |
+
+### `recent.*` — page Jeux, onglet des derniers jeux
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `recent.current` | `%s` nom du jeu | Le jeu de la liste qui est en cours (aussi dans l'onglet de tous les jeux) |
 | `recent.back` | | Entrée qui revient au menu Pause |
 | `recent.footer` | | Bas de la page : la partie en cours sera sauvegardée avant de changer de jeu |
 

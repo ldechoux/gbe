@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -44,12 +45,20 @@ func TestMenuFitsSmallWindows(t *testing.T) {
 	g := withGameBoy(t, newTestGame(t, newFakePads()))
 	g.cfg.Recent = []RecentGame{{Path: "/r/a.gb", Title: "A"}, {Path: "/r/Pokemon - Version Jaune (France).zip"}}
 	views := map[string]menu{
-		"main":     {open: true, page: pageMain, cursor: itemQuit},
-		"display":  {open: true, page: pageDisplay, cursor: displayBack},
-		"controls": {open: true, page: pageControls, cursor: controlsBack()},
-		"pad":      {open: true, page: pageControls, tab: tabPad},
-		"recent":   {open: true, page: pageRecent, cursor: 2},
-		"start":    {open: true, page: pageStart},
+		"main":      {open: true, page: pageMain, cursor: itemQuit},
+		"display":   {open: true, page: pageDisplay, cursor: displayBack},
+		"controls":  {open: true, page: pageControls, cursor: controlsBack()},
+		"pad":       {open: true, page: pageControls, tab: tabPad},
+		"recent":    {open: true, page: pageGames, cursor: 2},
+		"games":     {open: true, page: pageGames, tab: tabAll, cursor: 25},
+		"games dir": {open: true, page: pageFolders, tab: tabGamesDir, cursor: gamesDirBack},
+		"boot rom":  {open: true, page: pageFolders, tab: tabBootROM, cursor: bootBack},
+		"start":     {open: true, page: pageStart},
+	}
+	g.cfg.GamesDir = "/Users/me/Jeux/Game Boy/Collection complete"
+	for i := range 40 {
+		name := fmt.Sprintf("Pokemon - Version Jaune - Edition Speciale Pikachu %d (France)", i)
+		g.library.games = append(g.library.games, libraryGame{path: "/g/" + name + ".gb", name: name, sub: "GBC"})
 	}
 	for _, size := range [][2]float64{{160, 144}, {320, 288}} {
 		for name, m := range views {

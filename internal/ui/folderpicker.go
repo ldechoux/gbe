@@ -54,10 +54,20 @@ func (g *Game) bootROMSearch() *rom.BootROMSearch {
 // chosen before or the home folder. The game loop goes on: pollFolderPick
 // applies the choice.
 func (g *Game) chooseBootROMDir() {
+	g.chooseFolder(g.cfg.BootROMDir, g.tr().T("boot_rom.dialog_title"), g.setBootROMDir)
+}
+
+// chooseGamesDir does the same for the games folder.
+func (g *Game) chooseGamesDir() {
+	g.chooseFolder(g.cfg.GamesDir, g.tr().T("games_dir.dialog_title"), g.setGamesDir)
+}
+
+// chooseFolder opens the folder dialog from start, or the home folder; set
+// gets the folder chosen.
+func (g *Game) chooseFolder(start, title string, set func(string)) {
 	if g.picker == nil || g.picking {
 		return
 	}
-	start := g.cfg.BootROMDir
 	if start == "" {
 		start, _ = os.UserHomeDir()
 	}
@@ -67,8 +77,8 @@ func (g *Game) chooseBootROMDir() {
 	if g.picks == nil {
 		g.picks = make(chan folderPick, 1)
 	}
-	g.picking = true
-	g.picker.pick(g.tr().T("boot_rom.dialog_title"), start, g.picks)
+	g.picking, g.picked = true, set
+	g.picker.pick(title, start, g.picks)
 }
 
 // pollFolderPick applies the folder chosen in the dialog, once it is closed.
@@ -80,8 +90,8 @@ func (g *Game) pollFolderPick() {
 		case p.err != nil:
 			log.Printf("folder dialog: %v", p.err)
 			g.notifyLong(g.tr().T("boot_rom.picker_failed"))
-		case p.dir != "":
-			g.setBootROMDir(p.dir)
+		case p.dir != "" && g.picked != nil:
+			g.picked(p.dir)
 		}
 	default:
 	}
@@ -137,7 +147,7 @@ func shortDir(dir string) string {
 // marqueePause ticks, then moves by one character every marqueeStep ticks,
 // marqueeGap spaces separating its end from its start coming back.
 const (
-	marqueePause = 90
+	marqueePause = 45
 	marqueeStep  = 8
 	marqueeGap   = 4
 )

@@ -54,7 +54,7 @@ func TestMenuNavigation(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		page menuPage
-		tab  controlsTab
+		tab  pageTab
 		want int
 	}{
 		{"main", pageMain, tabKeyboard, mainItems},
@@ -63,7 +63,7 @@ func TestMenuNavigation(t *testing.T) {
 		{"start", pageStart, tabKeyboard, startItems},
 		{"keyboard", pageControls, tabKeyboard, len(bindingNames()) + 3},
 		{"gamepad", pageControls, tabPad, len(bindingNames()) + 5}, // vibration, strength, test, defaults, back
-		{"recent", pageRecent, tabKeyboard, 3},                     // two games and back
+		{"recent", pageGames, tabKeyboard, 3},                      // two games and back
 	} {
 		m := menu{page: c.page, tab: c.tab}
 		g := &Game{cfg: &Config{Recent: make([]RecentGame, 2)}}

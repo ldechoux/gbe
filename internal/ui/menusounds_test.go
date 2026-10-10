@@ -46,7 +46,7 @@ func TestMenuSounds(t *testing.T) {
 	if m.cursor != itemDisplay {
 		t.Fatalf("Down from Resume with no recent game: cursor %d, want Display", m.cursor)
 	}
-	m.cursor = itemRecent
+	m.cursor = itemGames
 	do("OK on a greyed-out entry", menuActions{ok: true}, refuse)
 	m.cursor = itemResume
 	do("Right on Resume", menuActions{right: true})

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -32,10 +33,10 @@ const (
 	pageControls
 	pageDisplay
 	pageSound
-	pageStart  // shown at launch when a save state exists
-	pageSwitch // shown when a game is dropped on the window during another
-	pageRecent // the last games played, to launch one
-	pageBootROM
+	pageStart   // shown at launch when a save state exists
+	pageSwitch  // shown when a game is dropped on the window during another
+	pageGames   // the games to launch: the last played, and those of the games folder
+	pageFolders // the folders of the games and of the boot ROMs
 )
 
 // Start page entries.
@@ -55,11 +56,11 @@ const (
 // Main page entries.
 const (
 	itemResume = iota
-	itemRecent
+	itemGames
 	itemDisplay
 	itemControls
 	itemSound
-	itemBootROM
+	itemFolders
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -92,7 +93,22 @@ const (
 	soundItems
 )
 
-// Boot ROM page entries.
+// Folders page entries, on the Games tab.
+const (
+	gamesDirChoose = iota
+	gamesDirCount  // information, greyed out
+	gamesDirForget
+	gamesDirBack
+	gamesDirItems
+)
+
+// gamesDirDisabled reports whether the Games tab entry i of the Folders
+// page is greyed out: the count of the games, and Forget without a folder.
+func gamesDirDisabled(g *Game, i int) bool {
+	return i == gamesDirCount || i == gamesDirForget && g.cfg.GamesDir == ""
+}
+
+// Folders page entries, on the Boot ROM tab.
 const (
 	bootChoose = iota
 	bootAuto
@@ -102,7 +118,7 @@ const (
 	bootItems
 )
 
-// bootDisabled reports whether the Boot ROM page entry i is greyed out: the
+// bootDisabled reports whether the Boot ROM tab entry i is greyed out: the
 // lines that only inform, and the automatic search while it is on.
 func bootDisabled(g *Game, i int) bool {
 	return i == bootGB || i == bootGBC || i == bootAuto && g.cfg.BootROMDir == ""
@@ -186,24 +202,46 @@ func newMenuFace() text.Face {
 	return face
 }
 
-// controlsTab is the device shown on the controls page.
-type controlsTab int
+// pageTab is the tab shown on a page that has them.
+type pageTab int
 
+// The controls page: the device.
 const (
-	tabKeyboard controlsTab = iota
+	tabKeyboard pageTab = iota
 	tabPad
+)
+
+// The Games page: the recent games, or all those of the games folder.
+const (
+	tabRecent pageTab = iota
+	tabAll
+)
+
+// The Folders page: the folder of the games, or of the boot ROMs.
+const (
+	tabGamesDir pageTab = iota
+	tabBootROM
 )
 
 type menu struct {
 	open      bool
 	page      menuPage
-	tab       controlsTab
+	tab       pageTab
 	cursor    int
 	capturing bool   // waiting for a key or button to bind to the selected entry
 	notice    string // why the last capture was refused, or a status message
 	// width is the widest content drawn since the page was opened: the
 	// panel never shrinks while its text changes (tabs, notices, captures).
 	width float64
+	// rows is how many entries were shown at once, the last time the page
+	// was drawn: a page of the list of games.
+	rows int
+	// home is set when the page was opened from the drop screen: going
+	// back closes the menu.
+	home bool
+	// nameChars is how many characters of a game name the list had room
+	// for, the last time it was drawn (0: not drawn yet).
+	nameChars int
 }
 
 // Controls page layout: one entry per button and action, then these.
@@ -254,8 +292,8 @@ func (m *menu) keepPlaying(g *Game) {
 // mainDisabled reports whether the main page entry i is greyed out: those
 // about the game, while there is none.
 func mainDisabled(g *Game, i int) bool {
-	if i == itemRecent {
-		return len(g.cfg.Recent) == 0
+	if i == itemGames {
+		return len(g.cfg.Recent) == 0 && len(g.library.games) == 0
 	}
 	return g.gb == nil && (i == itemSaveState || i == itemLoadState || i == itemReset)
 }
@@ -283,7 +321,8 @@ func (m *menu) move(g *Game, delta int) {
 		n := m.itemCount(g)
 		m.cursor = (m.cursor + n + delta) % n
 		for m.page == pageMain && mainDisabled(g, m.cursor) || m.page == pageSound && soundDisabled(g, m.cursor) ||
-			m.page == pageBootROM && bootDisabled(g, m.cursor) {
+			m.page == pageFolders && m.tab == tabBootROM && bootDisabled(g, m.cursor) ||
+			m.page == pageFolders && m.tab == tabGamesDir && gamesDirDisabled(g, m.cursor) {
 			m.cursor = (m.cursor + n + delta) % n
 		}
 		return
@@ -304,32 +343,102 @@ func (m *menu) itemCount(g *Game) int {
 		return displayItems
 	case pageSound:
 		return soundItems
-	case pageBootROM:
+	case pageFolders:
+		if m.tab == tabGamesDir {
+			return gamesDirItems
+		}
 		return bootItems
 	case pageStart:
 		return startItems
 	case pageSwitch:
 		return switchItems
-	case pageRecent:
+	case pageGames:
+		if m.tab == tabAll {
+			return max(1, len(g.library.games)) // without Back: a list may be long
+		}
 		return len(g.cfg.Recent) + 1 // and Back
 	}
 	return mainItems
 }
 
-// backToMain leaves a page opened from the main one, back on its entry.
+// backToMain leaves a page opened from the main one, back on its entry. A
+// page opened from the drop screen goes back to it.
 func (m *menu) backToMain() {
+	if m.home {
+		m.open = false
+		return
+	}
 	cursor := itemControls
 	switch m.page {
 	case pageDisplay:
 		cursor = itemDisplay
 	case pageSound:
 		cursor = itemSound
-	case pageBootROM:
-		cursor = itemBootROM
-	case pageRecent:
-		cursor = itemRecent
+	case pageFolders:
+		cursor = itemFolders
+	case pageGames:
+		cursor = itemGames
 	}
 	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, cursor, "", 0
+}
+
+// showGames opens the Games page on tab: the recent games, or those of the
+// games folder, on the game last chosen there. The folder is read again,
+// for the games added since.
+func (m *menu) showGames(g *Game, tab pageTab) {
+	m.page, m.tab, m.cursor, m.notice, m.width = pageGames, tab, 0, "", 0
+	if tab == tabAll {
+		m.cursor = min(g.library.cursor, max(0, len(g.library.games)-1))
+	}
+	g.stateTimes = nil
+	g.refreshLibrary()
+}
+
+// gamesTabDisabled reports whether a tab of the Games page is greyed out:
+// without recent games, or without games in the folder.
+func gamesTabDisabled(g *Game, tab pageTab) bool {
+	if tab == tabAll {
+		return len(g.library.games) == 0
+	}
+	return len(g.cfg.Recent) == 0
+}
+
+// moveList moves through the games of the folder: faster the longer Up or
+// Down is held, a page at a time, or to the next game whose name starts
+// with the letter typed. It reports whether it handled the actions.
+func (m *menu) moveList(g *Game) bool {
+	a, n := g.actions, len(g.library.games)
+	if n == 0 {
+		return false
+	}
+	page := max(1, m.rows-1)
+	cursor := m.cursor
+	switch {
+	case a.upHeld > 0 && fastRepeatTick(a.upHeld):
+		cursor = (cursor + n - 1) % n
+	case a.downHeld > 0 && fastRepeatTick(a.downHeld):
+		cursor = (cursor + 1) % n
+	case a.pageUp:
+		cursor = max(0, cursor-page)
+	case a.pageDown:
+		cursor = min(n-1, cursor+page)
+	case a.letter != 0:
+		if i := nextWithLetter(g.library.games, cursor, a.letter); i >= 0 {
+			cursor = i
+		} else {
+			g.menuSound(menusound.Refuse)
+			return true
+		}
+	case a.up, a.down:
+		return true // between two repeats
+	default:
+		return false
+	}
+	if cursor != m.cursor {
+		m.cursor, g.library.cursor = cursor, cursor
+		g.menuSound(menusound.Move)
+	}
+	return true
 }
 
 // update reacts to this tick's actions (see menuActions); captures read the
@@ -365,13 +474,14 @@ func (m *menu) update(g *Game) {
 		case pageSwitch:
 			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
-		case pageControls, pageDisplay, pageSound, pageRecent, pageBootROM:
+		case pageControls, pageDisplay, pageSound, pageGames, pageFolders:
 			g.menuSound(menusound.Back)
 			m.backToMain()
 		default:
 			g.menuSound(menusound.Back)
 			m.open = false
 		}
+	case m.page == pageGames && m.tab == tabAll && m.moveList(g):
 	case a.up:
 		m.moveSounding(g, -1)
 	case a.down:
@@ -447,6 +557,10 @@ func (m *menu) captureKey(g *Game, combo Hotkey) {
 }
 
 func (m *menu) adjust(g *Game, delta int) {
+	if m.page == pageGames || m.page == pageFolders {
+		m.switchTab(g, delta)
+		return
+	}
 	if m.page == pageControls {
 		if m.tab == tabPad && m.cursor == padVibration() {
 			m.cycleVibration(g, delta)
@@ -602,7 +716,16 @@ func strengthPosition(strength int) float64 {
 // reachable while a gamepad is connected; otherwise it is drawn greyed out,
 // which is enough feedback.
 func (m *menu) switchTab(g *Game, delta int) {
+	tab := pageTab(0)
+	if delta > 0 {
+		tab = 1
+	}
 	switch {
+	case m.page == pageGames && tab != m.tab && !gamesTabDisabled(g, tab):
+		m.showGames(g, tab)
+	case m.page == pageFolders && tab != m.tab:
+		m.tab, m.cursor, m.notice = tab, 0, ""
+	case m.page != pageControls:
 	case delta > 0 && m.tab == tabKeyboard:
 		if len(g.pads.ids()) == 0 {
 			return
@@ -628,7 +751,17 @@ func (m *menu) activate(g *Game) {
 		g.menuSound(menusound.Refuse)
 		return
 	}
-	if m.page == pageRecent {
+	if m.page == pageGames && m.tab == tabAll {
+		if m.cursor < len(g.library.games) {
+			g.menuSound(menusound.Enter)
+			g.library.cursor = m.cursor
+			g.playLibrary(m.cursor) // closes the menu once launched
+		} else {
+			g.menuSound(menusound.Refuse)
+		}
+		return
+	}
+	if m.page == pageGames {
 		if m.cursor >= len(g.cfg.Recent) {
 			g.menuSound(menusound.Back)
 			m.backToMain()
@@ -694,7 +827,28 @@ func (m *menu) activate(g *Game) {
 		}
 		return
 	}
-	if m.page == pageBootROM {
+	if m.page == pageFolders && m.tab == tabGamesDir {
+		switch m.cursor {
+		case gamesDirChoose:
+			g.menuSound(menusound.Enter)
+			g.chooseGamesDir()
+		case gamesDirForget:
+			if gamesDirDisabled(g, gamesDirForget) {
+				g.menuSound(menusound.Refuse)
+				return
+			}
+			g.menuSound(menusound.Change)
+			g.setGamesDir("")
+			m.cursor = gamesDirChoose // the entry is greyed out now
+		case gamesDirCount:
+			g.menuSound(menusound.Refuse)
+		default:
+			g.menuSound(menusound.Back)
+			m.backToMain()
+		}
+		return
+	}
+	if m.page == pageFolders {
 		switch m.cursor {
 		case bootChoose:
 			g.menuSound(menusound.Enter)
@@ -742,10 +896,15 @@ func (m *menu) activate(g *Game) {
 	switch m.cursor {
 	case itemSound:
 		m.page, m.cursor, m.width = pageSound, soundVolume, 0
-	case itemBootROM:
-		m.page, m.cursor, m.width = pageBootROM, bootChoose, 0
-	case itemRecent:
-		m.page, m.cursor, m.width = pageRecent, 0, 0
+	case itemFolders:
+		m.page, m.tab, m.cursor, m.width = pageFolders, tabGamesDir, gamesDirChoose, 0
+		g.refreshLibrary()
+	case itemGames:
+		tab := tabRecent
+		if len(g.cfg.Recent) == 0 {
+			tab = tabAll
+		}
+		m.showGames(g, tab)
 	case itemDisplay:
 		m.page, m.cursor, m.width = pageDisplay, displayPalette, 0
 	case itemControls:
@@ -788,7 +947,18 @@ type menuView struct {
 	// size of the largest, instead of changing as the player goes through
 	// them.
 	altItems, altFooters []string
+	// A long list gives only the entries around the selected one: items
+	// are the entries offset to offset+len(items) of total (0 when items
+	// are all of them). It has a scroll bar instead of the arrows.
+	offset, total int
+	// rows is the number of entries the panel has room for, at least:
+	// its height stays the same from one tab to the other.
+	rows int
 }
+
+// listWindow is how many entries of a long list a view gives, around the
+// selected one: more than the tallest window shows.
+const listWindow = 80
 
 func (m *menu) view(g *Game) menuView {
 	if m.page == pageControls {
@@ -806,6 +976,12 @@ func (m *menu) view(g *Game) menuView {
 		v.selected = m.cursor
 		return v
 	}
+	switch m.page {
+	case pageGames:
+		return m.gamesView(g)
+	case pageFolders:
+		return m.foldersView(g)
+	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
 	switch m.page {
@@ -816,14 +992,6 @@ func (m *menu) view(g *Game) menuView {
 			v.disabled = map[int]bool{soundStereo: true}
 		}
 		v.altItems, v.altFooters = soundAlternatives(g)
-	case pageBootROM:
-		v.disabled = map[int]bool{}
-		for i := range bootItems {
-			if bootDisabled(g, i) {
-				v.disabled[i] = true
-			}
-		}
-		v.altItems, v.altFooters = bootAlternatives(g)
 	case pageMain:
 		for i := range items {
 			if mainDisabled(g, i) {
@@ -927,20 +1095,6 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("switch.title"), []string{l.T("switch.launch", name), l.T("switch.keep")}, footer
 	}
-	if m.page == pageRecent {
-		for _, r := range g.cfg.Recent {
-			name := recentName(r)
-			if sameFile(r.Path, g.romPath) {
-				name = l.T("recent.current", name)
-			}
-			items = append(items, name)
-		}
-		items = append(items, l.T("recent.back"))
-		if g.gb != nil && g.started {
-			footer = l.T("recent.footer")
-		}
-		return l.T("recent.title"), items, footer
-	}
 	if m.page == pageDisplay {
 		labels := []string{
 			paletteLabel(l, g),
@@ -971,30 +1125,13 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("sound.title"), items, m.soundFooter(g)
 	}
-	if m.page == pageBootROM {
-		search := g.bootROMSearch()
-		found := func(model gb.Model) string {
-			if search.Find(model) != "" {
-				return l.T("boot_rom.found")
-			}
-			return l.T("boot_rom.missing")
-		}
-		items = []string{
-			l.T("boot_rom.choose"),
-			l.T("boot_rom.auto"),
-			l.T("boot_rom.gb", found(gb.ModelDMG)),
-			l.T("boot_rom.gbc", found(gb.ModelCGB)),
-			l.T("boot_rom.back"),
-		}
-		return l.T("boot_rom.title"), items, bootFooter(g, g.cfg.BootROMDir, g.bootROMPending)
-	}
 	items = []string{
 		l.T("menu.resume"),
-		l.T("menu.recent"),
+		l.T("menu.games"),
 		l.T("menu.display"),
 		l.T("menu.controls"),
 		l.T("menu.sound"),
-		l.T("menu.boot_rom"),
+		l.T("menu.folders"),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),
@@ -1003,6 +1140,149 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.quit"),
 	}
 	return l.T("menu.title"), items, mainFooter(g)
+}
+
+// gamesView is the Games page: the recent games, or all those of the games
+// folder, the selected one scrolling when its name is long.
+func (m *menu) gamesView(g *Game) menuView {
+	l := g.tr()
+	games := g.library.games
+	key := fmt.Sprintf("%d %d", m.tab, m.cursor)
+	switch {
+	case m.tab == tabAll && m.cursor < len(games):
+		key += games[m.cursor].path
+	case m.tab == tabRecent && m.cursor < len(g.cfg.Recent):
+		key += g.cfg.Recent[m.cursor].Path
+	}
+	tick := g.marqueeTick("games", key)
+	all := l.T("games.all")
+	if len(games) > 0 {
+		all = l.T("games.all_count", len(games))
+	}
+	v := menuView{title: l.T("games.title"), tabs: []menuTab{
+		{label: l.T("games.recent"), active: m.tab == tabRecent, disabled: gamesTabDisabled(g, tabRecent)},
+		{label: all, active: m.tab == tabAll, disabled: gamesTabDisabled(g, tabAll)},
+	}}
+	width := gameNameWidth
+	if m.nameChars > 0 {
+		width = min(width, m.nameChars) // a small window: the selected name scrolls in what it shows
+	}
+	name := func(path, name string, selected bool) string {
+		if sameFile(path, g.romPath) {
+			name = l.T("recent.current", name)
+		}
+		return listName(name, width, selected, tick)
+	}
+	path, position := "", ""
+	if m.tab == tabAll {
+		v.offset = max(0, min(m.cursor-listWindow/2, len(games)-listWindow))
+		for i := v.offset; i < min(len(games), v.offset+listWindow); i++ {
+			v.items = append(v.items, name(games[i].path, games[i].name, i == m.cursor))
+		}
+		v.selected, v.total = m.cursor-v.offset, len(games)
+		if len(games) == 0 {
+			v.items, v.disabled = []string{l.T("games.empty")}, map[int]bool{0: true}
+		} else if m.cursor < len(games) {
+			e := games[m.cursor]
+			path, position = e.path, l.T("games.position", m.cursor+1, len(games))
+			if e.sub != "" {
+				position += "   " + shortDir(e.sub) + string(filepath.Separator)
+			}
+		}
+	} else {
+		for i, r := range g.cfg.Recent {
+			v.items = append(v.items, name(r.Path, recentName(r), i == m.cursor))
+			if i == m.cursor {
+				path = r.Path
+			}
+		}
+		v.items = append(v.items, l.T("recent.back"))
+		v.selected = m.cursor
+	}
+
+	// The footer: where the game is in the list (on the All tab), when it
+	// was saved, and that the game in progress will be. Each on its line,
+	// which stays the same from one game to the next.
+	saved := ""
+	if path != "" {
+		if t := g.savedAt(path); !t.IsZero() {
+			saved = l.T("games.saved_at", t.Format(l.T("start.date_format")))
+		}
+	}
+	lines := []string{saved}
+	if m.tab == tabAll {
+		lines = []string{position, saved}
+	}
+	if g.gb != nil && g.started {
+		lines = append(lines, l.T("recent.footer"))
+	}
+	v.footer = strings.TrimRight(strings.Join(lines, "\n"), "\n")
+	long := strings.Repeat("x", gameNameWidth)
+	v.altItems = []string{l.T("recent.current", long), l.T("games.empty")}
+	v.altFooters = []string{l.T("games.position", maxLibrary, maxLibrary) + "\n" +
+		l.T("games.saved_at", time.Date(2000, 12, 31, 23, 59, 0, 0, time.UTC).Format(l.T("start.date_format"))) + "\n" +
+		l.T("recent.footer")}
+	return v
+}
+
+// foldersView is the Folders page: the folder of the games, or of the boot
+// ROMs and whether they are found.
+func (m *menu) foldersView(g *Game) menuView {
+	l := g.tr()
+	v := menuView{title: l.T("folders.title"), tabs: []menuTab{
+		{label: l.T("folders.games"), active: m.tab == tabGamesDir},
+		{label: l.T("folders.boot_rom"), active: m.tab == tabBootROM},
+	}, selected: m.cursor, disabled: map[int]bool{}, rows: max(gamesDirItems, bootItems)}
+	if m.tab == tabGamesDir {
+		v.items = []string{l.T("games_dir.choose"), gamesCount(g), l.T("games_dir.forget"), l.T("boot_rom.back")}
+		for i := range gamesDirItems {
+			if gamesDirDisabled(g, i) {
+				v.disabled[i] = true
+			}
+		}
+		v.footer = l.T("games_dir.folder_none")
+		if g.cfg.GamesDir != "" {
+			v.footer = l.T("boot_rom.folder", marquee(shortDir(g.cfg.GamesDir), bootDirWidth, int64(ebiten.Tick())))
+		}
+	} else {
+		search := g.bootROMSearch()
+		found := func(model gb.Model) string {
+			if search.Find(model) != "" {
+				return l.T("boot_rom.found")
+			}
+			return l.T("boot_rom.missing")
+		}
+		v.items = []string{
+			l.T("boot_rom.choose"),
+			l.T("boot_rom.auto"),
+			l.T("boot_rom.gb", found(gb.ModelDMG)),
+			l.T("boot_rom.gbc", found(gb.ModelCGB)),
+			l.T("boot_rom.back"),
+		}
+		for i := range bootItems {
+			if bootDisabled(g, i) {
+				v.disabled[i] = true
+			}
+		}
+		v.footer = bootFooter(g, g.cfg.BootROMDir, g.bootROMPending)
+	}
+	v.altItems, v.altFooters = bootAlternatives(g)
+	v.altItems = append(v.altItems, l.T("games_dir.scanning"), l.T("games_dir.none"), l.T("games_dir.count", maxLibrary))
+	v.altFooters = append(v.altFooters, l.T("games_dir.folder_none"))
+	return v
+}
+
+// gamesCount is the line of the Folders page that tells how many games the
+// games folder holds.
+func gamesCount(g *Game) string {
+	l := g.tr()
+	switch {
+	case g.cfg.GamesDir == "":
+		return l.T("games_dir.none")
+	case g.library.scanning && g.library.dir != g.cfg.GamesDir:
+		return l.T("games_dir.scanning")
+	}
+	return l.T("games_dir.count", len(g.library.games))
 }
 
 // soundAlternatives lists every value the entries of the sound page and
@@ -1144,7 +1424,10 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 
 	v := m.view(g)
 	l := layoutMenu(v, m.width, sw, sh)
-	m.width = l.width
+	m.width, m.rows = l.width, len(l.items)
+	if v.total > 0 {
+		m.nameChars = max(4, int((l.width-advance("> ")-scrollBarSpace)/advance("x")))
+	}
 	scale, lineH, pad := l.scale, l.lineH, l.pad
 	x, y, w, h := l.x, l.y, l.w, l.h
 	tabGap := 2 * advance(" ") // space between tabs, before scaling
@@ -1177,13 +1460,21 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 		fillRect(dst, x+pad/2, ty+lineH-scale, w-pad, scale, pal[3]) // underline the tab bar
 		ty += lineH * 1.5
 	}
+	list := v.total > 0
+	highlight := w - pad
+	if list {
+		highlight -= (scrollBarSpace - 2) * scale // up to the scroll bar
+		if l.above || l.below {
+			drawScrollBar(dst, x+w-pad-3*scale, ty-2*scale, float64(l.rows)*lineH, l, pal)
+		}
+	}
 	for i, s := range l.items {
 		fg := pal[3]
 		if v.disabled[l.first+i] {
 			fg = pal[1] // faded: not available
 		}
 		if i == l.selected {
-			fillRect(dst, x+pad/2, ty-2*scale, w-pad, lineH, pal[2])
+			fillRect(dst, x+pad/2, ty-2*scale, highlight, lineH, pal[2])
 			fg = pal[0]
 			s = "> " + s
 		} else {
@@ -1195,11 +1486,12 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 			drawSlider(dst, sx, ty, scale, pos, fg)
 		}
 		// More entries above or below: a small arrow at the right.
-		if (i == 0 && l.above) || (i == len(l.items)-1 && l.below) {
+		if !list && ((i == 0 && l.above) || (i == len(l.items)-1 && l.below)) {
 			drawScrollArrow(dst, x+w-pad/2-5*scale, ty+3*scale, scale, i == 0, fg)
 		}
 		ty += lineH
 	}
+	ty += float64(l.rows-len(l.items)) * lineH // the room kept for other tabs
 	for _, line := range l.footer {
 		drawText(dst, line, x+pad, ty+lineH*0.5, scale, pal[2])
 		ty += lineH
@@ -1229,6 +1521,21 @@ func drawSlider(dst *ebiten.Image, x, y, scale, pos float64, c color.Color) {
 	fillRect(dst, x0-scale, mid-2*scale, scale, 5*scale, c)             // end caps
 	fillRect(dst, x0+sliderTrack*scale, mid-2*scale, scale, 5*scale, c) //
 	fillRect(dst, x0+(knob-1)*scale, mid-4*scale, 3*scale, 9*scale, c)  // handle
+}
+
+// drawScrollBar draws the scroll bar of a long list, centered on x, from y
+// down h pixels: a thin track, and on it a thicker thumb, as tall as the
+// part of the list shown and where it is.
+func drawScrollBar(dst *ebiten.Image, x, y, h float64, l menuLayout, pal [4]color.RGBA) {
+	scale, shown := l.scale, float64(len(l.items))
+	total := float64(l.listTotal)
+	fillRect(dst, x, y, scale, h, pal[1])
+	thumb := math.Max(6*scale, math.Round(h*shown/total))
+	top := y
+	if total > shown {
+		top += math.Round((h - thumb) * float64(l.listFirst) / (total - shown))
+	}
+	fillRect(dst, x-scale, top, 3*scale, thumb, pal[3])
 }
 
 // drawScrollArrow draws a small triangle pointing up or down, 5 pixels

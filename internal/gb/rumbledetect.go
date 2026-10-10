@@ -56,18 +56,17 @@ type RumbleParams struct {
 	// Flash makes the shocks heard as the screen flashes stronger: by this
 	// share of their strength.
 	Flash float64 `json:"flash"`
-	// Habituation is how much weaker, at most, a shock heard again and
-	// again lately shakes (the explosions of R-Type DX); it still shakes.
-	Habituation float64 `json:"habituation"`
 }
 
 // DefaultRumbleParams are the settings the detector runs with unless told
 // otherwise.
 func DefaultRumbleParams() RumbleParams {
-	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
-	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3, Zelda:
-	// Link's Awakening and the storm of its DX intro (gbe -rumble-tune).
-	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 1, Habituation: 0}
+	// Tuned by feel on recorded play of Donkey Kong Country, Kirby's Dream
+	// Land 2, Mega Man Xtreme 2, R-Type DX, Street Fighter Alpha, Super
+	// Mario Land, Tetris, Tetris DX, Wario Land 3, Zelda: Link's Awakening
+	// and the storm of its DX intro (gbe -rumble-tune). The sweeps weigh as
+	// much as the noise: the blows of Super Mario Land are sweeps.
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 1, Steady: 8, Shake: 0.6, Flash: 1}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.
@@ -85,8 +84,7 @@ const (
 	pulseMinHold  = 4       // frames a pulse lasts at least (about 67 ms), at Duration 1
 	pulseMaxHold  = 30      // and at most (half a second)
 	burstPerFrame = 0.5     // notes of one kind per frame beyond which they are a buzz, not shocks
-	recentLife    = 5 * 60  // half-life of the count of recent shocks (see Habituation)
-	recentMany    = 4       // recent shocks of one kind at which habituation is two thirds of its most
+	maxLowered    = 2       // times a noise getting lower makes its pulse stronger at most
 )
 
 // noteSig identifies an instrument: the registers of a note but its pitch on
@@ -98,9 +96,7 @@ type noteSig struct {
 
 // sigStats is what the detector knows of one instrument.
 type sigStats struct {
-	heard     float64 // times heard, fading with sigHalfLife
-	shocks    float64 // times it shook, fading with recentLife from shocksAt
-	shocksAt  float64
+	heard     float64    // times heard, fading with sigHalfLife
 	last      float64    // frame it was last triggered
 	intervals [6]float64 // between its last triggers, the newest first
 	burst     float64    // triggers in the last few frames, fading fast
@@ -116,6 +112,8 @@ type pulse struct {
 	hold     float64 // frames it lasts at most
 	volume   byte    // of the envelope when triggered
 	active   bool
+	lowness  float64 // of the noise, on channel 4 (see lower)
+	lowered  int     // times the noise got lower
 }
 
 type rumbleDetector struct {
@@ -235,7 +233,7 @@ func (d *rumbleDetector) restart() {
 	d.level = 0
 	d.screen = screenWatch{flashAt: math.Inf(-1)}
 	for _, s := range d.sigs {
-		s.last, s.burst, s.shocks = math.Inf(-1), 0, 0
+		s.last, s.burst = math.Inf(-1), 0
 	}
 }
 
@@ -303,11 +301,11 @@ func (d *rumbleDetector) trigger(i int) {
 		if t-d.screen.flashAt <= flashBoostTime {
 			shock = math.Min(1, shock*(1+p.Flash)) // the screen flashed just before
 		}
-		// Heard again and again lately: less of a surprise, but still felt.
-		shock *= 1 - p.Habituation*(1-math.Exp(-s.recentShocks(t)/recentMany))
-		s.shocks, s.shocksAt = s.recentShocks(t)+1, t
 		c := &a.ch[i]
 		d.pulses[i] = pulse{strength: shock, start: t, hold: d.duration(i), volume: c.env.volume, active: true}
+		if i == 3 {
+			d.pulses[i].lowness = noiseLowness(a.regs[0x12])
+		}
 	} else if d.pulses[i].active {
 		d.pulses[i].active = false // another note took the channel
 	}
@@ -316,14 +314,6 @@ func (d *rumbleDetector) trigger(i int) {
 		copy(n.Regs[:], a.regs[i*5:i*5+5])
 		d.trace = append(d.trace, n)
 	}
-}
-
-// recentShocks tells how many times the instrument shook lately, at frame t.
-func (s *sigStats) recentShocks(t float64) float64 {
-	if s.shocks == 0 {
-		return 0
-	}
-	return s.shocks * math.Exp2(-math.Max(0, t-s.shocksAt)/recentLife)
 }
 
 // remember adds a trigger of the instrument at frame t.
@@ -482,16 +472,20 @@ func (d *rumbleDetector) duration(i int) float64 {
 
 // lower sees a write to NR43 while the noise plays: an explosion often
 // lowers its noise as it goes on, which makes its pulse stronger and
-// longer.
+// longer, a few times at most. Games that rewrite the same noise, or raise
+// it, again and again (R-Type DX) get nothing.
 func (d *rumbleDetector) lower() {
 	p := &d.pulses[3]
 	if !p.active || !d.g.APU.ch[3].enabled {
 		return
 	}
-	if l := noiseLowness(d.g.APU.regs[0x12]); l > 0.5 {
+	l := noiseLowness(d.g.APU.regs[0x12])
+	if l > 0.5 && l > p.lowness+0.05 && p.lowered < maxLowered {
 		p.strength = math.Min(1, p.strength+0.1*l)
 		p.hold = math.Min(d.maxHold(), p.hold+4)
+		p.lowered++
 	}
+	p.lowness = l
 }
 
 // frame works out how hard the frame just run shakes: the strongest pulse,

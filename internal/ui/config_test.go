@@ -120,3 +120,22 @@ func TestLoadGhosting(t *testing.T) {
 		t.Errorf("default ghosting %q", cfg.Ghosting)
 	}
 }
+
+// A config without a volume, written by hand or by an older version, keeps
+// the default one instead of muting the sound; a volume of 0 stays muted.
+func TestLoadConfigVolume(t *testing.T) {
+	for data, want := range map[string]float64{
+		`{"scale": 3}`:    DefaultConfig().Volume,
+		`{"volume": 0}`:   0,
+		`{"volume": 0.8}`: 0.8,
+	} {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := LoadConfig(path)
+		if err != nil || cfg.Volume != want {
+			t.Errorf("%s: volume %v, %v; want %v", data, cfg.Volume, err, want)
+		}
+	}
+}

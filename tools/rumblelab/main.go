@@ -155,6 +155,8 @@ type run struct {
 	notes   []note
 	level   []float64 // guessed vibration per frame
 	motor   []float64 // of a rumble cartridge, per frame
+	shake   []float64 // of the screen, per frame
+	flashes []int     // frames the screen flashed
 	samples []int16   // mono
 	thumbs  []image.Image
 }
@@ -198,6 +200,11 @@ func play(path, state string, frames int, buttons buttonsAt, params gb.RumblePar
 			})
 		}
 		r.level = append(r.level, round(g.GuessedRumble()))
+		shake, flash := g.ScreenRumble()
+		r.shake = append(r.shake, round(shake))
+		if flash {
+			r.flashes = append(r.flashes, f)
+		}
 		r.motor = append(r.motor, round(g.Rumble()))
 		s := g.APU.DrainSamples()
 		if record {
@@ -310,7 +317,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if *quick {
-		data, err := json.Marshal(map[string]any{"notes": r.notes, "level": r.level})
+		data, err := json.Marshal(map[string]any{"notes": r.notes, "level": r.level, "shake": r.shake, "flashes": r.flashes})
 		if err == nil {
 			err = os.MkdirAll(*out, 0o755)
 		}
@@ -385,6 +392,13 @@ func summary(w *os.File, r *run) {
 		music, inputMusic, effects, inputEffects)
 	fmt.Fprintf(w, "shocks: %d answering the buttons, %d not\n", inputShocks, ambientShocks)
 	fmt.Fprintf(w, "frames shaking: %d of %d\n", shaking, len(r.level))
+	screen := 0
+	for _, v := range r.shake {
+		if v > 0 {
+			screen++
+		}
+	}
+	fmt.Fprintf(w, "screen: %d frames shaking, %d flashes\n", screen, len(r.flashes))
 	if motor > 0 {
 		fmt.Fprintf(w, "motor: %d frames, %d of them with a guessed vibration within 3 frames\n", motor, both)
 	}
@@ -425,7 +439,7 @@ func write(dir, name, script string, r *run) error {
 		return err
 	}
 	data, err := json.Marshal(map[string]any{
-		"name": name, "script": script, "notes": r.notes, "level": r.level, "motor": r.motor,
+		"name": name, "script": script, "notes": r.notes, "level": r.level, "motor": r.motor, "shake": r.shake, "flashes": r.flashes,
 		"thumbEvery": thumbEvery, "thumbCols": thumbCols, "tw": tw, "th": th,
 	})
 	if err != nil {
@@ -461,14 +475,16 @@ canvas{display:block}
 <span class="k" style="background:#d02020"></span>shock (height: strength)
 <span class="k" style="border:2px solid #2060f0;box-sizing:border-box"></span>answers the buttons
 <span class="k" style="background:#2a9d3a"></span>guessed vibration
-<span class="k" style="background:#7a3fc0"></span>cartridge motor</p>
+<span class="k" style="background:#7a3fc0"></span>cartridge motor
+<span class="k" style="background:#e07b00"></span>screen shaking
+<span class="k" style="background:#e0c000"></span>screen flash</p>
 <p>Click the timeline to go there. Hover a note for its registers.</p>
 <div id="info"></div></div></div>
 <div id="wrap"><canvas id="c"></canvas></div>
 <script>
 const D = {{.Data}};
 const fps = 4194304 / 70224, px = 3, lane = 34, top = 20;
-const frames = D.level.length, W = frames * px, H = top + 4 * lane + 120;
+const frames = D.level.length, W = frames * px, H = top + 4 * lane + 130;
 const c = document.getElementById('c'), x = c.getContext('2d');
 c.width = W; c.height = H;
 function draw(cursor) {
@@ -488,7 +504,9 @@ function draw(cursor) {
   for (let f = 0; f < frames; f++) {
     if (D.motor[f] > 0) { x.fillStyle = '#7a3fc0'; x.fillRect(f * px, base - 100 - 8, px, 8 * D.motor[f]); }
     x.fillStyle = '#2a9d3a'; x.fillRect(f * px, base - 90 * D.level[f], px, 90 * D.level[f]);
+    if (D.shake && D.shake[f] > 0) { x.fillStyle = '#e07b00'; x.fillRect(f * px, base + 2, px, 6 * D.shake[f] + 2); }
   }
+  for (const f of D.flashes || []) { x.fillStyle = '#e0c000'; x.fillRect(f * px - 1, top - 6, 3, 4 * lane + 8); }
   x.fillStyle = '#000'; x.fillRect(cursor * px, 0, 1, H);
 }
 const audio = document.getElementById('audio'), shot = document.getElementById('shot'), info = document.getElementById('info');

@@ -326,14 +326,20 @@ famille de la manette détectée : Xbox, PlayStation ou Nintendo.
 Les cartouches vibrantes (Pokémon Pinball, Perfect Dark, Top Gear Rally…) font vibrer la
 manette. La force suit celle du moteur de la cartouche, que le jeu fait varier.
 
-Les autres jeux peuvent aussi faire vibrer la manette : gbe devine les chocs d'après les sons
-joués. Il suit chaque note des voies de bruit et de *sweep*, et commence par écarter la musique.
-Celle-ci revient en rythme et rejoue sans cesse les mêmes instruments, souvent depuis une autre
-routine du jeu que les bruitages. Parmi les bruitages, un bruit grave, fort et long (explosion,
-impact, tonnerre) vibre fort. Une fréquence qui glisse vite vibre moins, encore moins si elle
-monte (saut, bonus) que si elle descend (chute, coup). Une note répétée à chaque image ne fait
-que bourdonner, et ne vibre pas. Chaque choc donne une secousse franche, ressentie même quand
-le son est très bref, qui s'éteint avec lui.
+Les autres jeux peuvent aussi faire vibrer la manette. **Cette fonctionnalité est encore
+expérimentale** : gbe devine les chocs, ce qui ne marche pas aussi bien dans tous les jeux, et
+son réglage peut encore évoluer. Il les devine d'après les sons joués. Il suit chaque note des
+voies de bruit et de *sweep*, et commence par écarter la musique. Celle-ci revient en rythme et
+rejoue sans cesse les mêmes instruments, souvent depuis une autre routine du jeu que les
+bruitages. Parmi les bruitages, un bruit grave, fort et long (explosion, impact, tonnerre)
+vibre fort. Une fréquence qui glisse vite et fort vibre aussi (un ennemi écrasé, une chute),
+moins si elle monte que si elle descend. Une note répétée à chaque image ne fait que
+bourdonner, et ne vibre pas. Chaque choc donne une secousse franche, ressentie même quand le
+son est très bref, qui s'éteint avec lui.
+
+gbe regarde aussi l'écran. Quand il tremble (un va-et-vient rapide de quelques pixels, comme
+quand Wario est touché), la manette vibre, même sans bruitage. Quand il flashe (un éclair, une
+explosion), le choc entendu au même moment vibre plus fort.
 
 L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée) :
 
@@ -341,7 +347,7 @@ L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←
 |---|---|
 | non | Jamais |
 | cartouches Rumble | Seulement avec les cartouches à moteur (par défaut) |
-| tous les jeux | Aussi dans les autres jeux, d'après leurs sons |
+| tous les jeux | Aussi dans les autres jeux, d'après leurs sons et leur écran (expérimental) |
 
 L'entrée **Intensité** règle leur force avec un curseur (←/→), du plus doux au plus fort (par
 défaut). Elle est grisée quand les vibrations sont coupées. Valider sur le curseur (A ou Entrée),
@@ -444,8 +450,8 @@ voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et
 
 `tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des boutons
 scriptés, avec les réglages par défaut ou ceux de `-params`. Il écrit une page avec les notes de
-chaque voie, la vibration devinée, le moteur des cartouches Rumble (référence : Pokémon
-Pinball), l'écran et le son :
+chaque voie, la vibration devinée, les tremblements et les flashs de l'écran, le moteur des
+cartouches Rumble (référence : Pokémon Pinball), l'écran et le son :
 
 ```sh
 go run ./tools/rumblelab -out /tmp/lab dossier/ZELDA-20261010-153000.json

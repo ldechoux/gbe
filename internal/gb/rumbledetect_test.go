@@ -4,7 +4,7 @@ import "testing"
 
 // testParams are the settings the tests of the detector run with: they
 // check how it works, whatever its settings by default.
-var testParams = RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8, Steady: 30}
+var testParams = RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8, Steady: 30, Shake: 0.6, Flash: 0.5}
 
 // detectorGB is a console looping on itself, with the rumble detector on
 // (testParams) and the sound sent full volume to both sides.
@@ -243,5 +243,30 @@ func TestRumbleDetectorDefaults(t *testing.T) {
 	}
 	if n < 8 || n > 20 {
 		t.Errorf("a fade of 10 frames shook %d frames", n)
+	}
+}
+
+// A noise getting lower makes its pulse stronger a few times at most;
+// rewriting the same noise again and again (R-Type DX) does nothing.
+func TestRumbleDetectorLower(t *testing.T) {
+	strength := func(nr43s ...byte) float64 {
+		g := detectorGB(t)
+		noise(g, 0xC7, 0x50)
+		for _, v := range nr43s {
+			g.APU.write(0xFF22, v)
+		}
+		return g.guess.pulses[3].strength
+	}
+	plain := strength()
+	if s := strength(0x50, 0x50, 0x50, 0x50, 0x50); s != plain {
+		t.Errorf("the same noise rewritten: %.2f, want %.2f", s, plain)
+	}
+	lower := strength(0x60, 0x70)
+	if lower <= plain {
+		t.Errorf("a noise getting lower: %.2f, not stronger than %.2f", lower, plain)
+	}
+	// Each time adds 0.1 at most.
+	if s := strength(0x60, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75); s > plain+0.1*maxLowered+1e-9 {
+		t.Errorf("lower and lower: %.2f, want %.2f at most", s, plain+0.1*maxLowered)
 	}
 }

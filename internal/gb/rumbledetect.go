@@ -1,6 +1,9 @@
 package gb
 
-import "math"
+import (
+	"math"
+	"math/bits"
+)
 
 // Games without a rumble motor can still shake the gamepad: the shocks of a
 // game (explosions, hits, falls) come with typical sound effects, which the
@@ -47,15 +50,23 @@ type RumbleParams struct {
 	// at Duration 1: games that fade their sounds themselves trigger it
 	// again and again, lower each time (Street Fighter Alpha, Zelda).
 	Steady float64 `json:"steady"`
+	// Shake is how hard a screen shaking at full strength shakes, from 0
+	// (never) to 1 (see rumblescreen.go).
+	Shake float64 `json:"shake"`
+	// Flash makes the shocks heard as the screen flashes stronger: by this
+	// share of their strength.
+	Flash float64 `json:"flash"`
 }
 
 // DefaultRumbleParams are the settings the detector runs with unless told
 // otherwise.
 func DefaultRumbleParams() RumbleParams {
-	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
-	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3 and Zelda:
-	// Link's Awakening (gbe -rumble-tune).
-	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8}
+	// Tuned by feel on recorded play of Donkey Kong Country, Kirby's Dream
+	// Land 2, Mega Man Xtreme 2, R-Type DX, Street Fighter Alpha, Super
+	// Mario Land, Tetris, Tetris DX, Wario Land 3, Zelda: Link's Awakening
+	// and the storm of its DX intro (gbe -rumble-tune). The sweeps weigh as
+	// much as the noise: the blows of Super Mario Land are sweeps.
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 1, Steady: 8, Shake: 0.6, Flash: 1}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.
@@ -69,9 +80,11 @@ const (
 	sigHalfLife   = 30 * 60 // how fast notes heard long ago are forgotten
 	regularTol    = 0.75    // how far from a former interval a regular one may be
 	regularShare  = 0.03    // or, for long ones, this share of it
+	beatMax       = 2 * 60  // frames between the notes of a beat at most
 	pulseMinHold  = 4       // frames a pulse lasts at least (about 67 ms), at Duration 1
 	pulseMaxHold  = 30      // and at most (half a second)
 	burstPerFrame = 0.5     // notes of one kind per frame beyond which they are a buzz, not shocks
+	maxLowered    = 2       // times a noise getting lower makes its pulse stronger at most
 )
 
 // noteSig identifies an instrument: the registers of a note but its pitch on
@@ -99,6 +112,8 @@ type pulse struct {
 	hold     float64 // frames it lasts at most
 	volume   byte    // of the envelope when triggered
 	active   bool
+	lowness  float64 // of the noise, on channel 4 (see lower)
+	lowered  int     // times the noise got lower
 }
 
 type rumbleDetector struct {
@@ -110,6 +125,7 @@ type rumbleDetector struct {
 	lastSig [4]noteSig
 	trace   []RumbleNote // nil unless traced
 	tracing bool
+	screen  screenWatch
 }
 
 // GuessRumble turns the rumble detector on or off. While on, GuessedRumble
@@ -118,6 +134,7 @@ func (g *GameBoy) GuessRumble(on bool) {
 	switch {
 	case on && g.guess == nil:
 		g.guess = &rumbleDetector{g: g, sigs: map[noteSig]*sigStats{}, writers: map[uint16]*writer{}}
+		g.guess.restart()
 		g.guess.attach()
 	case !on && g.guess != nil:
 		g.APU.watch = nil
@@ -214,6 +231,7 @@ func (d *rumbleDetector) maxHold() float64 { return pulseMaxHold * d.params().Du
 func (d *rumbleDetector) restart() {
 	d.pulses = [4]pulse{}
 	d.level = 0
+	d.screen = screenWatch{flashAt: math.Inf(-1)}
 	for _, s := range d.sigs {
 		s.last, s.burst = math.Inf(-1), 0
 	}
@@ -280,8 +298,14 @@ func (d *rumbleDetector) trigger(i int) {
 	s.remember(t)
 	d.lastSig[i] = sig
 	if shock >= p.Floor && shock > 0 {
+		if t-d.screen.flashAt <= flashBoostTime {
+			shock = math.Min(1, shock*(1+p.Flash)) // the screen flashed just before
+		}
 		c := &a.ch[i]
 		d.pulses[i] = pulse{strength: shock, start: t, hold: d.duration(i), volume: c.env.volume, active: true}
+		if i == 3 {
+			d.pulses[i].lowness = noiseLowness(a.regs[0x12])
+		}
 	} else if d.pulses[i].active {
 		d.pulses[i].active = false // another note took the channel
 	}
@@ -312,10 +336,13 @@ func (d *rumbleDetector) music(pc uint16, i int, s *sigStats, t float64) float64
 	m := 0.0
 	// The writer. When some code writes the melody of channel 2 and this
 	// channel, and other code writes this channel but not channel 2, the
-	// game may have a routine for its music and one for its effects. Only
-	// the first is a hint: some games write each channel with its own
-	// routine, music and effects alike. Channel 3 tells nothing: its wave
-	// plays effects too (Zelda).
+	// game may have a routine for its music and one for its effects. The
+	// first one is a hint of music. The second is a hint of effects only
+	// when it writes several channels: some games write each channel with
+	// its own routine, music and effects alike (the drums of Wario Land 3),
+	// but an effect engine plays the noise and the sweeps alike (Super
+	// Mario Land, Tetris, Zelda). Channel 3 tells nothing: its wave plays
+	// effects too (Zelda).
 	const melody = 1 << 1
 	musicWriter, effectWriter := false, false
 	for _, w := range d.writers {
@@ -326,17 +353,24 @@ func (d *rumbleDetector) music(pc uint16, i int, s *sigStats, t float64) float64
 			effectWriter = true
 		}
 	}
-	if musicWriter && effectWriter && d.writers[pc].channels&melody != 0 {
-		m += 0.5
+	if musicWriter && effectWriter {
+		switch w := d.writers[pc].channels; {
+		case w&melody != 0:
+			m += 0.5
+		case bits.OnesCount8(w) >= 2:
+			m -= 0.4
+		}
 	}
 	// Regular: the time since the note was last heard is a multiple, or a
 	// fraction, of a former interval, as on a beat. The tempo of a timer
 	// driven music is no whole number of frames: the tolerance grows with
-	// the interval.
-	if dt := t - s.last; dt >= 2 && !math.IsInf(dt, 1) {
+	// the interval. A beat comes back within beatMax frames: effects heard
+	// seconds apart (enemies stomped in Super Mario Land) match a former
+	// interval by chance.
+	if dt := t - s.last; dt >= 2 && dt <= beatMax {
 		beats := 0
 		for _, iv := range s.intervals {
-			if iv < 2 {
+			if iv < 2 || iv > beatMax {
 				continue
 			}
 			long, short := math.Max(dt, iv), math.Min(dt, iv)
@@ -438,23 +472,27 @@ func (d *rumbleDetector) duration(i int) float64 {
 
 // lower sees a write to NR43 while the noise plays: an explosion often
 // lowers its noise as it goes on, which makes its pulse stronger and
-// longer.
+// longer, a few times at most. Games that rewrite the same noise, or raise
+// it, again and again (R-Type DX) get nothing.
 func (d *rumbleDetector) lower() {
 	p := &d.pulses[3]
 	if !p.active || !d.g.APU.ch[3].enabled {
 		return
 	}
-	if l := noiseLowness(d.g.APU.regs[0x12]); l > 0.5 {
+	l := noiseLowness(d.g.APU.regs[0x12])
+	if l > 0.5 && l > p.lowness+0.05 && p.lowered < maxLowered {
 		p.strength = math.Min(1, p.strength+0.1*l)
 		p.hold = math.Min(d.maxHold(), p.hold+4)
+		p.lowered++
 	}
+	p.lowness = l
 }
 
 // frame works out how hard the frame just run shakes: the strongest pulse,
-// fading with the envelope of its channel.
+// fading with the envelope of its channel, or the screen shaking.
 func (d *rumbleDetector) frame() {
 	t := d.now()
-	d.level = 0
+	d.level = d.watchScreen(t)
 	for i := range d.pulses {
 		p := &d.pulses[i]
 		if !p.active {

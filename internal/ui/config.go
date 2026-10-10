@@ -239,6 +239,8 @@ func LoadConfig(path string) (*Config, error) {
 		ColorCorrection *bool   `json:"color_correction"` // same
 		ColorizeDMG     *bool   `json:"colorize_dmg"`     // same
 		MenuSounds      *bool   `json:"menu_sounds"`      // same
+		// Absent, it would read as 0: muted.
+		Volume *float64 `json:"volume"`
 		// A string, or a boolean before the ghosting modes: on was simple.
 		Ghosting json.RawMessage `json:"ghosting"`
 		// A string, or a boolean before the vibration modes.
@@ -301,8 +303,8 @@ func LoadConfig(path string) (*Config, error) {
 	if loaded.Scale >= 1 && loaded.Scale <= maxScale {
 		cfg.Scale = loaded.Scale
 	}
-	if loaded.Volume >= 0 && loaded.Volume <= 1 {
-		cfg.Volume = loaded.Volume
+	if v := loaded.Volume; v != nil && *v >= 0 && *v <= 1 {
+		cfg.Volume = *v
 	}
 	if loaded.FastForwardSpeed >= minFastForward && loaded.FastForwardSpeed <= maxFastForward {
 		cfg.FastForwardSpeed = loaded.FastForwardSpeed

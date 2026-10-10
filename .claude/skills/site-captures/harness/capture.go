@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -110,6 +111,10 @@ type dropCapture struct {
 }
 
 func (d *dropCapture) Update() error {
+	d.pollLibrary()
+	if d.library.scanning {
+		return nil // the count of All games is not known yet
+	}
 	f, err := os.Create(d.opts.Dir + "/drop_screen.png")
 	if err != nil {
 		return err
@@ -125,11 +130,25 @@ func (d *dropCapture) Update() error {
 // games being roms (the first one selected), named by their header title
 // as gbe shows them. The palette is the default one; there is no filter
 // without a game.
-func CaptureDrop(roms []string, opts CaptureOptions) error {
+func CaptureDrop(roms []string, games string, opts CaptureOptions) error {
 	cfg := DefaultConfig()
 	cfg.Scale = opts.Scale
 	cfg.Language = opts.Language
-	for _, path := range roms {
+	if games != "" {
+		abs, err := filepath.Abs(games)
+		if err != nil {
+			return err
+		}
+		cfg.GamesDir = abs
+	}
+	// The lists name the games by their file name: each ROM is linked
+	// under the name to show, keeping its extension.
+	links := filepath.Join(opts.Dir, "recent")
+	if err := os.MkdirAll(links, 0o755); err != nil {
+		return err
+	}
+	for _, arg := range roms {
+		path, name, _ := strings.Cut(arg, "=")
 		game, err := rom.Open(path, rom.Options{BootROM: "none", Fresh: true})
 		if err != nil {
 			return err
@@ -138,12 +157,21 @@ func CaptureDrop(roms []string, opts CaptureOptions) error {
 		if err != nil {
 			return err
 		}
+		if name != "" {
+			link := filepath.Join(links, name+filepath.Ext(path))
+			os.Remove(link)
+			if err := os.Symlink(abs, link); err != nil {
+				return err
+			}
+			abs = link
+		}
 		cfg.Recent = append(cfg.Recent, RecentGame{Path: abs, Title: game.Title})
 	}
 	g := &Game{cfg: cfg, cfgPath: opts.Dir + "/config.json", shotDir: opts.Dir,
 		lcd: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight), lcdPrev: ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream: &audioStream{}, ignoredKeys: map[ebiten.Key]bool{}, ignoredPad: map[padButton]bool{},
 		pads: noPads{}, monitors: &ebitenMonitors{}}
+	g.refreshLibrary()
 	ebiten.SetWindowSize(gb.ScreenWidth*4, gb.ScreenHeight*4)
 	return ebiten.RunGame(&dropCapture{Game: g, opts: opts})
 }

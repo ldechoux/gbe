@@ -17,7 +17,7 @@ l'autre.
 | `colorized` | `gbc/colorized_{tetris,zelda,sml,tetris_leftb}` (640×576) | Jeux DMG colorisés par la Game Boy Color : Tetris, Link's Awakening, Super Mario Land avec la palette choisie par la console, et Tetris avec la combinaison Gauche + B | Les jeux Game Boy en couleurs |
 | `filters` | `{gb,gbc}/filter_lcd` (480×360), `gb/filter_{nearest,scale2x,scale3x,mmpx}` (480×432) | Des détails en taille réelle : le filtre LCD en ×15 (hauteur d'un écran 4K), les autres en ×8 | Grand écran |
 | `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement ; en ×8 avec le filtre LCD | Captures (`#captures`) |
-| `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents | Télécharger, « Démarrage rapide » (`figure.drop-shot`) |
+| `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents et « Tous les jeux » | Télécharger, « Démarrage rapide » (`figure.drop-shot`) |
 
 Les fichiers sont des WebP sans perte : on peut comparer une nouvelle capture à l'ancienne
 pixel par pixel (`magick compare -metric AE`).
@@ -58,15 +58,17 @@ Toutes tournent sans boot ROM. Les appuis sont tenus pendant 10 images, de l'ima
   fonction du raccourci de capture. L'écran de reprise est pris avant la première image, avec
   la date du jour. L'écran titre est à l'image 200 pour Super Mario Land, et à l'image 900
   pour Link's Awakening DX, après Start à l'image 500. Le menu Pause est ouvert ensuite sur
-  l'écran titre. Le harnais donne au menu un jeu récent : « Jeux recents... » est actif.
+  l'écran titre. Le harnais donne au menu un jeu récent : « Jeux... » est actif.
 - **`drop`** : un `Game` sans ROM, en ×8. Il n'a pas de jeu, donc pas de filtre : il est
   dans la palette par défaut (DMG vert). Ses jeux récents sont, dans l'ordre, Link's
   Awakening DX (sélectionné), Super Mario Land, Tetris DX, Wario Land 3 et Donkey Kong
-  Country. Leurs noms sont les titres lus dans l'en-tête des ROMs, comme gbe les affiche :
-  ZELDA, SUPER MARIOLAND, TETRIS DX, WARIOLAND3, DK COUNTRY. Sur les cartouches Game Boy
-  Color récentes, ce titre est limité à 11 caractères, sans le code fabricant qui le suit
-  dans l'en-tête : Pokémon Pinball s'appelle « POKEMONPINB ». Pour changer la liste,
-  préférer des jeux dont le titre reste lisible.
+  Country. gbe nomme les jeux par leur nom de fichier : le harnais crée dans
+  `<out>/gb/recent/` un lien vers chaque ROM sous le nom à montrer, donné par `capture.sh`
+  (`chemin=nom`) : « Zelda - Link's Awakening DX », « Super Mario Land (World) »,
+  « Tetris DX (World) », « Wario Land 3 (World) », « Donkey Kong Country (Europe) ». Ils
+  tiennent en 32 caractères : un nom plus long serait coupé, ou défilerait. Le dossier des
+  jeux est `roms/` : « Tous les jeux (N)... » est actif, N étant le nombre de ROMs qu'il
+  contient. Le harnais attend la fin de sa lecture avant la capture.
 
 ## Prérequis
 
@@ -155,11 +157,11 @@ Contrôler :
 - les palettes ont leurs couleurs, et chacune a son propre nom ;
 - les détails des filtres montrent bien leur sujet : MARI, le bateau, la pente ;
 - le menu est à jour (les entrées actuelles de `internal/ui/menu.go`) et son texte est
-  net : en ×8, il est dessiné en ×3. « Jeux recents... » est actif, et non grisé ;
+  net : en ×8, il est dessiné en ×3. « Jeux... » est actif, et non grisé ;
 - la grille LCD est visible sur les scènes ;
 - l'écran de reprise affiche « PARTIE EN COURS » et la date du jour ;
-- l'écran de dépôt montre la cartouche, l'invitation « Deposez une ROM Game Boy ici » et
-  les cinq jeux récents, ZELDA sélectionné, sans titre tronqué ni code fabricant.
+- l'écran de dépôt montre la cartouche, l'invitation « Deposez une ROM Game Boy ici », les
+  cinq jeux récents, Zelda sélectionné, sans nom coupé, et « Tous les jeux (N)... » actif.
 
 Si une image a bougé, par exemple parce que l'émulation a changé, retrouver la bonne avec le
 mode headless, puis ajuster l'image ou les appuis dans `capture.sh` :

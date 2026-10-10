@@ -31,9 +31,16 @@ sml=roms/Super_Mario_Land_World_Rev1.gb
 ladx=roms/Legend_of_Zelda_The_Links_Awakening_DX.gbc
 la=roms/Legend_of_Zelda_The_Links_Awakening.gb
 tetris=roms/Tetris_World_Rev1.gb
-# The recent games of the drop screen, the first one selected.
-recent=("$ladx" "$sml" roms/Tetris_DX.zip roms/Wario_Land_3.zip roms/Donkey_Kong_Country.zip)
-for rom in "$sml" "$ladx" "$la" "$tetris" "${recent[@]}"; do
+# The recent games of the drop screen, the first one selected, with the
+# names the lists show (the file names of the usual collections).
+recent=(
+	"$ladx=Zelda - Link's Awakening DX"
+	"$sml=Super Mario Land (World)"
+	"roms/Tetris_DX.zip=Tetris DX (World)"
+	"roms/Wario_Land_3.zip=Wario Land 3 (World)"
+	"roms/Donkey_Kong_Country.zip=Donkey Kong Country (Europe)"
+)
+for rom in "$sml" "$ladx" "$la" "$tetris" "${recent[@]%%=*}"; do
 	[[ -f $rom ]] || { echo "missing $rom (the ROMs are not in git: copy them to roms/)" >&2; exit 1; }
 done
 for tool in go cwebp magick; do
@@ -133,7 +140,7 @@ if want scenes; then
 	endrow
 fi
 if want drop; then
-	"$zz" -drop -out "$out/gb" "${common[@]}" "${recent[@]}"
+	"$zz" -drop -games roms -out "$out/gb" "${common[@]}" "${recent[@]}"
 	webp gb/drop_screen
 	endrow
 fi

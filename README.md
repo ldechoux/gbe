@@ -335,6 +335,10 @@ monte (saut, bonus) que si elle descend (chute, coup). Une note répétée à ch
 que bourdonner, et ne vibre pas. Chaque choc donne une secousse franche, ressentie même quand
 le son est très bref, qui s'éteint avec lui.
 
+gbe regarde aussi l'écran. Quand il tremble (un va-et-vient rapide de quelques pixels, comme
+quand Wario est touché), la manette vibre, même sans bruitage. Quand il flashe (un éclair, une
+explosion), le choc entendu au même moment vibre plus fort.
+
 L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée) :
 
 | Valeur | Effet |
@@ -444,8 +448,8 @@ voies 1 et 4 jugée par le détecteur : musique (`music`) ou bruitage (`fx`), et
 
 `tools/rumblelab` rejoue un moment enregistré, ou un jeu depuis son save state avec des boutons
 scriptés, avec les réglages par défaut ou ceux de `-params`. Il écrit une page avec les notes de
-chaque voie, la vibration devinée, le moteur des cartouches Rumble (référence : Pokémon
-Pinball), l'écran et le son :
+chaque voie, la vibration devinée, les tremblements et les flashs de l'écran, le moteur des
+cartouches Rumble (référence : Pokémon Pinball), l'écran et le son :
 
 ```sh
 go run ./tools/rumblelab -out /tmp/lab dossier/ZELDA-20261010-153000.json

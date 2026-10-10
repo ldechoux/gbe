@@ -59,9 +59,9 @@ type RumbleParams struct {
 // otherwise.
 func DefaultRumbleParams() RumbleParams {
 	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
-	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3 and Zelda:
-	// Link's Awakening (gbe -rumble-tune).
-	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 0.5}
+	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3, Zelda:
+	// Link's Awakening and the storm of its DX intro (gbe -rumble-tune).
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 1}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.

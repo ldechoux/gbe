@@ -18,14 +18,16 @@ import "math"
 
 // Screen settings.
 const (
-	shakeFrames    = 20 // frames the back and forth of a shake is looked for in: some games hold each side 4 frames (Mega Man Xtreme 2)
-	shakeTurns     = 3  // changes of direction within them that make a shake
-	shakeMaxStep   = 12 // pixels the scroll moves by in a frame at most while shaking
-	shakeFullStep  = 6  // pixels per frame that shake at full strength
+	// Frames the back and forth of a shake is looked for in: some games
+	// hold each side 4 frames (Mega Man Xtreme 2).
+	shakeFrames    = 20
+	shakeTurns     = 3    // changes of direction within them that make a shake
+	shakeMaxStep   = 12   // pixels the scroll moves by in a frame at most while shaking
+	shakeFullStep  = 6    // pixels per frame that shake at full strength
 	flashJump      = 1.25 // lighter (or darker) by this ratio makes a flash
 	flashSteady    = 0.03 // while the frame before moved by less
 	flashMin       = 0.05 // and the change is at least
-	flashBoostTime = 4 // frames a flash and a shock may be apart
+	flashBoostTime = 4    // frames a flash and a shock may be apart
 )
 
 // screenWatch is what the detector follows of the screen.

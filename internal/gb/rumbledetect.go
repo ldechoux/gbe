@@ -1,6 +1,9 @@
 package gb
 
-import "math"
+import (
+	"math"
+	"math/bits"
+)
 
 // Games without a rumble motor can still shake the gamepad: the shocks of a
 // game (explosions, hits, falls) come with typical sound effects, which the
@@ -53,6 +56,9 @@ type RumbleParams struct {
 	// Flash makes the shocks heard as the screen flashes stronger: by this
 	// share of their strength.
 	Flash float64 `json:"flash"`
+	// Habituation is how much weaker, at most, a shock heard again and
+	// again lately shakes (the explosions of R-Type DX); it still shakes.
+	Habituation float64 `json:"habituation"`
 }
 
 // DefaultRumbleParams are the settings the detector runs with unless told
@@ -61,7 +67,7 @@ func DefaultRumbleParams() RumbleParams {
 	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
 	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3, Zelda:
 	// Link's Awakening and the storm of its DX intro (gbe -rumble-tune).
-	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 1}
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 1, Habituation: 0}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.
@@ -75,9 +81,12 @@ const (
 	sigHalfLife   = 30 * 60 // how fast notes heard long ago are forgotten
 	regularTol    = 0.75    // how far from a former interval a regular one may be
 	regularShare  = 0.03    // or, for long ones, this share of it
+	beatMax       = 2 * 60  // frames between the notes of a beat at most
 	pulseMinHold  = 4       // frames a pulse lasts at least (about 67 ms), at Duration 1
 	pulseMaxHold  = 30      // and at most (half a second)
 	burstPerFrame = 0.5     // notes of one kind per frame beyond which they are a buzz, not shocks
+	recentLife    = 5 * 60  // half-life of the count of recent shocks (see Habituation)
+	recentMany    = 4       // recent shocks of one kind at which habituation is two thirds of its most
 )
 
 // noteSig identifies an instrument: the registers of a note but its pitch on
@@ -89,7 +98,9 @@ type noteSig struct {
 
 // sigStats is what the detector knows of one instrument.
 type sigStats struct {
-	heard     float64    // times heard, fading with sigHalfLife
+	heard     float64 // times heard, fading with sigHalfLife
+	shocks    float64 // times it shook, fading with recentLife from shocksAt
+	shocksAt  float64
 	last      float64    // frame it was last triggered
 	intervals [6]float64 // between its last triggers, the newest first
 	burst     float64    // triggers in the last few frames, fading fast
@@ -124,7 +135,8 @@ type rumbleDetector struct {
 func (g *GameBoy) GuessRumble(on bool) {
 	switch {
 	case on && g.guess == nil:
-		g.guess = &rumbleDetector{g: g, sigs: map[noteSig]*sigStats{}, writers: map[uint16]*writer{}, screen: screenWatch{flashAt: math.Inf(-1)}}
+		g.guess = &rumbleDetector{g: g, sigs: map[noteSig]*sigStats{}, writers: map[uint16]*writer{}}
+		g.guess.restart()
 		g.guess.attach()
 	case !on && g.guess != nil:
 		g.APU.watch = nil
@@ -223,7 +235,7 @@ func (d *rumbleDetector) restart() {
 	d.level = 0
 	d.screen = screenWatch{flashAt: math.Inf(-1)}
 	for _, s := range d.sigs {
-		s.last, s.burst = math.Inf(-1), 0
+		s.last, s.burst, s.shocks = math.Inf(-1), 0, 0
 	}
 }
 
@@ -291,6 +303,9 @@ func (d *rumbleDetector) trigger(i int) {
 		if t-d.screen.flashAt <= flashBoostTime {
 			shock = math.Min(1, shock*(1+p.Flash)) // the screen flashed just before
 		}
+		// Heard again and again lately: less of a surprise, but still felt.
+		shock *= 1 - p.Habituation*(1-math.Exp(-s.recentShocks(t)/recentMany))
+		s.shocks, s.shocksAt = s.recentShocks(t)+1, t
 		c := &a.ch[i]
 		d.pulses[i] = pulse{strength: shock, start: t, hold: d.duration(i), volume: c.env.volume, active: true}
 	} else if d.pulses[i].active {
@@ -301,6 +316,14 @@ func (d *rumbleDetector) trigger(i int) {
 		copy(n.Regs[:], a.regs[i*5:i*5+5])
 		d.trace = append(d.trace, n)
 	}
+}
+
+// recentShocks tells how many times the instrument shook lately, at frame t.
+func (s *sigStats) recentShocks(t float64) float64 {
+	if s.shocks == 0 {
+		return 0
+	}
+	return s.shocks * math.Exp2(-math.Max(0, t-s.shocksAt)/recentLife)
 }
 
 // remember adds a trigger of the instrument at frame t.
@@ -323,10 +346,13 @@ func (d *rumbleDetector) music(pc uint16, i int, s *sigStats, t float64) float64
 	m := 0.0
 	// The writer. When some code writes the melody of channel 2 and this
 	// channel, and other code writes this channel but not channel 2, the
-	// game may have a routine for its music and one for its effects. Only
-	// the first is a hint: some games write each channel with its own
-	// routine, music and effects alike. Channel 3 tells nothing: its wave
-	// plays effects too (Zelda).
+	// game may have a routine for its music and one for its effects. The
+	// first one is a hint of music. The second is a hint of effects only
+	// when it writes several channels: some games write each channel with
+	// its own routine, music and effects alike (the drums of Wario Land 3),
+	// but an effect engine plays the noise and the sweeps alike (Super
+	// Mario Land, Tetris, Zelda). Channel 3 tells nothing: its wave plays
+	// effects too (Zelda).
 	const melody = 1 << 1
 	musicWriter, effectWriter := false, false
 	for _, w := range d.writers {
@@ -337,17 +363,24 @@ func (d *rumbleDetector) music(pc uint16, i int, s *sigStats, t float64) float64
 			effectWriter = true
 		}
 	}
-	if musicWriter && effectWriter && d.writers[pc].channels&melody != 0 {
-		m += 0.5
+	if musicWriter && effectWriter {
+		switch w := d.writers[pc].channels; {
+		case w&melody != 0:
+			m += 0.5
+		case bits.OnesCount8(w) >= 2:
+			m -= 0.4
+		}
 	}
 	// Regular: the time since the note was last heard is a multiple, or a
 	// fraction, of a former interval, as on a beat. The tempo of a timer
 	// driven music is no whole number of frames: the tolerance grows with
-	// the interval.
-	if dt := t - s.last; dt >= 2 && !math.IsInf(dt, 1) {
+	// the interval. A beat comes back within beatMax frames: effects heard
+	// seconds apart (enemies stomped in Super Mario Land) match a former
+	// interval by chance.
+	if dt := t - s.last; dt >= 2 && dt <= beatMax {
 		beats := 0
 		for _, iv := range s.intervals {
-			if iv < 2 {
+			if iv < 2 || iv > beatMax {
 				continue
 			}
 			long, short := math.Max(dt, iv), math.Min(dt, iv)

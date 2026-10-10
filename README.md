@@ -21,6 +21,17 @@ gh api -H "Accept: application/vnd.github.html+json" repos/ldechoux/gbe/releases
 go run ./tools/sitegen -releases /tmp/releases.json -out /tmp/site && open /tmp/site/index.html
 ```
 
+Pour les moteurs de recherche et les liens partagés, `sitegen` produit aussi :
+- dans la page : l'URL canonique, les balises Open Graph et Twitter Card, et une description
+  de gbe en données structurées (`SoftwareApplication`, avec la dernière version) ;
+- `img/share.png`, l'image d'un lien partagé (1200×630), dessinée à partir des écrans titres
+  de `screenshots/gb` et `screenshots/gbc` ;
+- `apple-touch-icon.png`, à partir de l'icône de l'application, et `sitemap.xml`.
+
+La balise de vérification de Google Search Console n'est ajoutée que si la variable
+`GOOGLE_SITE_VERIFICATION` du dépôt est définie (Settings > Secrets and variables > Actions >
+Variables) : elle contient la valeur `content` de la balise donnée par la Search Console.
+
 ## Téléchargement
 
 À chaque release GitHub publiée, le workflow [`release.yml`](.github/workflows/release.yml)

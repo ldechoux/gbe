@@ -4,8 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gbe — émulateur Game Boy et Game Boy Color en Go</title>
-<meta name="description" content="gbe, un émulateur Game Boy et Game Boy Color écrit en Go pur pour macOS, Linux et Windows : couleurs, palettes, filtres pour grand écran jusqu'en 4K, vibrations des manettes, touches configurables, save states, captures d'écran.">
+<meta name="description" content="{{.Description}}">
+<link rel="canonical" href="{{.URL}}">
+{{with .Verification}}<meta name="google-site-verification" content="{{.}}">
+{{end -}}
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#e6e4dc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141814" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="gbe">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="gbe — émulateur Game Boy et Game Boy Color">
+<meta property="og:description" content="{{.Description}}">
+<meta property="og:url" content="{{.URL}}">
+<meta property="og:image" content="{{.URL}}{{.ShareImage}}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="gbe, émulateur Game Boy et Game Boy Color : les écrans titres de Super Mario Land et de Zelda: Link's Awakening DX">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{{.Structured}}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">

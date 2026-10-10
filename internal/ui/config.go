@@ -97,17 +97,18 @@ const (
 
 var vibrationModes = []string{vibrationOff, vibrationCartridge, vibrationAll}
 
-// Bounds and step of Config.VibrationStrength. Under minStrength, small
-// motors barely move.
+// Bounds, step and default of Config.VibrationStrength: the default is in
+// the middle. Under minStrength, small motors barely move.
 const (
-	minStrength  = 40
-	maxStrength  = 80
-	strengthStep = 5
+	minStrength     = 40
+	maxStrength     = 80
+	strengthStep    = 5
+	defaultStrength = (minStrength + maxStrength) / 2
 )
 
 // loadVibration reads the vibration setting of a config file: one of
 // vibrationModes, or a boolean before the modes, on being the cartridges
-// only. Absent, it is the default.
+// only. Otherwise it is the default, off.
 func loadVibration(raw json.RawMessage) string {
 	var on bool
 	if json.Unmarshal(raw, &on) == nil {
@@ -120,7 +121,7 @@ func loadVibration(raw json.RawMessage) string {
 	if json.Unmarshal(raw, &mode) == nil && slices.Contains(vibrationModes, mode) {
 		return mode
 	}
-	return vibrationCartridge
+	return vibrationOff
 }
 
 // ghostMode is the scaler mode of a Config.Ghosting value.
@@ -191,13 +192,13 @@ func DefaultConfig() *Config {
 	return &Config{
 		Palette:           Palettes[0].ID,
 		ColorCorrection:   true,
-		Vibration:         vibrationCartridge,
-		VibrationStrength: maxStrength,
+		Vibration:         vibrationOff,
+		VibrationStrength: defaultStrength,
 		Language:          i18n.Default,
 		Scale:             4,
 		Filter:            scaler.Filters[0].ID,
 		Ghosting:          ghostingOff,
-		Volume:            0.8,
+		Volume:            0.5,
 		Stereo:            audiofx.Stereo,
 		AudioFilter:       audiofx.Off,
 		MenuSounds:        true,

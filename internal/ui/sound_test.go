@@ -30,12 +30,15 @@ func TestSoundPage(t *testing.T) {
 	if m.page != pageSound || m.cursor != soundVolume {
 		t.Fatalf("Sound...: %+v, want the sound page on Volume", *m)
 	}
+	if g.cfg.Volume != 0.5 {
+		t.Errorf("volume %v by default, want 50%%", g.cfg.Volume)
+	}
 	do(menuActions{ok: true})
-	if g.cfg.Volume != 0.8 {
+	if g.cfg.Volume != 0.5 {
 		t.Errorf("OK on Volume changed it to %v", g.cfg.Volume)
 	}
 	do(menuActions{left: true})
-	if g.cfg.Volume != 0.7 || soundLabel(g, soundVolume) != "Volume    < 70% >" {
+	if g.cfg.Volume != 0.4 || soundLabel(g, soundVolume) != "Volume    < 40% >" {
 		t.Errorf("Left on Volume: %v, entry %q", g.cfg.Volume, soundLabel(g, soundVolume))
 	}
 

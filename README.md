@@ -230,6 +230,7 @@ toucher à l'émulation :
 
 | Entrée | Valeur | Effet |
 |---|---|---|
+| Volume | 50 % par défaut | Par pas de 10 % |
 | Sortie | Stéréo (`stereo`, défaut) | Les deux côtés tels que la console les mixe |
 | | Casque (`headphones`) | Chaque oreille entend un peu l'autre côté, adouci et légèrement en retard, comme avec des enceintes dans une pièce (crossfeed). Beaucoup de jeux jouent une voie d'un seul côté, ce qui fatigue vite au casque. Un son au centre ne change pas |
 | | Mono (`mono`) | Les deux côtés mélangés, pour une seule enceinte |
@@ -341,16 +342,17 @@ gbe regarde aussi l'écran. Quand il tremble (un va-et-vient rapide de quelques 
 quand Wario est touché), la manette vibre, même sans bruitage. Quand il flashe (un éclair, une
 explosion), le choc entendu au même moment vibre plus fort.
 
-L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée) :
+L'entrée **Vibrations** de l'onglet Manette choisit quand la manette vibre (←/→ ou Entrée). Elles
+sont coupées par défaut :
 
 | Valeur | Effet |
 |---|---|
-| non | Jamais |
-| cartouches Rumble | Seulement avec les cartouches à moteur (par défaut) |
+| non | Jamais (par défaut) |
+| cartouches Rumble | Seulement avec les cartouches à moteur |
 | tous les jeux | Aussi dans les autres jeux, d'après leurs sons et leur écran (expérimental) |
 
-L'entrée **Intensité** règle leur force avec un curseur (←/→), du plus doux au plus fort (par
-défaut). Elle est grisée quand les vibrations sont coupées. Valider sur le curseur (A ou Entrée),
+L'entrée **Intensité** règle leur force avec un curseur (←/→), du plus doux au plus fort, au
+milieu par défaut. Elle est grisée quand les vibrations sont coupées. Valider sur le curseur (A ou Entrée),
 comme **Tester la vibration**, fait vibrer la manette une demi-seconde à cette intensité.
 
 gbe ne peut pas toujours savoir si une manette vibre. Il le sait sous Windows : seules les

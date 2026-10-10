@@ -72,6 +72,7 @@ func rumbleGame(t *testing.T, pads *fakePads) *Game {
 func TestGameRumble(t *testing.T) {
 	pads := newFakePads("Xbox Wireless Controller")
 	g := rumbleGame(t, pads)
+	g.cfg.Vibration, g.cfg.VibrationStrength = vibrationCartridge, maxStrength
 	g.advance(false, false)
 	g.advance(false, false)
 	if len(pads.vibrations) == 0 || pads.vibrations[len(pads.vibrations)-1].strength < 0.75 {
@@ -123,6 +124,7 @@ var explosion = []byte{
 func TestVibrationMenu(t *testing.T) {
 	pads := newFakePads("Xbox Wireless Controller")
 	g := newTestGame(t, pads)
+	g.cfg.Vibration, g.cfg.VibrationStrength = vibrationCartridge, maxStrength
 	g.menu = menu{open: true, page: pageControls, tab: tabPad, cursor: padVibration()}
 	l := g.tr()
 
@@ -222,8 +224,8 @@ func TestVibrationMenu(t *testing.T) {
 	g.menu.cursor = padDefaults()
 	g.actions = menuActions{ok: true}
 	g.menu.update(g)
-	if g.cfg.Vibration != vibrationCartridge || g.cfg.VibrationStrength != maxStrength {
-		t.Errorf("Restore defaults: vibration %q, strength %d; want the cartridges, the top", g.cfg.Vibration, g.cfg.VibrationStrength)
+	if g.cfg.Vibration != vibrationOff || g.cfg.VibrationStrength != defaultStrength {
+		t.Errorf("Restore defaults: vibration %q, strength %d; want off, the middle", g.cfg.Vibration, g.cfg.VibrationStrength)
 	}
 
 	// A gamepad that cannot vibrate: greyed out entries that do nothing.
@@ -243,23 +245,23 @@ func TestVibrationMenu(t *testing.T) {
 		g.actions = menuActions{ok: true}
 		g.menu.update(g)
 	}
-	if g.cfg.Vibration != vibrationCartridge || g.cfg.VibrationStrength != maxStrength || len(pads.vibrations) != 0 {
+	if g.cfg.Vibration != vibrationOff || g.cfg.VibrationStrength != defaultStrength || len(pads.vibrations) != 0 {
 		t.Errorf("greyed out entries acted: vibration %q, vibrations %+v", g.cfg.Vibration, pads.vibrations)
 	}
 }
 
 func TestVibrationConfig(t *testing.T) {
-	if v := DefaultConfig().Vibration; v != vibrationCartridge {
-		t.Errorf("vibration %q by default, want the cartridges", v)
+	if c := DefaultConfig(); c.Vibration != vibrationOff || c.VibrationStrength != 60 {
+		t.Errorf("vibration %q at %d by default, want off at 60", c.Vibration, c.VibrationStrength)
 	}
 	path := filepath.Join(t.TempDir(), "config.json")
 	// Absent, a boolean from before the modes, a mode, nonsense.
 	for content, want := range map[string]string{
-		`{"palette": "dmg"}`:      vibrationCartridge,
+		`{"palette": "dmg"}`:      vibrationOff,
 		`{"vibration": true}`:     vibrationCartridge,
 		`{"vibration": false}`:    vibrationOff,
 		`{"vibration": "all"}`:    vibrationAll,
-		`{"vibration": "strong"}`: vibrationCartridge,
+		`{"vibration": "strong"}`: vibrationOff,
 	} {
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
@@ -276,13 +278,13 @@ func TestVibrationConfig(t *testing.T) {
 	if cfg, err := LoadConfig(path); err != nil || cfg.Vibration != vibrationOff || cfg.VibrationStrength != 55 {
 		t.Errorf("vibration %q, strength %d after saving them (%v)", cfg.Vibration, cfg.VibrationStrength, err)
 	}
-	// The strength: the top when absent, out of bounds or between steps.
+	// The strength: the middle when absent, out of bounds or between steps.
 	for _, content := range []string{`{}`, `{"vibration_strength": 85}`, `{"vibration_strength": 35}`, `{"vibration_strength": 62}`} {
 		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if cfg, err := LoadConfig(path); err != nil || cfg.VibrationStrength != maxStrength {
-			t.Errorf("%s: strength %d (%v), want %d", content, cfg.VibrationStrength, err, maxStrength)
+		if cfg, err := LoadConfig(path); err != nil || cfg.VibrationStrength != defaultStrength {
+			t.Errorf("%s: strength %d (%v), want %d", content, cfg.VibrationStrength, err, defaultStrength)
 		}
 	}
 }

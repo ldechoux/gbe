@@ -18,7 +18,7 @@ import "math"
 
 // Screen settings.
 const (
-	shakeFrames    = 10 // frames the back and forth of a shake is looked for in
+	shakeFrames    = 20 // frames the back and forth of a shake is looked for in: some games hold each side 4 frames (Mega Man Xtreme 2)
 	shakeTurns     = 3  // changes of direction within them that make a shake
 	shakeMaxStep   = 12 // pixels the scroll moves by in a frame at most while shaking
 	shakeFullStep  = 6  // pixels per frame that shake at full strength

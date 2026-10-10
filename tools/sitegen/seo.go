@@ -25,7 +25,7 @@ import (
 
 // description is the summary of the page, for the search engines and the
 // shared links.
-const description = "gbe, un émulateur Game Boy et Game Boy Color écrit en Go pur pour macOS, Linux et Windows : couleurs, palettes, filtres pour grand écran jusqu'en 4K, vibrations des manettes, touches configurables, save states, captures d'écran."
+const description = "gbe, un émulateur Game Boy et Game Boy Color pour macOS, Linux et Windows : couleurs, palettes, filtres pour grand écran jusqu'en 4K, vibrations des manettes, touches configurables, save states, captures d'écran."
 
 // The image shown with a shared link (Open Graph), at the size the social
 // networks expect.

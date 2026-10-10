@@ -44,11 +44,15 @@ func (g *Game) drop(fsys fs.FS) {
 		path = p.AbsPath()
 	}
 	if e.IsDir() {
-		// On the Boot ROM page, a folder becomes the one of the boot ROMs:
-		// the way to choose it without a folder dialog.
-		if g.menu.open && g.menu.page == pageBootROM && filepath.IsAbs(path) {
+		// On the Folders page, a folder becomes the one of its tab: the
+		// way to choose it without a folder dialog.
+		if g.menu.open && g.menu.page == pageFolders && filepath.IsAbs(path) {
 			g.menuSound(menusound.Change)
-			g.setBootROMDir(path)
+			if g.menu.tab == tabGamesDir {
+				g.setGamesDir(path)
+			} else {
+				g.setBootROMDir(path)
+			}
 			return
 		}
 		g.notifyLong(l.T("error.folder"))

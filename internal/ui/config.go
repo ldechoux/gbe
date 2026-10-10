@@ -71,6 +71,9 @@ type Config struct {
 	// BootROMDir is the folder of the boot ROMs chosen in the menu, searched
 	// before the default ones (see rom.BootROMSearch); "" for none.
 	BootROMDir string `json:"boot_rom_dir"`
+	// GamesDir is the folder of the games chosen in the menu, listed on its
+	// Games page (see library); "" for none.
+	GamesDir string `json:"games_dir"`
 }
 
 // RecentGame is a game of Config.Recent.
@@ -266,6 +269,9 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.Monitor, cfg.MonitorIndex = loaded.Monitor, loaded.MonitorIndex
 	if filepath.IsAbs(loaded.BootROMDir) {
 		cfg.BootROMDir = loaded.BootROMDir
+	}
+	if filepath.IsAbs(loaded.GamesDir) {
+		cfg.GamesDir = loaded.GamesDir
 	}
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {

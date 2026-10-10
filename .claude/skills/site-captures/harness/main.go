@@ -5,8 +5,9 @@
 // Modes:
 //   - default: the save_state_resume, game_title and menu scenes of a ROM,
 //     through the real Game (ui.Capture);
-//   - -drop: the drop screen, the ROMs given as arguments listed as recent
-//     games (ui.CaptureDrop);
+//   - -drop: the drop screen, the ROMs given as arguments ("path=name")
+//     listed as recent games under their name, and -games as the games
+//     folder (ui.CaptureDrop);
 //   - -shot: one frame of a ROM after some frames, through ui.Screenshot
 //     (palette, color correction, scale, colorization palette);
 //   - -filters: a 160x144 PNG drawn through every display filter at a given
@@ -31,7 +32,8 @@ import (
 func main() {
 	romPath := flag.String("rom", "", "ROM to run")
 	model := flag.String("model", "gb", "gb or gbc")
-	drop := flag.Bool("drop", false, "capture the drop screen instead, the ROMs given as arguments listed as recent games")
+	drop := flag.Bool("drop", false, `capture the drop screen instead, the ROMs given as arguments ("path=name") listed as recent games`)
+	games := flag.String("games", "", "-drop: the games folder")
 	shot := flag.Bool("shot", false, "save one frame of the ROM to -file (see -frames, -press, -palette, -correct, -compat)")
 	filters := flag.Bool("filters", false, "draw the PNG -src through every display filter at -size, into -out")
 	file := flag.String("file", "", "-shot: PNG to write")
@@ -55,7 +57,7 @@ func main() {
 	var err error
 	switch {
 	case *drop:
-		err = ui.CaptureDrop(flag.Args(), opts)
+		err = ui.CaptureDrop(flag.Args(), *games, opts)
 	case *shot:
 		err = saveShot(*romPath, *model, *frames, *press, *palette, *correct, *compat, opts.Scale, *file)
 	case *filters:

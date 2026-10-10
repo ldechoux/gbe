@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"image/color"
 	"io/fs"
 	"math"
@@ -20,8 +21,6 @@ import (
 const (
 	// maxRecent is how many recent games the drop screen offers.
 	maxRecent = 5
-	// recentNameMax is the longest name shown for a recent game.
-	recentNameMax = 28
 	// arrowTicks is how long the arrow of the drop screen stays at each
 	// height: it bounces pixel by pixel, like a sprite.
 	arrowTicks = 12
@@ -137,17 +136,28 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	titleScale, textScale := fit(title, 2*u), fit(formats, u)
 	hint := l.T("drop.hint")
 	recent := g.cfg.Recent
-	first := 0 // the first game shown, when they do not all fit
-	names := make([]string, len(recent))
-	listScale, lineH := u, 0.0
-	if len(recent) > 0 {
+	if g.dropEntries() > 0 {
 		hint = l.T("drop.hint_recent")
-		for i, r := range recent {
-			names[i] = recentName(r)
-			listScale = math.Min(listScale, fit(names[i], u))
-		}
-		lineH = 16 * listScale
 	}
+	// The recent games, then the entry that opens the list of all of them.
+	first := 0 // the first entry shown, when they do not all fit
+	key := fmt.Sprint(g.recentCursor)
+	if g.recentCursor < len(recent) {
+		key += recent[g.recentCursor].Path
+	}
+	tick := g.marqueeTick("home", key)
+	names := make([]string, len(recent)+1)
+	listScale := u
+	for i, r := range recent {
+		names[i] = listName(recentName(r), gameNameWidth, i == g.recentCursor, tick)
+		listScale = math.Min(listScale, fit(strings.Repeat("x", min(gameNameWidth, len([]rune(recentName(r))))), u))
+	}
+	names[len(recent)] = l.T("drop.all_games")
+	if n := len(g.library.games); n > 0 {
+		names[len(recent)] = l.T("drop.all_games_count", n)
+	}
+	listScale = math.Min(listScale, fit(names[len(recent)], u))
+	lineH := 16 * listScale
 	// A hint too wide for one line is split where it has wide spaces.
 	hintScale := math.Max(1, math.Floor(u/2))
 	hintLines := []string{hint}
@@ -162,10 +172,13 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	titleH := float64(len(titleLines)) * 13 * titleScale
 	textH := titleH + 6*u + 13*textScale
 	avail := sh - hintH - 3*margin
-	if len(recent) > 0 {
-		// In a tiny window (x1 without HiDPI), only the games that fit,
+	{
+		// In a tiny window (x1 without HiDPI), only the entries that fit,
 		// the selected one among them.
-		listTop := textH + 14*u + 13*textScale + 8*u
+		listTop := textH + 14*u
+		if len(recent) > 0 {
+			listTop += 13*textScale + 8*u
+		}
 		n := min(len(names), max(1, int((avail-listTop)/lineH)))
 		first = max(0, g.recentCursor-n+1)
 		names = names[first : first+n]
@@ -192,24 +205,28 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	center(formats, y, textScale, pal.Colors[2])
 	y += 13 * textScale
 
+	y += 14 * u
 	if len(recent) > 0 {
-		y += 14 * u
 		center(l.T("drop.recent"), y, textScale, pal.Colors[2])
 		y += 13*textScale + 8*u
-		width := 0.0
-		for _, name := range names {
-			width = math.Max(width, text.Advance(name, menuFace)*listScale)
+	}
+	// The highlight keeps its width while the selected name scrolls.
+	width := 0.0
+	for _, name := range names {
+		width = math.Max(width, text.Advance(name, menuFace)*listScale)
+	}
+	width = math.Min(sw-2*margin, width+16*listScale)
+	for i, name := range names {
+		fg := pal.Colors[3]
+		switch {
+		case first+i == len(recent) && len(g.library.games) == 0:
+			fg = pal.Colors[1] // faded: no games folder, or no game in it
+		case first+i == g.recentCursor:
+			fillRect(dst, math.Round((sw-width)/2), y-2*listScale, width, lineH, pal.Colors[2])
+			fg = pal.Colors[0]
 		}
-		width = math.Min(sw-2*margin, width+16*listScale)
-		for i, name := range names {
-			fg := pal.Colors[3]
-			if first+i == g.recentCursor {
-				fillRect(dst, math.Round((sw-width)/2), y-2*listScale, width, lineH, pal.Colors[2])
-				fg = pal.Colors[0]
-			}
-			center(name, y, listScale, fg)
-			y += lineH
-		}
+		center(name, y, listScale, fg)
+		y += lineH
 	}
 	y = sh - margin - hintH
 	for _, line := range hintLines {
@@ -218,23 +235,24 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	}
 }
 
-// recentName is how the drop screen names a recent game: its title, or else
-// its file name, shortened.
-func recentName(r RecentGame) string {
-	name := r.Title
-	if name == "" {
-		name = strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path))
+// recentName is how the lists name a recent game: as the games of the
+// folder, by its file name (see gameName).
+func recentName(r RecentGame) string { return gameName(r.Path) }
+
+// dropEntries is how many entries of the drop screen can be selected: the
+// recent games, and the list of all of them when the games folder has any.
+func (g *Game) dropEntries() int {
+	n := len(g.cfg.Recent)
+	if len(g.library.games) > 0 {
+		n++
 	}
-	if n := []rune(name); len(n) > recentNameMax {
-		name = string(n[:recentNameMax-3]) + "..."
-	}
-	return name
+	return n
 }
 
 // updateDropScreen moves through the recent games, and launches the
-// selected one.
+// selected one, or opens the list of all the games.
 func (g *Game) updateDropScreen() {
-	n := len(g.cfg.Recent)
+	n := g.dropEntries()
 	if n == 0 {
 		return
 	}
@@ -246,6 +264,11 @@ func (g *Game) updateDropScreen() {
 	case a.down:
 		g.recentCursor = (g.recentCursor + 1) % n
 		g.menuSound(menusound.Move)
+	case a.ok && g.recentCursor == len(g.cfg.Recent):
+		g.menuSound(menusound.Enter)
+		g.menu.show()
+		g.menu.showGames(g, tabAll)
+		g.menu.home = true // going back returns here
 	case a.ok:
 		g.menuSound(menusound.Enter)
 		g.playRecent(g.recentCursor)

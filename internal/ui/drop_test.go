@@ -327,7 +327,7 @@ func TestRecentGameMissing(t *testing.T) {
 	g.cfg.Recent = []RecentGame{{Path: gone, Title: "GONE"}, {Path: kept, Title: "KEPT"}}
 	g.actions = menuActions{ok: true}
 	g.updateDropScreen()
-	if g.gb != nil || len(g.cfg.Recent) != 1 || g.toast != "Not found, removed from the list: GONE" {
+	if g.gb != nil || len(g.cfg.Recent) != 1 || g.toast != "Not found, removed from the list: Gone" {
 		t.Errorf("missing game: recent %+v, toast %q", g.cfg.Recent, g.toast)
 	}
 
@@ -343,9 +343,9 @@ func TestRecentName(t *testing.T) {
 		r    RecentGame
 		want string
 	}{
-		{RecentGame{Path: "/roms/Tetris.gb", Title: "TETRIS"}, "TETRIS"},
+		{RecentGame{Path: "/roms/Tetris (World).gb", Title: "TETRIS"}, "Tetris (World)"},
 		{RecentGame{Path: "/roms/Homebrew.gbc"}, "Homebrew"},
-		{RecentGame{Path: "/roms/A very long file name for a game.zip"}, "A very long file name for..."},
+		{RecentGame{Path: "/roms/A very long file name for a game.zip"}, "A very long file name for a game"},
 	} {
 		if got := recentName(tc.r); got != tc.want {
 			t.Errorf("recentName(%+v) = %q, want %q", tc.r, got, tc.want)
@@ -367,7 +367,7 @@ func TestRecentPage(t *testing.T) {
 	g := newDropGame(t)
 	m := &g.menu
 	m.show()
-	if !m.view(g).disabled[itemRecent] {
+	if !m.view(g).disabled[itemGames] {
 		t.Error("Recent games enabled without any")
 	}
 
@@ -379,14 +379,14 @@ func TestRecentPage(t *testing.T) {
 	g.actions = menuActions{ok: true}
 	m.update(g) // Launch A: recent is A, B
 	m.show()
-	m.cursor = itemRecent
+	m.cursor = itemGames
 	m.update(g) // OK opens the page
-	if m.page != pageRecent {
+	if m.page != pageGames {
 		t.Fatalf("page %v, want Recent games", m.page)
 	}
-	if title, items, footer := m.lines(g); title != "RECENT GAMES" ||
-		strings.Join(items, ",") != "GAME A (playing),GAME B,Back" || footer != "The game in progress will be saved" {
-		t.Errorf("recent page: %q %q %q", title, items, footer)
+	if v := m.view(g); m.tab != tabRecent || v.title != "GAMES" ||
+		strings.Join(v.items, ",") != "A (playing),B,Back" || v.footer != "\nThe game in progress will be saved" {
+		t.Errorf("recent page: tab %d, %q %q %q", m.tab, v.title, v.items, v.footer)
 	}
 
 	m.update(g) // OK on the game in progress
@@ -408,11 +408,11 @@ func TestRecentPage(t *testing.T) {
 	}
 
 	m.show()
-	m.cursor = itemRecent
+	m.cursor = itemGames
 	m.update(g)
 	g.actions = menuActions{back: true}
 	m.update(g)
-	if m.page != pageMain || m.cursor != itemRecent {
+	if m.page != pageMain || m.cursor != itemGames {
 		t.Errorf("Back: page %v, cursor %d", m.page, m.cursor)
 	}
 }

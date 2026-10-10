@@ -120,7 +120,12 @@ type Game struct {
 	picker         folderPicker
 	picks          chan folderPick
 	picking        bool
+	picked         func(dir string) // applies the folder chosen in the dialog
 	bootROMPending bool
+
+	library    library                 // the games folder
+	stateTimes map[string]time.Time    // see savedAt
+	marquees   map[string]marqueeStart // by list (see marqueeTick)
 
 	ignoredKeys map[ebiten.Key]bool // held when the menu closed
 	ignoredPad  map[padButton]bool  // same for gamepad buttons
@@ -247,6 +252,7 @@ func Run(opts Options) error {
 	ebiten.SetWindowTitle("gbe")
 	ebiten.SetWindowIcon(icon.Window())
 	g.pruneRecent()
+	g.refreshLibrary()
 	if opts.Game != nil {
 		g.startGame(opts.Game)
 	} else if opts.LaunchError != nil {
@@ -502,6 +508,7 @@ func (g *Game) Update() error {
 		g.drop(fsys)
 	}
 	g.pollFolderPick()
+	g.pollLibrary()
 	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}

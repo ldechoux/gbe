@@ -37,11 +37,16 @@ func TestBootROMPage(t *testing.T) {
 	g.bootROMs = &rom.BootROMSearch{Defaults: []string{t.TempDir()}}
 	m := &g.menu
 	m.show()
-	m.cursor = itemBootROM
+	m.cursor = itemFolders
 	g.actions = menuActions{ok: true}
 	m.update(g)
-	if m.page != pageBootROM || m.cursor != bootChoose {
-		t.Fatalf("OK on Boot ROM...: page %d, cursor %d", m.page, m.cursor)
+	if m.page != pageFolders || m.tab != tabGamesDir {
+		t.Fatalf("OK on Folders...: page %d, tab %d", m.page, m.tab)
+	}
+	g.actions = menuActions{right: true} // the Boot ROM tab
+	m.update(g)
+	if m.tab != tabBootROM || m.cursor != bootChoose {
+		t.Fatalf("Right: tab %d, cursor %d", m.tab, m.cursor)
 	}
 	v := m.view(g)
 	if v.footer != "Folder: automatic search" || !v.disabled[bootAuto] || !v.disabled[bootGB] {
@@ -117,12 +122,12 @@ func TestBootROMPage(t *testing.T) {
 	}
 	g.actions = menuActions{back: true}
 	m.update(g)
-	if m.page != pageMain || m.cursor != itemBootROM {
+	if m.page != pageMain || m.cursor != itemFolders {
 		t.Errorf("Back: page %d, cursor %d", m.page, m.cursor)
 	}
 }
 
-// A folder dropped on the Boot ROM page becomes the folder of the boot
+// A folder dropped on the Boot ROM tab becomes the folder of the boot
 // ROMs; elsewhere, it is refused.
 func TestDropBootROMFolder(t *testing.T) {
 	dir := bootROMDir(t, gb.ModelDMG, gb.ModelCGB)
@@ -132,7 +137,7 @@ func TestDropBootROMFolder(t *testing.T) {
 		t.Fatalf("folder dropped outside the page: %q, toast %q", g.cfg.BootROMDir, g.toast)
 	}
 	g.toast = ""
-	g.menu = menu{open: true, page: pageBootROM}
+	g.menu = menu{open: true, page: pageFolders, tab: tabBootROM}
 	g.drop(dropped(dir))
 	if g.cfg.BootROMDir != dir || g.toast != "" {
 		t.Fatalf("folder dropped on the page: %q, toast %q", g.cfg.BootROMDir, g.toast)
@@ -193,7 +198,7 @@ func TestMarquee(t *testing.T) {
 		{marqueePause - 1, "/Users/me/"},
 		{marqueePause + marqueeStep, "Users/me/G"},
 		{marqueePause + 15*marqueeStep, "/bios    /"},
-		{marqueePause + 24*marqueeStep, "/Users/me/"}, // the start is back
+		{marqueePause + 24*marqueeStep, "/Users/me/"},                    // the start is back
 		{marqueePause + 24*marqueeStep + marqueePause - 1, "/Users/me/"}, // and pauses again
 	} {
 		if got := marquee(s, 10, c.tick); got != c.want {

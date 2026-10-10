@@ -82,12 +82,19 @@ CGO_ENABLED=0 go build -o bin/gbe ./cmd/gbe
 Les dossiers `bios/` (boot ROM) et `roms/` ne sont pas versionnés : les fichiers qu'ils
 contiennent sont sous copyright. Il faut y placer ses propres copies.
 
-Le plus simple est de choisir le dossier des boot ROM `gb_bios.bin` et `gbc_bios.bin` dans
-le menu : la page « Boot ROM... » du menu Pause ouvre le dialogue « Choisir un dossier » du
-système et indique si chaque boot ROM est trouvée. On peut aussi déposer le dossier sur la
-fenêtre pendant que la page est ouverte, par exemple sous Linux sans `zenity`, `qarma` ni
-`matedialog`, que le dialogue utilise. « Recherche auto » oublie le dossier choisi. Pendant
-une partie, le nouveau dossier s'applique à la prochaine réinitialisation.
+Le plus simple est de choisir ces dossiers dans le menu : la page « Dossiers... » du menu
+Pause a deux onglets, qu'on change avec ←/→.
+
+- **Jeux** : le dossier de tes ROM. gbe y liste les jeux (`.gb`, `.gbc` et `.zip`), ceux de
+  ses sous-dossiers compris, dans la page « Jeux... » (voir plus bas). La page indique
+  combien il en a trouvé, et « Oublier le dossier » l'oublie.
+- **Boot ROM** : le dossier des boot ROM `gb_bios.bin` et `gbc_bios.bin`. La page indique si
+  chacune est trouvée, et « Recherche auto » oublie le dossier choisi. Pendant une partie, le
+  nouveau dossier s'applique à la prochaine réinitialisation.
+
+« Choisir le dossier... » ouvre le dialogue « Choisir un dossier » du système. On peut aussi
+déposer le dossier sur la fenêtre pendant que l'onglet est ouvert, par exemple sous Linux
+sans `zenity`, `qarma` ni `matedialog`, que le dialogue utilise.
 
 gbe cherche les boot ROM dans cet ordre :
 - le dossier choisi dans le menu ;
@@ -116,9 +123,11 @@ On peut aussi déposer une ROM (`.gb`, `.gbc` ou `.zip`) sur la fenêtre de gbe 
   Start+Select à la manette) reste disponible pour régler l'affichage, les contrôles ou la
   langue, et P change la palette.
 - **Les 5 derniers jeux lancés** sont proposés sur ce même écran : on en choisit un avec
-  ↑/↓ (ou la croix) et on le lance avec Entrée (ou A). En cours de partie, la même liste est
-  dans la page « Jeux récents » du menu. C'est utile à la manette, sur une TV, où l'on ne
-  peut pas déposer de fichier. Un jeu qui n'existe plus est retiré de la liste.
+  ↑/↓ (ou la croix) et on le lance avec Entrée (ou A). En dessous, « Tous les jeux... »
+  ouvre la liste de tous les jeux du dossier choisi dans la page « Dossiers... » ; l'entrée
+  est grisée tant que ce dossier n'a aucun jeu. En cours de partie, les mêmes listes sont
+  dans la page « Jeux... » du menu. C'est utile à la manette, sur une TV, où l'on ne peut
+  pas déposer de fichier. Un jeu qui n'existe plus est retiré de la liste.
 - **Pendant une partie**, la page « Nouveau jeu » demande s'il faut lancer le jeu déposé ou
   continuer à jouer. Avant de changer de jeu, la partie en cours est sauvegardée comme en
   quittant (save state et sauvegarde de la cartouche) : on la retrouvera en rouvrant ce jeu.
@@ -159,9 +168,20 @@ Options utiles :
 | F11 | Plein écran (retenu au prochain lancement ; aussi dans la page Affichage, entrée « Mode ») |
 
 Le menu permet de régler la vitesse de l'avance rapide et la langue, de sauvegarder ou
-recharger l'état, de réinitialiser la console ou de quitter. Sa page **Jeux récents** relance
-l'un des 5 derniers jeux (la partie en cours est sauvegardée d'abord). Trois pages regroupent
-les autres réglages :
+recharger l'état, de réinitialiser la console ou de quitter. Sa page **Jeux** lance un autre
+jeu (la partie en cours est sauvegardée d'abord). Elle a deux onglets, qu'on change avec
+←/→ :
+
+- **Récents** : les 5 derniers jeux lancés ;
+- **Tous** : tous les jeux du dossier choisi dans la page « Dossiers... », par ordre
+  alphabétique. Les jeux y sont nommés par leur nom de fichier ; un nom trop long défile quand
+  il est sélectionné. Une barre à droite montre où l'on est dans la liste, et le bas de la page
+  donne le rang du jeu, son sous-dossier et la date de son save state. Pour aller vite :
+  - ↑/↓ maintenu accélère au bout d'une seconde, puis encore au bout de deux ;
+  - Page préc./Page suiv. (L/R à la manette) avancent d'une page ;
+  - une lettre tapée va au prochain jeu qui commence par elle.
+
+Trois pages regroupent les autres réglages :
 
 - **Affichage** : la palette (10 palettes monochromes, aperçu en direct ; dans un jeu Game
   Boy Color, cette entrée active ou non la correction des couleurs, qui imite l'écran

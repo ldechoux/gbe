@@ -3,7 +3,7 @@ module github.com/ldechoux/gbe
 go 1.27.1
 
 require (
-	github.com/hajimehoshi/ebiten/v2 v2.10.4
+	github.com/hajimehoshi/ebiten/v2 v2.10.5
 	github.com/ncruces/zenity v0.10.15
 	golang.org/x/image v0.46.0
 	golang.org/x/perf v0.0.0-20260929162123-406019bb8b68

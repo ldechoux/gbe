@@ -4,7 +4,7 @@ import "testing"
 
 // testParams are the settings the tests of the detector run with: they
 // check how it works, whatever its settings by default.
-var testParams = RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8, Steady: 30}
+var testParams = RumbleParams{Floor: 0.2, Gain: 1.6, Music: 0.5, Duration: 1, Sweeps: 0.8, Steady: 30, Shake: 0.6, Flash: 0.5}
 
 // detectorGB is a console looping on itself, with the rumble detector on
 // (testParams) and the sound sent full volume to both sides.

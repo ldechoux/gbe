@@ -7,6 +7,9 @@ const (
 	ScreenHeight = 144
 )
 
+// midLine is the middle line of the screen (see PPU.midSCX).
+const midLine = ScreenHeight / 2
+
 // PPU renders one scanline at a time, at the end of mode 3. In DMG mode the
 // framebuffer holds shades 0 (lightest) to 3 (darkest), already mapped
 // through BGP/OBPx; the actual colors are chosen by the frontend. In CGB mode
@@ -36,6 +39,11 @@ type PPU struct {
 	back, front   [ScreenWidth * ScreenHeight]byte
 	cback, cfront [ScreenWidth * ScreenHeight]uint16
 	frameReady    bool
+
+	// midSCX and midSCY are the scroll of the background on midLine
+	// of the last frame, for the rumble detector: below a status bar, which
+	// some games keep still while the screen shakes. Not part of the state.
+	midSCX, midSCY byte
 }
 
 // vramOffset maps a CPU address in 0x8000-0x9FFF to the VRAM array.
@@ -305,6 +313,9 @@ func (p *PPU) renderLine() {
 
 	if p.ly == p.wy {
 		p.wyReached = true
+	}
+	if ly == midLine {
+		p.midSCX, p.midSCY = p.scx, p.scy
 	}
 
 	// On a CGB, LCDC bit 0 does not hide the background, it only takes its

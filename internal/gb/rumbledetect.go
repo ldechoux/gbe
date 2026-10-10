@@ -47,6 +47,12 @@ type RumbleParams struct {
 	// at Duration 1: games that fade their sounds themselves trigger it
 	// again and again, lower each time (Street Fighter Alpha, Zelda).
 	Steady float64 `json:"steady"`
+	// Shake is how hard a screen shaking at full strength shakes, from 0
+	// (never) to 1 (see rumblescreen.go).
+	Shake float64 `json:"shake"`
+	// Flash makes the shocks heard as the screen flashes stronger: by this
+	// share of their strength.
+	Flash float64 `json:"flash"`
 }
 
 // DefaultRumbleParams are the settings the detector runs with unless told
@@ -55,7 +61,7 @@ func DefaultRumbleParams() RumbleParams {
 	// Tuned by feel on recorded play of Donkey Kong Country, Street Fighter
 	// Alpha, Super Mario Land, Tetris, Tetris DX, Wario Land 3 and Zelda:
 	// Link's Awakening (gbe -rumble-tune).
-	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8}
+	return RumbleParams{Floor: 0.245, Gain: 0.7, Music: 0.5, Duration: 1, Sweeps: 0.3, Steady: 8, Shake: 0.6, Flash: 0.5}
 }
 
 // SetRumbleParams changes the settings of the rumble detector.
@@ -110,6 +116,7 @@ type rumbleDetector struct {
 	lastSig [4]noteSig
 	trace   []RumbleNote // nil unless traced
 	tracing bool
+	screen  screenWatch
 }
 
 // GuessRumble turns the rumble detector on or off. While on, GuessedRumble
@@ -117,7 +124,7 @@ type rumbleDetector struct {
 func (g *GameBoy) GuessRumble(on bool) {
 	switch {
 	case on && g.guess == nil:
-		g.guess = &rumbleDetector{g: g, sigs: map[noteSig]*sigStats{}, writers: map[uint16]*writer{}}
+		g.guess = &rumbleDetector{g: g, sigs: map[noteSig]*sigStats{}, writers: map[uint16]*writer{}, screen: screenWatch{flashAt: math.Inf(-1)}}
 		g.guess.attach()
 	case !on && g.guess != nil:
 		g.APU.watch = nil
@@ -214,6 +221,7 @@ func (d *rumbleDetector) maxHold() float64 { return pulseMaxHold * d.params().Du
 func (d *rumbleDetector) restart() {
 	d.pulses = [4]pulse{}
 	d.level = 0
+	d.screen = screenWatch{flashAt: math.Inf(-1)}
 	for _, s := range d.sigs {
 		s.last, s.burst = math.Inf(-1), 0
 	}
@@ -280,6 +288,9 @@ func (d *rumbleDetector) trigger(i int) {
 	s.remember(t)
 	d.lastSig[i] = sig
 	if shock >= p.Floor && shock > 0 {
+		if t-d.screen.flashAt <= flashBoostTime {
+			shock = math.Min(1, shock*(1+p.Flash)) // the screen flashed just before
+		}
 		c := &a.ch[i]
 		d.pulses[i] = pulse{strength: shock, start: t, hold: d.duration(i), volume: c.env.volume, active: true}
 	} else if d.pulses[i].active {
@@ -451,10 +462,10 @@ func (d *rumbleDetector) lower() {
 }
 
 // frame works out how hard the frame just run shakes: the strongest pulse,
-// fading with the envelope of its channel.
+// fading with the envelope of its channel, or the screen shaking.
 func (d *rumbleDetector) frame() {
 	t := d.now()
-	d.level = 0
+	d.level = d.watchScreen(t)
 	for i := range d.pulses {
 		p := &d.pulses[i]
 		if !p.active {

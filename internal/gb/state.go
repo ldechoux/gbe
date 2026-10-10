@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"slices"
+	"unsafe"
 )
 
 // Save states are gzip-compressed. The payload starts with a magic, a format
@@ -79,8 +80,23 @@ func (c *codec) u16(p *uint16) {
 	}
 }
 
-// u16s is u16 for every element of s, in one go.
+// littleEndian tells whether this machine keeps numbers in the byte order of
+// save states: arm64 and amd64 do.
+var littleEndian = binary.NativeEndian.Uint16([]byte{1, 0}) == 1
+
+// bytesOf is the memory of s, as bytes.
+func bytesOf[T uint16 | int64](s []T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(s))), len(s)*int(unsafe.Sizeof(s[0])))
+}
+
+// u16s is u16 for every element of s, in one go. On a little-endian
+// machine, s is already laid out as in a state: it is copied as is, which
+// makes the snapshots of the Game Boy Color screens much faster.
 func (c *codec) u16s(s []uint16) {
+	if littleEndian {
+		c.raw(bytesOf(s))
+		return
+	}
 	if !c.load {
 		n := len(c.out)
 		c.out = slices.Grow(c.out, 2*len(s))[:n+2*len(s)]
@@ -120,6 +136,10 @@ func (c *codec) i64(p *int64) {
 
 // i64s is i64 for every element of s, in one go.
 func (c *codec) i64s(s []int64) {
+	if littleEndian {
+		c.raw(bytesOf(s))
+		return
+	}
 	if !c.load {
 		n := len(c.out)
 		c.out = slices.Grow(c.out, 8*len(s))[:n+8*len(s)]
@@ -251,14 +271,14 @@ func (g *GameBoy) LoadState(data []byte) error {
 		return errors.New("save state was made in another hardware mode (DMG / Game Boy Color)")
 	}
 
-	backup := g.SaveState()
+	backup := g.Snapshot(nil) // much faster than SaveState, without compression
 	g.Reset()
 	g.sync(c)
 	if c.err == nil && g.Bus.bootEnabled && g.boot == nil {
 		c.err = errors.New("save state was made during the boot ROM, which is not loaded")
 	}
 	if c.err != nil {
-		g.LoadState(backup)
+		g.Restore(backup)
 		return fmt.Errorf("invalid save state: %w", c.err)
 	}
 	return nil

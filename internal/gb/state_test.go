@@ -1,8 +1,11 @@
 package gb
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"hash/fnv"
+	"io"
 	"os"
 	"testing"
 )
@@ -77,6 +80,61 @@ func TestLoadStateRejectsOtherROMAndGarbage(t *testing.T) {
 	}
 	if g.PC() != pc+1 {
 		t.Fatalf("failed load changed the machine: PC=%04X", g.PC())
+	}
+}
+
+// A state cut short inside its data, still valid gzip, is refused and
+// leaves the machine as it was.
+func TestLoadStateKeepsMachineOnTruncatedData(t *testing.T) {
+	g := newSyntheticGB(t, ModelCGB)
+	for range 30 {
+		g.RunFrame()
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(g.SaveState()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := io.ReadAll(zr)
+	var cut bytes.Buffer
+	zw := gzip.NewWriter(&cut)
+	zw.Write(data[:len(data)-100])
+	zw.Close()
+
+	for range 5 {
+		g.RunFrame()
+	}
+	g.APU.DrainSamples()
+	before := g.Snapshot(nil)
+	if err := g.LoadState(cut.Bytes()); err == nil {
+		t.Fatal("truncated state accepted")
+	}
+	if !bytes.Equal(g.Snapshot(nil), before) {
+		t.Fatal("failed load changed the machine")
+	}
+}
+
+// Copying the Game Boy Color screens and the sound samples as they lie in
+// memory writes the same bytes as encoding them one by one: the states stay
+// the same on every machine.
+func TestSnapshotSameBytesOnEveryMachine(t *testing.T) {
+	if !littleEndian {
+		t.Skip("big-endian machine: the bytes are always encoded one by one")
+	}
+	g := newSyntheticGB(t, ModelCGB)
+	for range 30 {
+		g.RunFrame()
+	}
+	fast := g.Snapshot(nil)
+	littleEndian = false
+	defer func() { littleEndian = true }()
+	if slow := g.Snapshot(nil); !bytes.Equal(fast, slow) {
+		t.Fatal("the snapshots differ")
+	}
+	if err := g.Restore(fast); err != nil {
+		t.Fatal(err)
+	}
+	if again := g.Snapshot(nil); !bytes.Equal(fast, again) {
+		t.Fatal("encoded one by one, the snapshot does not load back the same")
 	}
 }
 

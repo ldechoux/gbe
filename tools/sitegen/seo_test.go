@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"image/color"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -69,16 +68,12 @@ func TestStructuredData(t *testing.T) {
 // what it is about and which image to show; the verification tag of the
 // Search Console only when its token is given.
 func TestRenderedHead(t *testing.T) {
-	if testing.Short() {
-		t.Skip("builds the site")
-	}
 	root := filepath.Join("..", "..")
 	for _, token := range []string{"", "abc123"} {
 		out := t.TempDir()
-		cmd := exec.Command("go", "run", ".", "-site", filepath.Join(root, "site"), "-screenshots", filepath.Join(root, "screenshots"),
-			"-icon", filepath.Join(root, "assets", "icon", "icon-512.png"), "-out", out, "-google-verification", token)
-		if msg, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("sitegen: %v\n%s", err, msg)
+		if err := run([]string{"-site", filepath.Join(root, "site"), "-screenshots", filepath.Join(root, "screenshots"),
+			"-icon", filepath.Join(root, "assets", "icon", "icon-512.png"), "-out", out, "-google-verification", token}); err != nil {
+			t.Fatalf("sitegen: %v", err)
 		}
 		html := readFile(t, filepath.Join(out, "index.html"))
 		for _, want := range []string{

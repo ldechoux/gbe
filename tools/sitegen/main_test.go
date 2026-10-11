@@ -121,3 +121,86 @@ func TestScreenshots(t *testing.T) {
 		t.Fatalf("screenshots %v, want %v", got, want)
 	}
 }
+
+// siteArgs are the arguments that build the site of the repository into
+// out.
+func siteArgs(out string, more ...string) []string {
+	root := filepath.Join("..", "..")
+	return append([]string{"-site", filepath.Join(root, "site"), "-screenshots", filepath.Join(root, "screenshots"),
+		"-icon", filepath.Join(root, "assets", "icon", "icon-512.png"), "-out", out}, more...)
+}
+
+// With the releases of the GitHub API, the page offers the downloads of
+// the latest one and shows its notes.
+func TestRunWithReleases(t *testing.T) {
+	dir := t.TempDir()
+	releases := filepath.Join(dir, "releases.json")
+	data := `[{"tag_name": "v0.9.0", "name": "gbe v0.9.0", "html_url": "https://github.com/o/r/releases/tag/v0.9.0",
+		"published_at": "2026-10-01T10:00:00Z", "body_html": "<p>Notes with <a href=\"https://x.io\">a link</a></p>",
+		"assets": [{"name": "gbe-v0.9.0-macos-universal.dmg", "size": 5242880, "browser_download_url": "https://x/gbe.dmg"}]}]`
+	if err := os.WriteFile(releases, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "site")
+	if err := run(siteArgs(out, "-releases", releases, "-url", "https://gbe.example.org")); err != nil {
+		t.Fatal(err)
+	}
+	html, err := os.ReadFile(filepath.Join(out, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`href="https://x/gbe.dmg"`, "5.0 Mo", "Télécharger v0.9.0",
+		`<a target="_blank" rel="noopener" href="https://x.io">a link</a>`,
+		`<link rel="canonical" href="https://gbe.example.org/">`, `"softwareVersion": "0.9.0"`,
+	} {
+		if !strings.Contains(string(html), want) {
+			t.Errorf("%s missing", want)
+		}
+	}
+	for _, name := range []string{"style.css", "favicon.svg", "img/gb/screenshot.webp", ".nojekyll"} {
+		if _, err := os.Stat(filepath.Join(out, name)); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+// What cannot be read stops the build, with the reason.
+func TestRunErrors(t *testing.T) {
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "bad.json")
+	if err := os.WriteFile(bad, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "out")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"-nope"}, "flag provided but not defined"},
+		{siteArgs(out, "-releases", filepath.Join(dir, "missing.json")), "missing.json"},
+		{siteArgs(out, "-releases", bad), "parsing"},
+		{siteArgs(out, "-site", filepath.Join(dir, "nosite")), "index.html.tmpl"},
+		{siteArgs(out, "-screenshots", filepath.Join(dir, "noshots")), "noshots"},
+		{siteArgs(out, "-icon", filepath.Join(dir, "noicon.png")), "noicon.png"},
+	} {
+		err := run(c.args)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%v: %v, want %q", c.args[len(c.args)-1], err, c.want)
+		}
+	}
+}
+
+func TestCopyFileErrors(t *testing.T) {
+	dir := t.TempDir()
+	if err := copyFile(filepath.Join(dir, "out"), filepath.Join(dir, "missing")); err == nil {
+		t.Error("copied a missing file")
+	}
+	src := filepath.Join(dir, "src")
+	if err := os.WriteFile(src, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFile(filepath.Join(src, "under-a-file"), src); err == nil {
+		t.Error("copied under a file")
+	}
+}

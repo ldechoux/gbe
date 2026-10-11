@@ -1,13 +1,21 @@
 // Package webcam reads the pictures of a webcam, in levels of gray: what
 // the sensor of the Game Boy Camera needs. It is pure Go, as the rest of
-// gbe: it calls the video API of the system through purego (AVFoundation
-// on macOS).
+// gbe: it calls the video API of the system, AVFoundation on macOS
+// (through purego), Video4Linux2 on Linux and Media Foundation on
+// Windows.
 package webcam
 
 import (
 	"errors"
 	"image"
 	"sync"
+)
+
+// The size of picture asked for, when the camera offers a choice: enough
+// for the 128x112 of the Game Boy Camera, and light to convert.
+const (
+	wantWidth  = 640
+	wantHeight = 480
 )
 
 // Device is a camera of the system.

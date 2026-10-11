@@ -77,6 +77,7 @@
     "camera.webcam_on": "Webcam: en marche",
     "camera.webcam_opening": "Webcam: ouverture...",
     "camera.webcam_off": "Webcam: indisponible",
+    "camera.experimental": "Webcam experimentale sur ce systeme",
     "camera.help": "Ou deposez une image sur la fenetre",
     "camera.dialog_title": "Image pour la camera (.png, .jpg, .gif, .webp)",
     "camera.loaded": "La camera voit %s",

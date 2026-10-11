@@ -77,6 +77,7 @@
     "camera.webcam_on": "Webcam: on",
     "camera.webcam_opening": "Webcam: opening...",
     "camera.webcam_off": "Webcam: unavailable",
+    "camera.experimental": "Webcam still experimental on this system",
     "camera.help": "Or drop a picture on the window",
     "camera.dialog_title": "Picture for the camera (.png, .jpg, .gif, .webp)",
     "camera.loaded": "The camera sees %s",

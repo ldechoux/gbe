@@ -332,9 +332,17 @@ réglages d'exposition, de contraste et de contours, et ses 30 photos, gardées 
 `<rom>.sav` comme les autres sauvegardes.
 
 - **Ce que voit la caméra**, au choix dans la page « Caméra... » du menu Pause :
-  - **une webcam** (macOS pour l'instant), choisie parmi celles du système, par exemple celle
-    d'un écran ou un iPhone en Continuity Camera. Elle ne s'allume que pendant la partie.
-    La première fois, macOS demande l'autorisation d'utiliser la caméra ;
+  - **une webcam**, choisie parmi celles du système, par exemple celle d'un écran ou un
+    iPhone en Continuity Camera. Elle ne s'allume que pendant la partie. Selon le système :
+    - **macOS** : la première fois, le système demande l'autorisation d'utiliser la caméra ;
+    - **Linux** : il faut faire partie du groupe `video`, qui donne accès à `/dev/video*` (en
+      général déjà le cas) ;
+    - **Windows** : le réglage « Autoriser les applications de bureau à accéder à votre
+      caméra » doit être activé.
+
+    **Sous Linux et Windows, la webcam est encore expérimentale** : elle n'a été essayée
+    qu'en CI (une caméra virtuelle sous Linux, la liste des caméras sous Windows), pas encore
+    avec une vraie webcam. La page Caméra l'indique sous l'état de la webcam ;
   - **une image** (PNG, JPEG, GIF ou WebP), choisie dans la page ou déposée sur la fenêtre
     pendant la partie.
 
@@ -610,7 +618,9 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
     entre 60 Hz et 59,73 Hz.
   - Menu, configuration JSON.
 - `internal/webcam` : les images d'une webcam en niveaux de gris, en Go pur : AVFoundation
-  par l'intermédiaire de `purego/objc` sous macOS. `GBE_WEBCAM=1 go test ./internal/webcam`
-  essaie la vraie caméra.
+  par l'intermédiaire de `purego/objc` sous macOS, les `ioctl` de Video4Linux2 sous Linux, et
+  Media Foundation par ses interfaces COM sous Windows. `GBE_WEBCAM=1 go test
+  ./internal/webcam` essaie la vraie caméra. En CI, une caméra virtuelle (`v4l2loopback`)
+  vérifie la lecture sous Linux, et un runner Windows les appels qui listent les caméras.
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.

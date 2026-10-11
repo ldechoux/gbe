@@ -24,6 +24,9 @@ func renderGame(t *testing.T, pads padReader) *Game {
 	rendertest.Skip(t)
 	g := newTestGame(t, pads)
 	g.cfg.Language = "en"
+	// The default is Cmd+F2 on macOS and Ctrl+F2 elsewhere: the same
+	// everywhere, for the same image.
+	g.cfg.Screenshot = Hotkey{Key: ebiten.KeyF2, Control: true}
 	g.lcd = ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight)
 	g.lcdPrev = ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight)
 	g.stream = &audioStream{}

@@ -41,6 +41,32 @@ jobs:
           path: ${{ runner.temp }}/golden
           if-no-files-found: ignore
 
+  # The tests that draw through Ebitengine (see internal/rendertest): under
+  # a virtual display, drawn by Mesa on the CPU.
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install a virtual display and OpenGL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgl1 libgl1-mesa-dri \
+            libxcursor1 libxi6 libxinerama1 libxrandr2 libxxf86vm1
+      - run: xvfb-run -a -s "-screen 0 1280x1024x24" go test ./internal/ui/...
+        env:
+          GBE_RENDER: "1"
+          GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      # The images that differ, with a map of the differences.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: render-failures
+          path: ${{ runner.temp }}/golden
+          if-no-files-found: ignore
+
   benchrom:
     runs-on: ubuntu-latest
     env:

@@ -29,10 +29,18 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       # The tests on games and test ROMs are skipped: they are not in the
-      # repository. Those on the benchmark ROM (benchrom/) run.
-      - run: go test ./...
+      # repository. Those on the benchmark ROM (benchrom/) run. Their
+      # coverage goes to the coverage job (-count=1: a cached test writes
+      # none).
+      - run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          go test -count=1 -cover ./... -args -test.gocoverdir="$RUNNER_TEMP/coverage"
         env:
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-tests
+          path: ${{ runner.temp }}/coverage
       # Frames and audio of the benchmark ROM runs that failed.
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -55,10 +63,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb libgl1 libgl1-mesa-dri \
             libxcursor1 libxi6 libxinerama1 libxrandr2 libxxf86vm1
-      - run: xvfb-run -a -s "-screen 0 1280x1024x24" go test ./internal/ui/...
+      - run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            go test -count=1 -cover ./internal/ui/... -args -test.gocoverdir="$RUNNER_TEMP/coverage"
         env:
           GBE_RENDER: "1"
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-render
+          path: ${{ runner.temp }}/coverage
       # The images that differ, with a map of the differences.
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -66,6 +81,27 @@ jobs:
           name: render-failures
           path: ${{ runner.temp }}/golden
           if-no-files-found: ignore
+
+  # The coverage of the tests and of the rendering tests, merged: every
+  # package must keep its floor (tools/coverage-thresholds.txt). The table
+  # is in the summary of the run.
+  coverage:
+    needs: [test, render]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-tests
+          path: ${{ runner.temp }}/coverage-tests
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-render
+          path: ${{ runner.temp }}/coverage-render
+      - run: tools/coverage.sh "$RUNNER_TEMP/coverage-tests" "$RUNNER_TEMP/coverage-render"
 
   benchrom:
     runs-on: ubuntu-latest

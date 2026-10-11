@@ -68,6 +68,7 @@ jobs:
           sudo modprobe videodev
           sudo modprobe v4l2loopback devices=1 video_nr=9 card_label="gbe test camera" exclusive_caps=1 \
             || { sudo dmesg | tail -20; exit 1; }
+          sudo udevadm settle # udev sets its own permissions on the node first
           sudo chmod 666 /dev/video9
       - name: Read it
         run: |

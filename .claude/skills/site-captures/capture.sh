@@ -7,6 +7,7 @@
 #   filters    {gb,gbc}/filter_lcd, gb/filter_{nearest,scale2x,scale3x,mmpx}
 #   scenes     {gb,gbc}/{game_title,menu,save_state_resume} (Captures section)
 #   drop       gb/drop_screen (quick start)
+#   camera     gb/camera_viewfinder, gb/camera_picture (the Game Boy Camera)
 # Writes <out>/{gb,gbc}/<name>.png and .webp (lossless), and
 # <out>/montage.png to check them at a glance. The repository is left
 # untouched: the temporary harness is removed even on failure.
@@ -19,7 +20,7 @@ set -euo pipefail
 out=${1:?usage: capture.sh <out dir> [group...]}
 shift
 groups=("$@")
-[[ ${#groups[@]} -gt 0 ]] || groups=(hero palettes colorized filters scenes drop)
+[[ ${#groups[@]} -gt 0 ]] || groups=(hero palettes colorized filters scenes drop camera)
 want() { [[ " ${groups[*]} " == *" $1 "* ]]; }
 
 skill=$(cd "$(dirname "$0")" && pwd)
@@ -40,7 +41,19 @@ recent=(
 	"roms/Wario_Land_3.zip=Wario Land 3 (World)"
 	"roms/Donkey_Kong_Country.zip=Donkey Kong Country (Europe)"
 )
-for rom in "$sml" "$ladx" "$la" "$tetris" "${recent[@]%%=*}"; do
+camera="roms/Game Boy Camera (USA, Europe) (SGB Enhanced).zip"
+# What the Game Boy Camera sees: the mascot of the skill (camera/mascot.svg).
+mascot=$skill/camera/mascot.png
+# The ROMs of the groups asked for.
+roms=()
+want hero && roms+=("$sml" "$ladx")
+want palettes && roms+=("$sml")
+want colorized && roms+=("$tetris" "$la" "$sml")
+want filters && roms+=("$sml" "$ladx")
+want scenes && roms+=("$sml" "$ladx")
+want drop && roms+=("${recent[@]%%=*}")
+want camera && roms+=("$camera")
+for rom in "${roms[@]}"; do
 	[[ -f $rom ]] || { echo "missing $rom (the ROMs are not in git: copy them to roms/)" >&2; exit 1; }
 done
 for tool in go cwebp magick; do
@@ -142,6 +155,20 @@ fi
 if want drop; then
 	"$zz" -drop -games roms -out "$out/gb" "${common[@]}" "${recent[@]}"
 	webp gb/drop_screen
+	endrow
+fi
+
+# The Game Boy Camera's viewfinder, the mascot in front of it: A at the
+# title screen, the main menu, Shoot, then A again to the viewfinder; its
+# automatic exposure has settled by frame 2000. Without a filter, at x4.
+if want camera; then
+	press=start:300-305
+	for f in 400 500 600 700 1300 1450 1600; do press+=",a:$f-$((f + 5))"; done
+	"$zz" -shot -rom "$camera" -model gb -frames 2000 -press "$press" -camera "$mascot" -palette dmg -scale 4 \
+		-file "$out/gb/camera_viewfinder.png"
+	cp "$mascot" "$out/gb/camera_picture.png"
+	webp gb/camera_picture
+	webp gb/camera_viewfinder
 	endrow
 fi
 

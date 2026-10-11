@@ -1,6 +1,6 @@
 ---
 name: site-captures
-description: Refait les captures du site du projet (toutes les images de screenshots/gb et screenshots/gbc) avec le rendu de gbe — l'en-tête, les palettes, les jeux DMG colorisés, les détails des filtres d'affichage, les captures ×8 au filtre LCD de la section « Captures » et l'écran de dépôt des ROMs — puis prépare l'aperçu du site. À utiliser quand l'utilisateur demande de refaire, mettre à jour ou régénérer les captures ou les images du site, par exemple après un changement du menu, d'un filtre, d'une palette, de la colorisation ou de l'écran de dépôt.
+description: Refait les captures du site du projet (toutes les images de screenshots/gb et screenshots/gbc) avec le rendu de gbe — l'en-tête, les palettes, les jeux DMG colorisés, les détails des filtres d'affichage, les captures ×8 au filtre LCD de la section « Captures », l'écran de dépôt des ROMs et le viseur de la Game Boy Camera — puis prépare l'aperçu du site. À utiliser quand l'utilisateur demande de refaire, mettre à jour ou régénérer les captures ou les images du site, par exemple après un changement du menu, d'un filtre, d'une palette, de la colorisation ou de l'écran de dépôt.
 ---
 
 # Refaire les captures du site
@@ -18,6 +18,7 @@ l'autre.
 | `filters` | `{gb,gbc}/filter_lcd` (480×360), `gb/filter_{nearest,scale2x,scale3x,mmpx}` (480×432) | Des détails en taille réelle : le filtre LCD en ×15 (hauteur d'un écran 4K), les autres en ×8 | Grand écran |
 | `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement ; en ×8 avec le filtre LCD | Captures (`#captures`) |
 | `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents et « Tous les jeux » | Télécharger, « Démarrage rapide » (`figure.drop-shot`) |
+| `camera` | `gb/camera_viewfinder` (640×576), `gb/camera_picture` (512×448) | Le viseur de la Game Boy Camera, qui voit la mascotte du skill (un poussin fan de chiptune), et la mascotte elle-même | Game Boy Camera (`#camera`) |
 
 Les fichiers sont des WebP sans perte : on peut comparer une nouvelle capture à l'ancienne
 pixel par pixel (`magick compare -metric AE`).
@@ -69,12 +70,25 @@ Toutes tournent sans boot ROM. Les appuis sont tenus pendant 10 images, de l'ima
   tiennent en 32 caractères : un nom plus long serait coupé, ou défilerait. Le dossier des
   jeux est `roms/` : « Tous les jeux (N)... » est actif, N étant le nombre de ROMs qu'il
   contient. Le harnais attend la fin de sa lecture avant la capture.
+- **`camera`** : la Game Boy Camera en DMG, palette DMG vert, ×4 par `ui.Screenshot`. Le
+  capteur voit `camera/mascot.png`, la mascotte du skill, comme si le joueur l'avait choisie
+  dans la page Caméra (`ui.CameraPicture`, option `-camera` du harnais). Start à l'image
+  300, puis A aux images 400, 500, 600 et 700 (écrans titres, menu principal), et 1300, 1450
+  et 1600 (« Shoot » deux fois), chaque appui tenu 5 images ; capture à l'image 2000 :
+  l'exposition automatique de la ROM s'est stabilisée. `gb/camera_picture` est la mascotte
+  telle qu'elle est donnée au capteur, pour la montrer à côté du viseur.
+
+  La mascotte est un dessin original, fait pour le projet : sa source est
+  `camera/mascot.svg`. Après une retouche, refaire le PNG avec
+  `rsvg-convert -w 512 -h 448 mascot.svg -o mascot.png` (8:7, le format du capteur).
 
 ## Prérequis
 
 - Les ROMs, absentes de git : dans `roms/`, `Super_Mario_Land_World_Rev1.gb`,
   `Legend_of_Zelda_The_Links_Awakening_DX.gbc`, `Legend_of_Zelda_The_Links_Awakening.gb`,
-  `Tetris_World_Rev1.gb`, `Tetris_DX.zip`, `Wario_Land_3.zip` et `Donkey_Kong_Country.zip`.
+  `Tetris_World_Rev1.gb`, `Tetris_DX.zip`, `Wario_Land_3.zip`, `Donkey_Kong_Country.zip` et
+  `Game Boy Camera (USA, Europe) (SGB Enhanced).zip`. Le script ne vérifie que celles des
+  groupes demandés.
   Si elles manquent, demander à l'utilisateur de les copier ; ne pas les chercher ailleurs.
 - `go`, `cwebp` et `magick` (ImageMagick), plus Google Chrome pour l'aperçu du site.
 - Une machine avec écran : le harnais ouvre des fenêtres Ebitengine quelques secondes.
@@ -95,7 +109,7 @@ git checkout -b feature/site-captures   # ou un nom plus précis
 ```
 
 Sans groupe, le script les fait tous, en environ une minute. Avec des groupes (`hero`,
-`palettes`, `colorized`, `filters`, `scenes`, `drop`), seulement ceux-là : par exemple
+`palettes`, `colorized`, `filters`, `scenes`, `drop`, `camera`), seulement ceux-là : par exemple
 `scenes` après un changement du menu, `filters` après un changement d'un shader.
 
 Écrire dans le scratchpad de la session, jamais dans le dépôt. Le script :
@@ -107,8 +121,9 @@ Sans groupe, le script les fait tous, en environ une minute. Avec des groupes (`
    quatre modes :
    - par défaut, les trois scènes d'une ROM (`ui.Capture`) ;
    - `-drop`, l'écran de dépôt (`ui.CaptureDrop`) ;
-   - `-shot`, une image d'une ROM par `ui.Screenshot`, avec `-frames`, `-press`,
-     `-palette`, `-correct`, `-compat` et `-scale` ;
+   - `-shot`, une image d'une ROM (ou du zip qui la contient) par `ui.Screenshot`, avec
+     `-frames`, `-press`, `-palette`, `-correct`, `-compat`, `-scale`, et `-camera` pour
+     l'image que voit une Game Boy Camera ;
    - `-filters`, une image de 160×144 dessinée par chaque filtre à une taille donnée
      (`ui.CaptureFilters`) ;
 3. convertit chaque PNG en WebP sans perte (`cwebp -lossless -z 9`) et produit
@@ -123,8 +138,9 @@ toujours comme sans manette, sans « Start+Select: menu » dans son aide.
 
 Si le harnais ne compile plus, c'est que l'API qu'il utilise a changé : `renderFrame`,
 `menu.show`, `menu.showStart`, `started`, `stateTime`, `frame`, `Config.Recent`, `padReader`, la
-construction de `Game` faite par `ui.Run`, `rom.Open`, `ui.Screenshot`, `ui.Palettes`,
-`SetCompatPalette` ou `scaler.Pipeline`. Adapter `harness/`, et mettre le skill à jour
+construction de `Game` faite par `ui.Run`, `rom.Open`, `rom.Read`, `ui.Screenshot`,
+`ui.Palettes`, `SetCompatPalette`, `scaler.Pipeline`, `readImage`, `sensorImage` ou
+`Cartridge.SetCameraSource`. Adapter `harness/`, et mettre le skill à jour
 dans le même commit.
 
 Après le script, `git status` ne doit montrer aucun `zz_capture` restant.
@@ -161,7 +177,9 @@ Contrôler :
 - la grille LCD est visible sur les scènes ;
 - l'écran de reprise affiche « PARTIE EN COURS » et la date du jour ;
 - l'écran de dépôt montre la cartouche, l'invitation « Deposez une ROM Game Boy ici », les
-  cinq jeux récents, Zelda sélectionné, sans nom coupé, et « Tous les jeux (N)... » actif.
+  cinq jeux récents, Zelda sélectionné, sans nom coupé, et « Tous les jeux (N)... » actif ;
+- le viseur de la Game Boy Camera montre la mascotte entière, ni trop claire ni trop
+  sombre, avec « 29 left » en haut et les réglages BRIGHTNESS et CONTRAST autour.
 
 Si une image a bougé, par exemple parce que l'émulation a changé, retrouver la bonne avec le
 mode headless, puis ajuster l'image ou les appuis dans `capture.sh` :

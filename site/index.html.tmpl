@@ -39,12 +39,9 @@
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>Menu</button>
     <nav id="site-nav">
       <a href="#fonctionnalites">Fonctionnalités</a>
-      <a href="#gbc">Game Boy Color</a>
-      <a href="#ecran">Grand écran</a>
       <a href="#captures">Captures</a>
       <a href="#telecharger">Télécharger</a>
       <a href="#notes">Notes de version</a>
-      <a href="#credits">Crédits</a>
       <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">GitHub</a>
     </nav>
   </div>
@@ -88,6 +85,14 @@
 
 <section id="fonctionnalites" class="wrap">
   <h2>Fonctionnalités</h2>
+  <!-- The detailed sections that follow, which the top menu leaves out. -->
+  <nav class="toc" aria-label="Fonctionnalités en détail">
+    <span>En détail :</span>
+    <a href="#palettes">Palettes</a>
+    <a href="#gbc">Game Boy Color</a>
+    <a href="#ecran">Grand écran</a>
+    <a href="#camera">Game Boy Camera</a>
+  </nav>
   <div class="grid features">
     <article class="card">
       <h3>Émulation fidèle</h3>
@@ -99,7 +104,7 @@
     </article>
     <article class="card">
       <h3>Cartouches</h3>
-      <p>gbe gère les cartouches de la grande majorité des jeux (MBC1, MBC2, MBC5, et MBC3 avec son horloge, celle de Pokémon Or et Argent). Une ROM se lance en la déposant sur la fenêtre ou en ligne de commande, et une archive <code>.zip</code> n'est jamais modifiée. Les jeux qui sauvegardent sur leur cartouche gardent leur progression dans un fichier <code>.sav</code>, à côté de la ROM.</p>
+      <p>gbe gère les cartouches de la grande majorité des jeux (MBC1, MBC2, MBC5, et MBC3 avec son horloge, celle de Pokémon Or et Argent), et la <a href="#camera">Game Boy Camera</a>, encore expérimentale sous Linux et Windows. Une ROM se lance en la déposant sur la fenêtre ou en ligne de commande, et une archive <code>.zip</code> n'est jamais modifiée. Les jeux qui sauvegardent sur leur cartouche gardent leur progression dans un fichier <code>.sav</code>, à côté de la ROM.</p>
     </article>
     <article class="card">
       <h3>Save states et rembobinage</h3>
@@ -236,6 +241,35 @@
   <p class="note">L'option « Rémanence » imite l'écran LCD de la console, lent à réagir, en mélangeant chaque image à la précédente. Certains jeux s'en servaient pour rendre des sprites transparents en les faisant clignoter. Deux modes, inspirés de SameBoy : « simple », qui mélange les deux images à parts égales, et « fidèle », plus proche du véritable écran de la console.</p>
   <h3 class="subhead">Sur la TV, sans câble</h3>
   <p class="section-lead">Sur Mac, une Apple TV devient un second écran : dans le Centre de contrôle, « Recopie de l'écran », en mode « Utiliser comme écran séparé ». Dans la page Affichage du menu, l'entrée « Ecran » envoie alors gbe sur la TV, et l'entrée « Mode » passe en plein écran, à la manette comme au clavier. Le son suit, et le retard reste assez faible pour jouer, la manette en main depuis le canapé. gbe s'en souvient et se rouvre sur la TV au lancement suivant. Avec un câble HDMI, les mêmes entrées fonctionnent sur tous les systèmes.</p>
+</section>
+
+<section id="camera" class="wrap">
+  <h2>Game Boy Camera</h2>
+  <p class="section-lead">L'accessoire photo de la Game Boy fonctionne dans gbe : la cartouche, son capteur et ses 30 photos, gardées dans le fichier <code>.sav</code> comme sur la vraie cartouche. Ce que voit sa caméra se choisit dans la page «&nbsp;Caméra&nbsp;» du menu, qui n'apparaît qu'avec ce jeu. <strong>Sous Linux et Windows, cette fonctionnalité est encore expérimentale.</strong></p>
+  <div class="grid features">
+    <article class="card">
+      <h3>Une webcam</h3>
+      <p>Celle de votre ordinateur, de votre écran, ou un iPhone avec Continuity Camera sur Mac : choisissez-la dans la liste. Elle ne s'allume que pendant la partie, et l'option «&nbsp;Miroir&nbsp;» retourne l'image pour les selfies.</p>
+    </article>
+    <article class="card">
+      <h3>Une image</h3>
+      <p>Une photo ou un dessin en PNG, JPEG, GIF ou WebP, choisi dans le menu ou simplement déposé sur la fenêtre pendant la partie. gbe en garde le milieu, au format du capteur (128×112 pixels), en niveaux de gris.</p>
+    </article>
+    <article class="card">
+      <h3>Comme la console</h3>
+      <p>Le jeu fait le reste, comme sur la vraie Game Boy Camera : il règle l'exposition tout seul, applique la luminosité et le contraste choisis, et trame l'image en quatre teintes. Sans webcam ni image, la caméra voit du bruit, comme un vrai capteur dans le noir.</p>
+    </article>
+  </div>
+  <div class="grid camera-shots">
+    <figure>
+      <img src="img/gb/camera_picture.webp" width="512" height="448" loading="lazy" alt="Dessin d'un poussin jaune rond, les yeux fermés, avec un casque audio et des notes de musique, sur un fond beige">
+      <figcaption>L'image donnée à la caméra : la mascotte de gbe</figcaption>
+    </figure>
+    <figure>
+      <img class="pixelated" src="img/gb/camera_viewfinder.webp" width="640" height="576" loading="lazy" alt="Le viseur de la Game Boy Camera dans gbe : le poussin tramé en quatre teintes vertes, avec 29 photos restantes et les réglages de luminosité et de contraste">
+      <figcaption>Ce qu'en fait la Game Boy Camera, dans son viseur</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section id="captures" class="wrap">
@@ -405,7 +439,7 @@
 
 <footer class="footer">
   <div class="wrap">
-    <p>gbe · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · page mise à jour le {{.Built}}</p>
+    <p>gbe · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · <a href="#credits">Crédits</a> · page mise à jour le {{.Built}}</p>
     <p class="note">Game Boy est une marque de Nintendo. gbe est un projet indépendant, sans lien avec Nintendo.</p>
   </div>
 </footer>

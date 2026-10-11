@@ -139,7 +139,7 @@ func withModes(g *Game) *Game {
 func entryLabel(g *Game, item int) string {
 	m := menu{page: pageMain}
 	_, items, _ := m.lines(g)
-	return items[item]
+	return items[slices.Index(mainEntries(g), item)]
 }
 
 // displayLabel is the label of a display page entry, "" when it is hidden.

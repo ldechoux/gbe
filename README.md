@@ -325,6 +325,20 @@ puis « Réinitialiser », ou lancer le jeu avec `-model gbc` :
   appliquer » ; « Réinitialiser » redémarre alors dans le mode choisi (la partie en cours est
   perdue, pas le `.sav`).
 
+## Game Boy Camera
+
+La cartouche Game Boy Camera (Pocket Camera au Japon) est émulée : son capteur, ses
+réglages d'exposition, de contraste et de contours, et ses 30 photos, gardées dans
+`<rom>.sav` comme les autres sauvegardes.
+
+- **Ce que voit la caméra** : une image au choix (PNG, JPEG, GIF ou WebP), choisie dans la
+  page « Caméra... » du menu Pause, ou déposée sur la fenêtre pendant la partie. gbe garde
+  son milieu, au format du capteur (128×112), en niveaux de gris : la ROM fait le reste,
+  dont l'exposition automatique et le tramage en 4 teintes.
+- **Sans image**, la caméra voit du bruit, comme un vrai capteur dans le noir.
+- **Miroir** : retourne l'image de gauche à droite, comme le viseur d'un selfie.
+- La page « Caméra... » n'apparaît qu'avec cette cartouche.
+
 ## Langues
 
 L'interface est disponible en anglais (par défaut) et en français. La langue se choisit dans
@@ -408,7 +422,7 @@ permet de vérifier.
 
 ## Compatibilité
 
-- Cartouches : ROM seule, MBC1, MBC2, MBC3 (avec RTC), MBC5.
+- Cartouches : ROM seule, MBC1, MBC2, MBC3 (avec RTC), MBC5, Game Boy Camera.
 - Les cartouches à pile sont sauvegardées dans `<rom>.sav`, à la fermeture et toutes les 5 s.
   L'horloge MBC3 est enregistrée au format BGB/VBA-M.
 - Game Boy Color : RAM et VRAM en banques, palettes couleur, attributs des tiles, priorités
@@ -579,6 +593,9 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   - PPU : rendu ligne par ligne, en teintes (DMG) ou en couleurs RGB555 (CGB).
   - APU : 4 canaux, sortie à bande limitée (sans repliement des aigus), filtre passe-haut.
   - Timer, joypad, port série, MBC.
+  - Game Boy Camera (`camera.go`) : le contrôleur MAC-GBD et un modèle du capteur M64282FP,
+    en entiers pour des photos identiques sur toutes les machines. Le frontend lui donne
+    l'image à voir (`gb.CameraSource`).
 - `internal/ui` : le frontend Ebitengine.
   - Rendu avec la palette choisie, ou en couleurs (corrigées ou non) en mode Game Boy Color.
   - `internal/ui/scaler` : les filtres d'affichage, des chaînes de shaders Kage

@@ -74,6 +74,12 @@ type Config struct {
 	// GamesDir is the folder of the games chosen in the menu, listed on its
 	// Games page (see library); "" for none.
 	GamesDir string `json:"games_dir"`
+	// CameraImage is the picture the sensor of the Game Boy Camera sees,
+	// chosen on its page of the menu or dropped on the window; "" for none:
+	// the sensor sees noise.
+	CameraImage string `json:"camera_image"`
+	// CameraMirror flips that picture left to right, as in a mirror.
+	CameraMirror bool `json:"camera_mirror"`
 }
 
 // RecentGame is a game of Config.Recent.
@@ -275,6 +281,10 @@ func LoadConfig(path string) (*Config, error) {
 	if filepath.IsAbs(loaded.GamesDir) {
 		cfg.GamesDir = loaded.GamesDir
 	}
+	if filepath.IsAbs(loaded.CameraImage) {
+		cfg.CameraImage = loaded.CameraImage
+	}
+	cfg.CameraMirror = loaded.CameraMirror
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {
 			cfg.Recent = append(cfg.Recent, r)

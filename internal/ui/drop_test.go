@@ -230,8 +230,8 @@ func TestNoGame(t *testing.T) {
 	m := &g.menu
 	m.show()
 	v := m.view(g)
-	for _, i := range []int{itemSaveState, itemLoadState, itemReset} {
-		if !v.disabled[i] {
+	for _, e := range []int{itemSaveState, itemLoadState, itemReset} {
+		if i := slices.Index(mainEntries(g), e); !v.disabled[i] {
 			t.Errorf("entry %q enabled without a game", v.items[i])
 		}
 	}

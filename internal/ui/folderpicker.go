@@ -19,6 +19,9 @@ type folderPicker interface {
 	// folder chosen ("" when canceled), or why the dialog could not open,
 	// comes later on done.
 	pick(title, start string, done chan<- folderPick)
+	// pickImage does the same for a picture (see cameraExts), which comes
+	// in folderPick.dir.
+	pickImage(title, start string, done chan<- folderPick)
 }
 
 // folderPick is the outcome of folderPicker.pick.
@@ -39,6 +42,21 @@ func (systemPicker) pick(title, start string, done chan<- folderPick) {
 			dir, err = "", nil
 		}
 		done <- folderPick{dir, err}
+	}()
+}
+
+func (systemPicker) pickImage(title, start string, done chan<- folderPick) {
+	patterns := make([]string, len(cameraExts))
+	for i, ext := range cameraExts {
+		patterns[i] = "*" + ext
+	}
+	go func() {
+		path, err := zenity.SelectFile(zenity.Title(title), zenity.Filename(start),
+			zenity.FileFilter{Name: title, Patterns: patterns, CaseFold: true})
+		if errors.Is(err, zenity.ErrCanceled) {
+			path, err = "", nil
+		}
+		done <- folderPick{path, err}
 	}()
 }
 
@@ -65,6 +83,15 @@ func (g *Game) chooseGamesDir() {
 // chooseFolder opens the folder dialog from start, or the home folder; set
 // gets the folder chosen.
 func (g *Game) chooseFolder(start, title string, set func(string)) {
+	g.openPicker(start, title, set, false)
+}
+
+// chooseFile does the same for a picture.
+func (g *Game) chooseFile(start, title string, set func(string)) {
+	g.openPicker(start, title, set, true)
+}
+
+func (g *Game) openPicker(start, title string, set func(string), image bool) {
 	if g.picker == nil || g.picking {
 		return
 	}
@@ -78,6 +105,10 @@ func (g *Game) chooseFolder(start, title string, set func(string)) {
 		g.picks = make(chan folderPick, 1)
 	}
 	g.picking, g.picked = true, set
+	if image {
+		g.picker.pickImage(title, start, g.picks)
+		return
+	}
 	g.picker.pick(title, start, g.picks)
 }
 

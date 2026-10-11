@@ -31,6 +31,9 @@ type Cartridge struct {
 	mbc mbc
 	rtc *rtc // MBC3 only, nil otherwise
 
+	clock     *uint64      // T-cycles of the console (Bus.cycles), for the camera
+	cameraSrc CameraSource // Game Boy Camera only
+
 	ramDirty bool
 
 	// Rumble cartridges (MBC5 types 0x1C to 0x1E) have a motor, driven by
@@ -113,6 +116,9 @@ func NewCartridge(rom []byte) (*Cartridge, error) {
 		c.mbc = &mbc5{c: c, bank: 1}
 		c.Battery = c.Type == 0x1B || c.Type == 0x1E
 		c.rumble = c.Type >= 0x1C
+	case 0xFC:
+		c.mbc = &camera{c: c, bank: 1}
+		c.Battery = true
 	default:
 		return nil, CartridgeTypeError(c.Type)
 	}
@@ -150,6 +156,14 @@ func (c *Cartridge) readROM(addr uint16) byte     { return c.mbc.readROM(addr) }
 func (c *Cartridge) writeROM(addr uint16, v byte) { c.mbc.writeROM(addr, v) }
 func (c *Cartridge) readRAM(addr uint16) byte     { return c.mbc.readRAM(addr) }
 func (c *Cartridge) writeRAM(addr uint16, v byte) { c.mbc.writeRAM(addr, v) }
+
+// now is the T-cycle the console is at.
+func (c *Cartridge) now() uint64 {
+	if c.clock == nil {
+		return 0
+	}
+	return *c.clock
+}
 
 func (c *Cartridge) romByte(bank int, addr uint16) byte {
 	return c.rom[(bank*0x4000+int(addr&0x3FFF))&(len(c.rom)-1)]

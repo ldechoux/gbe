@@ -84,10 +84,14 @@ jobs:
 
   # The coverage of the tests and of the rendering tests, merged: every
   # package must keep its floor (tools/coverage-thresholds.txt). The table
-  # is in the summary of the run.
+  # is posted on the pull request, in a comment updated on every push, as
+  # the benchmarks report, and in the summary of the run.
   coverage:
     needs: [test, render]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment on the pull request
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -101,7 +105,35 @@ jobs:
         with:
           name: coverage-render
           path: ${{ runner.temp }}/coverage-render
-      - run: tools/coverage.sh "$RUNNER_TEMP/coverage-tests" "$RUNNER_TEMP/coverage-render"
+      - name: Check the floors
+        run: tools/coverage.sh "$RUNNER_TEMP/coverage-tests" "$RUNNER_TEMP/coverage-render"
+        env:
+          COVERAGE_REPORT: ${{ runner.temp }}/coverage.md
+      # Also when a package is under its floor: the report says which.
+      - name: Summary of the run
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/coverage.md" ]; then
+            cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # The token of a pull request from a fork cannot comment: the report
+      # is then only in the summary of the run.
+      - name: Comment on the pull request
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # No report when the coverage could not be measured at all.
+          [ -f "$RUNNER_TEMP/coverage.md" ] || exit 0
+          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- gbe-coverage -->"))) | .id' | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/coverage.md" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$RUNNER_TEMP/coverage.md" > /dev/null
+          fi
 
   benchrom:
     runs-on: ubuntu-latest

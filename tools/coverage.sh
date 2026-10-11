@@ -8,8 +8,9 @@
 #                                       go test -cover ... -args -test.gocoverdir=<dir>
 #
 # The coverage of the runs given is merged: the CI gives that of the tests
-# and that of the rendering tests, which run apart. In GitHub Actions, the
-# table also goes to the summary of the run.
+# and that of the rendering tests, which run apart. COVERAGE_REPORT=<file>
+# also writes the result as Markdown, for the CI to post on the pull
+# request and in the summary of its run.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -37,36 +38,38 @@ go tool covdata percent -i="$inputs" |
 go tool covdata textfmt -i="$inputs" -o "$work/profile"
 go tool cover -func="$work/profile" | awk '$1 == "total:" { sub("%", "", $3); print "total", $3 }' >>"$work/measured"
 
-awk -v summary="${GITHUB_STEP_SUMMARY:-/dev/null}" '
+status=0
+awk -v table="$work/table" '
 	FNR == NR {
 		if ($0 !~ /^#/ && NF == 2) floor[$1] = $2
 		next
 	}
 	{ measured[$1] = $2; order[++n] = $1 }
 	END {
-		print "| Package | Coverage | Floor | |" >summary
-		print "|---|---:|---:|:-:|" >summary
 		for (i = 1; i <= n; i++) {
 			p = order[i]
+			f = "-"
+			mark = ""
 			if (!(p in floor)) {
 				status = "no floor"
 			} else if (measured[p] + 0 < floor[p] + 0) {
 				status = "UNDER"
+				mark = "❌"
 				failed++
 			} else {
 				status = "ok"
+				mark = "✅"
 			}
-			f = "-"
 			if (p in floor) f = floor[p] "%"
-			mark = ""
-			if (status == "ok") mark = "✅"
-			if (status == "UNDER") mark = "❌"
 			printf "%-22s %6.1f%%  %5s  %s\n", p, measured[p], f, status
-			printf "| `%s` | %.1f%% | %s | %s |\n", p, measured[p], f, mark >summary
+			name = "`" p "`"
+			if (p == "total") name = "**total**"
+			printf "| %s | %.1f%% | %s | %s |\n", name, measured[p], f, mark >table
 		}
 		for (p in floor) {
 			if (!(p in measured)) {
 				printf "%-22s no coverage measured: is it still a package?\n", p
+				printf "| `%s` | not measured | %s%% | ❌ |\n", p, floor[p] >table
 				failed++
 			}
 		}
@@ -75,4 +78,27 @@ awk -v summary="${GITHUB_STEP_SUMMARY:-/dev/null}" '
 			exit 1
 		}
 	}
-' "$thresholds" "$work/measured"
+' "$thresholds" "$work/measured" || status=$?
+
+if [ -n "${COVERAGE_REPORT:-}" ]; then
+	total=$(awk '$1 == "total" { print $2 }' "$work/measured")
+	floor=$(awk '$1 == "total" { print $2 }' "$thresholds")
+	under=$(grep -c "❌" "$work/table" || true)
+	{
+		echo "<!-- gbe-coverage -->"
+		echo "## Test coverage"
+		echo
+		if [ "$status" -eq 0 ]; then
+			echo "✅ **Every package keeps its floor**. Total: **${total}%** of the statements (floor ${floor}%)."
+		else
+			echo "❌ **${under} under their floor**: add tests rather than lower a floor. Total: **${total}%** of the statements (floor ${floor}%)."
+		fi
+		echo
+		echo "| Package | Coverage | Floor | |"
+		echo "|---|---:|---:|:-:|"
+		cat "$work/table"
+		echo
+		echo "<sub>The tests and the rendering tests merged, measured without the games and test ROMs, which are not in the repository. The floors are in [tools/coverage-thresholds.txt](${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-ldechoux/gbe}/blob/main/tools/coverage-thresholds.txt).</sub>"
+	} >"$COVERAGE_REPORT"
+fi
+exit "$status"

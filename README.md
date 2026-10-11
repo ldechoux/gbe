@@ -470,8 +470,9 @@ des pixels différents, en rouge.
 
 La couverture des tests a un seuil par package, dans
 [`tools/coverage-thresholds.txt`](tools/coverage-thresholds.txt) : la CI fusionne celle des
-tests et celle des tests de rendu, et échoue si un package passe sous son seuil (le tableau est
-dans le résumé du run). En local :
+tests et celle des tests de rendu, et échoue si un package passe sous son seuil. Le tableau est
+publié en commentaire de la pull request, mis à jour à chaque push comme le rapport des
+benchmarks, et dans le résumé du run. En local :
 
 ```sh
 GBE_RENDER=1 tools/coverage.sh   # sans GBE_RENDER, ui et scaler sont sous leur seuil

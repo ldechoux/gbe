@@ -224,3 +224,17 @@ func CaptureFilters(src image.Image, colorMode bool, gap color.RGBA, w, h int, d
 	}
 	return f.err
 }
+
+// CameraPicture is what the sensor of a Game Boy Camera sees in a capture:
+// the picture at path, as the Camera page would give it.
+func CameraPicture(path string) (gb.CameraSource, error) {
+	img, err := readImage(path)
+	if err != nil {
+		return nil, err
+	}
+	pic := sensorImage(img, false)
+	return func(dst *gb.CameraImage) bool {
+		*dst = *pic
+		return true
+	}, nil
+}

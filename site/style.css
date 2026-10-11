@@ -171,6 +171,12 @@ nav a:hover { color: var(--accent); }
 .btn-block { display: flex; width: 100%; }
 .size { font-weight: 400; opacity: 0.75; }
 
+/* The detailed sections of the features, under their title. */
+.toc { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: -8px 0 24px; font-size: 15px; }
+.toc span { color: var(--muted); }
+/* Links of the page, not of the top menu (nav a). */
+.toc a, .toc a:hover { color: var(--accent); text-decoration: underline; font-size: 15px; }
+
 /* Cards */
 .grid { display: grid; gap: 24px; }
 .features { grid-template-columns: repeat(3, 1fr); }
@@ -201,6 +207,14 @@ nav a:hover { color: var(--accent); }
 .lcd-shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 #ecran .palette-shots { margin-top: 0; }
 #ecran .note { margin-top: 24px; }
+
+/* The Game Boy Camera: the picture given to the camera, and its viewfinder. */
+/* Both at the 10:9 of the screen: the picture, 8:7 as the sensor, loses a
+   sliver of its top and bottom. */
+.camera-shots { grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 32px; }
+.camera-shots figure { margin: 0; }
+.camera-shots img { display: block; width: 100%; height: auto; aspect-ratio: 10 / 9; object-fit: cover; border: var(--px) solid var(--line); }
+.camera-shots figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
 /* Screenshots */
 .shots { grid-template-columns: repeat(3, 1fr); }
@@ -298,7 +312,7 @@ th { font-family: var(--pixel); font-size: 10px; font-weight: 400; border-bottom
   .has-menu.is-open nav { display: flex; }
   .has-menu.is-open .topbar-inner { padding-top: 5px; } /* keep the first row where it was */
   .has-menu nav a { font-size: 15px; padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--line) 25%, transparent); }
-  .features, .shots, .downloads, .lcd-shots { grid-template-columns: 1fr; }
+  .features, .shots, .downloads, .lcd-shots, .camera-shots { grid-template-columns: 1fr; }
   .drop-shot { width: 100%; }
   .palettes { grid-template-columns: repeat(2, 1fr); }
   .bezel { padding: 12px 14px 16px; }

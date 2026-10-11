@@ -9,7 +9,8 @@
 //     listed as recent games under their name, and -games as the games
 //     folder (ui.CaptureDrop);
 //   - -shot: one frame of a ROM after some frames, through ui.Screenshot
-//     (palette, color correction, scale, colorization palette);
+//     (palette, color correction, scale, colorization palette), what a Game
+//     Boy Camera sees given by -camera;
 //   - -filters: a 160x144 PNG drawn through every display filter at a given
 //     size (ui.CaptureFilters).
 package main
@@ -26,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui"
 )
 
@@ -41,6 +43,7 @@ func main() {
 	press := flag.String("press", "", `-shot: buttons held, e.g. "start:200-210,right:300-360" (frames, end excluded)`)
 	palette := flag.String("palette", "dmg", "-shot: DMG palette (ui.Palettes ID)")
 	correct := flag.Bool("correct", false, "-shot: Game Boy Color color correction")
+	camera := flag.String("camera", "", "-shot: the picture a Game Boy Camera sees (ui.CameraPicture)")
 	compat := flag.Int("compat", gb.CompatAuto, "-shot: palette of a DMG game colorized on a Game Boy Color: -1 auto, else the button combination (gb.compatKeyCombos order)")
 	src := flag.String("src", "", "-filters: the 160x144 PNG")
 	size := flag.String("size", "1280x1152", "-filters: size of the renders")
@@ -59,7 +62,7 @@ func main() {
 	case *drop:
 		err = ui.CaptureDrop(flag.Args(), *games, opts)
 	case *shot:
-		err = saveShot(*romPath, *model, *frames, *press, *palette, *correct, *compat, opts.Scale, *file)
+		err = saveShot(*romPath, *model, *frames, *press, *palette, *correct, *compat, *camera, opts.Scale, *file)
 	case *filters:
 		err = renderFilters(*src, *model == "gbc", *gap, *size, opts.Dir)
 	default:
@@ -73,14 +76,15 @@ func main() {
 	}
 }
 
-// newConsole runs the ROM at path on a DMG ("gb") or a Game Boy Color
-// ("gbc"; DMG games run colorized), without a boot ROM.
+// newConsole runs the ROM at path, or the one of a zip archive, on a DMG
+// ("gb") or a Game Boy Color ("gbc"; DMG games run colorized), without a
+// boot ROM.
 func newConsole(path, model string) (*gb.GameBoy, error) {
-	rom, err := os.ReadFile(path)
+	data, _, err := rom.Read(path)
 	if err != nil {
 		return nil, err
 	}
-	cart, err := gb.NewCartridge(rom)
+	cart, err := gb.NewCartridge(data)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +126,17 @@ func parsePress(s string) ([]held, error) {
 
 // saveShot runs the ROM for frames frames, holding the pressed buttons, and
 // saves the last frame as the screenshot hotkey of the headless mode does.
-func saveShot(path, model string, frames int, press, paletteID string, correct bool, compat, scale int, file string) error {
+func saveShot(path, model string, frames int, press, paletteID string, correct bool, compat int, camera string, scale int, file string) error {
 	console, err := newConsole(path, model)
 	if err != nil {
 		return err
+	}
+	if camera != "" {
+		src, err := ui.CameraPicture(camera)
+		if err != nil {
+			return err
+		}
+		console.Cart.SetCameraSource(src)
 	}
 	presses, err := parsePress(press)
 	if err != nil {

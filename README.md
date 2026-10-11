@@ -338,7 +338,11 @@ réglages d'exposition, de contraste et de contours, et ses 30 photos, gardées 
     - **Linux** : il faut faire partie du groupe `video`, qui donne accès à `/dev/video*` (en
       général déjà le cas) ;
     - **Windows** : le réglage « Autoriser les applications de bureau à accéder à votre
-      caméra » doit être activé ;
+      caméra » doit être activé.
+
+    **Sous Linux et Windows, la webcam est encore expérimentale** : elle n'a été essayée
+    qu'en CI (une caméra virtuelle sous Linux, la liste des caméras sous Windows), pas encore
+    avec une vraie webcam. La page Caméra l'indique sous l'état de la webcam ;
   - **une image** (PNG, JPEG, GIF ou WebP), choisie dans la page ou déposée sur la fenêtre
     pendant la partie.
 

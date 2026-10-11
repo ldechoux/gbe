@@ -260,11 +260,20 @@ func syncUntil(t *testing.T, g *Game) {
 	}
 }
 
+// experimentalWebcam sets whether the webcam is experimental for the test,
+// whatever the system it runs on.
+func experimentalWebcam(t *testing.T, on bool) {
+	old := webcamExperimental
+	webcamExperimental = on
+	t.Cleanup(func() { webcamExperimental = old })
+}
+
 var twoWebcams = []webcam.Device{{ID: "obs", Name: "OBSBOT Meet 2 StreamCamera"}, {ID: "lg", Name: "LG UltraFine"}}
 
 // With webcams, the Camera page chooses between the picture and a webcam,
 // and which one.
 func TestWebcamPage(t *testing.T) {
+	experimentalWebcam(t, false)
 	g := cameraGame(t)
 	g.webcams = &fakeWebcams{list: twoWebcams}
 	m := &g.menu
@@ -309,6 +318,16 @@ func TestWebcamPage(t *testing.T) {
 	syncUntil(t, g)
 	if f := m.view(g).footer; f != "Webcam: on\nOr drop a picture on the window" {
 		t.Errorf("open: %q", f)
+	}
+
+	// On Linux and Windows, it says the webcam is experimental there.
+	webcamExperimental = true
+	if f := m.view(g).footer; f != "Webcam: on\nWebcam still experimental on this system\nOr drop a picture on the window" {
+		t.Errorf("experimental: %q", f)
+	}
+	g.cfg.CameraSource = cameraImage
+	if f := m.view(g).footer; f != "Picture: none, the camera sees noise\nOr drop a picture on the window" {
+		t.Errorf("experimental, the picture: %q", f)
 	}
 }
 
@@ -356,6 +375,7 @@ func TestWebcamStream(t *testing.T) {
 // A webcam that does not open says why, once, and is tried again only
 // when the settings change.
 func TestWebcamDenied(t *testing.T) {
+	experimentalWebcam(t, false)
 	g := cameraGame(t)
 	cams := &fakeWebcams{list: twoWebcams, err: webcam.ErrDenied}
 	g.webcams = cams

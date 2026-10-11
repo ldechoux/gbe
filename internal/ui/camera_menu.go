@@ -5,6 +5,7 @@ package ui
 
 import (
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -23,6 +24,10 @@ const (
 	cameraBack
 	cameraItems
 )
+
+// webcamExperimental is set where the webcam is still experimental: on
+// Linux and Windows, where it has not been tried with a real one yet.
+var webcamExperimental = runtime.GOOS != "darwin"
 
 // deviceWidth is the longest webcam name the page shows, in characters: a
 // longer one scrolls.
@@ -169,6 +174,9 @@ func (m *menu) cameraView(g *Game) menuView {
 			l.T("camera.source", l.T("camera.source_webcam")),
 			l.T("camera.device", l.T("camera.device_default")),
 			l.T("camera.device", strings.Repeat("W", deviceWidth)))
+		if webcamExperimental {
+			help = "\n" + l.T("camera.experimental") + help
+		}
 		v.altFooters = append(v.altFooters,
 			l.T("camera.webcam_opening")+help,
 			l.T("camera.webcam_on")+help,
@@ -184,6 +192,9 @@ func cameraFooter(g *Game) string {
 	c := &g.camera
 	help := "\n" + l.T("camera.help")
 	if g.cfg.CameraSource == cameraWebcam {
+		if webcamExperimental {
+			help = "\n" + l.T("camera.experimental") + help
+		}
 		switch {
 		case c.stream != nil:
 			return l.T("camera.webcam_on") + help

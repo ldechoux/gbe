@@ -197,6 +197,7 @@ Ce que voit le capteur de la Game Boy Camera : une webcam, une image choisie par
 | `camera.webcam_on` | | Pied de page : la webcam marche |
 | `camera.webcam_opening` | | Pied de page : la webcam s'ouvre (le système peut demander l'autorisation) |
 | `camera.webcam_off` | | Pied de page : la webcam n'a pas pu s'ouvrir |
+| `camera.experimental` | | Pied de page, sous l'état de la webcam, sous Linux et Windows : la webcam y est encore expérimentale |
 | `camera.help` | | Pied de page, deuxième ligne : on peut aussi déposer une image sur la fenêtre |
 | `camera.dialog_title` | | Titre de la fenêtre de choix d'une image, ouverte par le système (accents permis) |
 | `camera.loaded` | `%s` nom du fichier | Notification : la caméra voit maintenant cette image |

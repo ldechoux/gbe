@@ -23,54 +23,69 @@ import (
 // version is set at build time by the release workflow (-ldflags -X).
 var version = "dev"
 
-func main() {
-	romPath := flag.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument; without one, the window waits for a ROM dropped on it)")
-	biosPath := flag.String("bios", "", `boot ROM to run first ("none" to skip it; default gb_bios.bin, or gbc_bios.bin in Game Boy Color mode, from a bios folder in the working folder, the config folder or next to gbe; ignored if missing)`)
-	modelName := flag.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
-	cfgPath := flag.String("config", "", "config file (default: user config dir/gbe/config.json)")
-	scale := flag.Int("scale", 0, "window scale, overrides the config")
-	filterName := flag.String("filter", "", "display filter, overrides the config: "+strings.Join(scaler.IDs(), ", "))
-	stereo := flag.String("stereo", "", "sound output, overrides the config: "+strings.Join(audiofx.StereoModes, ", ")+" (headphones lets each ear hear a little of the other side)")
-	audioFilter := flag.String("audio-filter", "", "audio filter, overrides the config: "+strings.Join(audiofx.Filters, ", "))
-	shotDir := flag.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
-	frames := flag.Int("frames", 0, "headless mode: run this many frames without a window, then exit")
-	shot := flag.String("screenshot", "", "headless mode: write the last frame to this PNG file")
-	inputs := flag.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
-	wav := flag.String("wav", "", "headless mode: record the audio to this WAV file (with -stereo and -audio-filter only, not the config)")
-	showVersion := flag.Bool("version", false, "print the version and exit")
-	rumbleRecord := flag.String("rumble-record", "", "development: record stretches of play in this folder, to tune the rumble detector (tools/rumblelab, -rumble-tune)")
-	rumbleDebug := flag.Bool("rumble-debug", false, "development: show what the rumble detector hears")
-	rumbleTune := flag.String("rumble-tune", "", "development: run this tuning session of the rumble detector, comparing its settings on recorded play")
-	flag.Parse()
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+
+// runUI opens the window: ui.Run, replaced in tests.
+var runUI = ui.Run
+
+// run is gbe with the command-line arguments args: it returns the exit
+// status, its errors told on stderr.
+func run(args []string, stdout, stderr io.Writer) int {
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "gbe:", err)
+		return 1
+	}
+	flags := flag.NewFlagSet("gbe", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	romPath := flags.String("rom", "", "path to the .gb or .gbc ROM, or a .zip archive holding one (may also be given as the first argument; without one, the window waits for a ROM dropped on it)")
+	biosPath := flags.String("bios", "", `boot ROM to run first ("none" to skip it; default gb_bios.bin, or gbc_bios.bin in Game Boy Color mode, from a bios folder in the working folder, the config folder or next to gbe; ignored if missing)`)
+	modelName := flags.String("model", "auto", `hardware: "auto" (the one the game was made for: Game Boy Color for the games that support it, and for Game Boy games too if colorization is on in the menu), "gb" (or "dmg") or "gbc" (or "cgb"; Game Boy games run colorized)`)
+	cfgPath := flags.String("config", "", "config file (default: user config dir/gbe/config.json)")
+	scale := flags.Int("scale", 0, "window scale, overrides the config")
+	filterName := flags.String("filter", "", "display filter, overrides the config: "+strings.Join(scaler.IDs(), ", "))
+	stereo := flags.String("stereo", "", "sound output, overrides the config: "+strings.Join(audiofx.StereoModes, ", ")+" (headphones lets each ear hear a little of the other side)")
+	audioFilter := flags.String("audio-filter", "", "audio filter, overrides the config: "+strings.Join(audiofx.Filters, ", "))
+	shotDir := flags.String("screenshot-dir", "", "where the screenshot hotkey saves PNGs (default ~/Pictures/gbe)")
+	frames := flags.Int("frames", 0, "headless mode: run this many frames without a window, then exit")
+	shot := flags.String("screenshot", "", "headless mode: write the last frame to this PNG file")
+	inputs := flags.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
+	wav := flags.String("wav", "", "headless mode: record the audio to this WAV file (with -stereo and -audio-filter only, not the config)")
+	showVersion := flags.Bool("version", false, "print the version and exit")
+	rumbleRecord := flags.String("rumble-record", "", "development: record stretches of play in this folder, to tune the rumble detector (tools/rumblelab, -rumble-tune)")
+	rumbleDebug := flags.Bool("rumble-debug", false, "development: show what the rumble detector hears")
+	rumbleTune := flags.String("rumble-tune", "", "development: run this tuning session of the rumble detector, comparing its settings on recorded play")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
 
 	if *showVersion {
-		fmt.Println("gbe", version)
-		return
+		fmt.Fprintln(stdout, "gbe", version)
+		return 0
 	}
 
-	if *romPath == "" && flag.NArg() > 0 {
-		*romPath = flag.Arg(0)
+	if *romPath == "" && flags.NArg() > 0 {
+		*romPath = flags.Arg(0)
 	}
 	if *romPath == "" && *frames > 0 {
-		fmt.Fprintln(os.Stderr, "usage: gbe [flags] game.gb|game.gbc|game.zip")
-		flag.PrintDefaults()
-		os.Exit(2)
+		fmt.Fprintln(stderr, "usage: gbe [flags] game.gb|game.gbc|game.zip")
+		flags.PrintDefaults()
+		return 2
 	}
 
 	model, err := parseModel(*modelName)
 	if err != nil {
-		log.Fatal(err)
+		return fail(err)
 	}
 	if _, ok := scaler.ID(*filterName); *filterName != "" && !ok {
-		log.Fatalf("unknown filter %q (want %s)", *filterName, strings.Join(scaler.IDs(), ", "))
+		return fail(fmt.Errorf("unknown filter %q (want %s)", *filterName, strings.Join(scaler.IDs(), ", ")))
 	}
 	stereoID, ok := audiofx.ID(audiofx.StereoModes, *stereo)
 	if *stereo != "" && !ok {
-		log.Fatalf("unknown sound output %q (want %s)", *stereo, strings.Join(audiofx.StereoModes, ", "))
+		return fail(fmt.Errorf("unknown sound output %q (want %s)", *stereo, strings.Join(audiofx.StereoModes, ", ")))
 	}
 	audioFilterID, ok := audiofx.ID(audiofx.Filters, *audioFilter)
 	if *audioFilter != "" && !ok {
-		log.Fatalf("unknown audio filter %q (want %s)", *audioFilter, strings.Join(audiofx.Filters, ", "))
+		return fail(fmt.Errorf("unknown audio filter %q (want %s)", *audioFilter, strings.Join(audiofx.Filters, ", ")))
 	}
 	configPath := *cfgPath
 	if configPath == "" {
@@ -78,7 +93,7 @@ func main() {
 	}
 	configDir := filepath.Dir(configPath)
 	if *frames == 0 {
-		logToFile(filepath.Join(configDir, "gbe.log"))
+		logToFile(filepath.Join(configDir, "gbe.log"), stderr)
 	}
 	cfg, err := ui.LoadConfig(configPath)
 	if err != nil {
@@ -101,7 +116,7 @@ func main() {
 	if *romPath != "" {
 		if game, gameErr = rom.Open(*romPath, opts); gameErr != nil {
 			if *frames > 0 {
-				log.Fatal(gameErr)
+				return fail(gameErr)
 			}
 			log.Print(gameErr)
 		}
@@ -109,13 +124,13 @@ func main() {
 
 	if *frames > 0 {
 		fx := audiofx.New(48000, stereoID, audioFilterID)
-		if err := runHeadless(game.Console, *frames, *inputs, *shot, *wav, fx); err != nil {
-			log.Fatal(err)
+		if err := runHeadless(game.Console, *frames, *inputs, *shot, *wav, fx, stdout); err != nil {
+			return fail(err)
 		}
-		return
+		return 0
 	}
 
-	if err := ui.Run(ui.Options{
+	if err := runUI(ui.Options{
 		Game:        game,
 		LaunchPath:  *romPath,
 		LaunchError: gameErr,
@@ -138,14 +153,15 @@ func main() {
 			return rom.Open(path, o)
 		},
 	}); err != nil {
-		log.Fatal(err)
+		return fail(err)
 	}
+	return 0
 }
 
 // logToFile copies the log to path, from scratch at each launch: launched
 // from the Finder or the Explorer, gbe has no terminal, and the log is the
 // only trace of what went wrong.
-func logToFile(path string) {
+func logToFile(path string, stderr io.Writer) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		log.Printf("log file: %v", err)
 		return
@@ -155,7 +171,7 @@ func logToFile(path string) {
 		log.Printf("log file: %v", err)
 		return
 	}
-	log.SetOutput(io.MultiWriter(os.Stderr, f))
+	log.SetOutput(io.MultiWriter(stderr, f))
 }
 
 // bootROMDirs are the folders searched for the default boot ROMs after the
@@ -215,7 +231,7 @@ func parseInputs(s string) ([]press, error) {
 	return out, nil
 }
 
-func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string, fx *audiofx.Chain) error {
+func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string, fx *audiofx.Chain, stdout io.Writer) error {
 	presses, err := parseInputs(inputs)
 	if err != nil {
 		return err
@@ -242,9 +258,9 @@ func runHeadless(console *gb.GameBoy, frames int, inputs, shot, wav string, fx *
 		}
 	}
 	if len(console.Serial.Output) > 0 {
-		fmt.Printf("serial: %s\n", console.Serial.Output)
+		fmt.Fprintf(stdout, "serial: %s\n", console.Serial.Output)
 	}
-	fmt.Printf("PC=%04X bootROM=%v\n", console.PC(), console.BootROMActive())
+	fmt.Fprintf(stdout, "PC=%04X bootROM=%v\n", console.PC(), console.BootROMActive())
 	if shot == "" {
 		return nil
 	}

@@ -217,3 +217,64 @@ func TestReadBootROM(t *testing.T) {
 		}
 	}
 }
+
+// A zip archive is searched for its first ROM, past its folders and its
+// other files; a damaged one is refused.
+func TestReadROMZipEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := writeZip(t, dir, [2]string{"docs/", ""}, [2]string{"readme.txt", "hello"},
+		[2]string{"Game (World).GBC", string(cartridge("FIRST", 0))}, [2]string{"Other.gb", string(cartridge("SECOND", 0))})
+	data, entry, err := Read(path)
+	if err != nil || entry != "Game (World).GBC" || !bytes.Equal(data, cartridge("FIRST", 0)) {
+		t.Errorf("entry %q, %v", entry, err)
+	}
+
+	damaged := writeFile(t, filepath.Join(dir, "damaged.zip"), []byte("PK\x03\x04 not really a zip"))
+	if _, _, err := Read(damaged); err == nil || !strings.Contains(err.Error(), "damaged.zip") {
+		t.Errorf("damaged zip: %v", err)
+	}
+}
+
+// Left to auto, the console starts in the hardware mode of the save state,
+// so that it can be resumed; a save that cannot be read is skipped.
+func TestOpenStateModel(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "Game.gb"), cartridge("STATE", 0x03))
+	g, err := Open(path, Options{Model: gb.ModelCGB, BootROM: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "Game.state"), g.Console.SaveState())
+	// A folder where the battery save should be: it cannot be read.
+	if err := os.Mkdir(filepath.Join(dir, "Game.sav"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		opts Options
+		cgb  bool
+	}{
+		{Options{Model: gb.ModelAuto, BootROM: "none"}, true},               // the state's mode
+		{Options{Model: gb.ModelAuto, BootROM: "none", Fresh: true}, false}, // starting over: the game's own
+		{Options{Model: gb.ModelDMG, BootROM: "none"}, false},               // forced
+	} {
+		g, err := Open(path, c.opts)
+		if err != nil || g.Console.IsCGB() != c.cgb {
+			t.Errorf("%+v: %v, CGB %v", c.opts, err, err == nil && g.Console.IsCGB())
+		}
+	}
+}
+
+func TestBootROMSearchDirs(t *testing.T) {
+	var none *BootROMSearch
+	if got := none.Dirs(); len(got) != 1 || got[0] != "bios" {
+		t.Errorf("no search: %v", got)
+	}
+	s := &BootROMSearch{Defaults: []string{"a", "b"}}
+	if got := s.Dirs(); strings.Join(got, ",") != "a,b" {
+		t.Errorf("no folder chosen: %v", got)
+	}
+	s.Dir = "chosen"
+	if got := s.Dirs(); strings.Join(got, ",") != "chosen,a,b" {
+		t.Errorf("folder chosen: %v", got)
+	}
+}

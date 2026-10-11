@@ -42,5 +42,8 @@
 	<string>gbe ouvre les jeux d'un disque externe et y enregistre leurs sauvegardes.</string>
 	<key>NSNetworkVolumesUsageDescription</key>
 	<string>gbe ouvre les jeux d'un disque réseau et y enregistre leurs sauvegardes.</string>
+	<!-- Asked when the Game Boy Camera uses the webcam. -->
+	<key>NSCameraUsageDescription</key>
+	<string>gbe donne l'image de ta webcam à la Game Boy Camera.</string>
 </dict>
 </plist>

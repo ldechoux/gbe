@@ -178,21 +178,32 @@ Le dossier où gbe liste les jeux (ses sous-dossiers compris), pour la page Jeux
 
 ### `camera.*` — page Caméra (menu Pause, cartouche Game Boy Camera)
 
-Ce que voit le capteur de la Game Boy Camera : une image choisie par le joueur, ou du bruit.
+Ce que voit le capteur de la Game Boy Camera : une webcam, une image choisie par le joueur, ou du bruit.
 
 | Clé | Paramètres | Usage |
 |---|---|---|
 | `camera.title` | | Titre de la page |
+| `camera.source` | `%s` `camera.source_image` ou `camera.source_webcam` | Entrée qui choisit ce que voit la caméra (absente sur les systèmes sans webcam) |
+| `camera.source_image` | | Valeur de `camera.source` : l'image choisie |
+| `camera.source_webcam` | | Valeur de `camera.source` : une webcam |
+| `camera.device` | `%s` nom de la webcam (défile s'il est long), ou `camera.device_default` | Entrée qui choisit la webcam (grisée quand la caméra voit l'image) |
+| `camera.device_default` | | Valeur de `camera.device` : la webcam par défaut du système |
 | `camera.choose` | | Entrée qui ouvre la fenêtre de choix d'une image : ce que voit la caméra |
 | `camera.forget` | | Entrée qui oublie l'image : la caméra voit du bruit (grisée sans image) |
 | `camera.mirror` | `%s` `setting.on` ou `setting.off` | Entrée qui retourne l'image de gauche à droite, comme dans un miroir |
 | `camera.back` | | Entrée qui revient au menu Pause |
 | `camera.image` | `%s` nom du fichier de l'image | Pied de page : l'image que voit la caméra (défile si elle est longue) |
 | `camera.image_none` | | Pied de page, sans image |
+| `camera.webcam_on` | | Pied de page : la webcam marche |
+| `camera.webcam_opening` | | Pied de page : la webcam s'ouvre (le système peut demander l'autorisation) |
+| `camera.webcam_off` | | Pied de page : la webcam n'a pas pu s'ouvrir |
 | `camera.help` | | Pied de page, deuxième ligne : on peut aussi déposer une image sur la fenêtre |
 | `camera.dialog_title` | | Titre de la fenêtre de choix d'une image, ouverte par le système (accents permis) |
 | `camera.loaded` | `%s` nom du fichier | Notification : la caméra voit maintenant cette image |
 | `camera.unreadable` | `%s` nom du fichier | Notification : l'image choisie ou déposée ne peut pas être lue |
+| `camera.denied` | | Notification : le système refuse l'accès à la caméra (à autoriser dans ses réglages) |
+| `camera.no_webcam` | | Notification : aucune webcam, ou la webcam choisie est débranchée |
+| `camera.webcam_failed` | | Notification : la webcam ne s'ouvre pas pour une autre raison |
 
 ### `boot_rom.*` — page Dossiers, onglet des boot ROM
 

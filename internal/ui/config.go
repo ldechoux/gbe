@@ -80,6 +80,12 @@ type Config struct {
 	CameraImage string `json:"camera_image"`
 	// CameraMirror flips that picture left to right, as in a mirror.
 	CameraMirror bool `json:"camera_mirror"`
+	// CameraSource is what the camera sees: the picture (cameraImage, the
+	// default) or a webcam (cameraWebcam).
+	CameraSource string `json:"camera_source"`
+	// CameraDevice is the webcam (webcam.Device.ID); "" for the default
+	// one of the system.
+	CameraDevice string `json:"camera_device"`
 }
 
 // RecentGame is a game of Config.Recent.
@@ -285,6 +291,9 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.CameraImage = loaded.CameraImage
 	}
 	cfg.CameraMirror = loaded.CameraMirror
+	if loaded.CameraSource == cameraWebcam {
+		cfg.CameraSource, cfg.CameraDevice = cameraWebcam, loaded.CameraDevice
+	}
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {
 			cfg.Recent = append(cfg.Recent, r)

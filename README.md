@@ -452,6 +452,22 @@ Les tests « golden » (`internal/gb/golden_test.go`) hashent le son, chaque ima
 final de la machine sur la ROM de benchmark, un programme synthétique, les ROMs de test et
 quelques jeux gardés dans `roms/` : une optimisation ne doit pas changer un seul bit.
 
+Les tests de rendu dessinent avec Ebitengine ce que voit le joueur : l'écran d'accueil, les
+pages du menu, la liste des jeux, les notifications, et chaque filtre d'affichage, avec la
+rémanence. Ils comparent chaque image à une référence de `testdata/render/`, avec une petite
+tolérance pour les différences entre cartes graphiques. Il leur faut la boucle d'Ebitengine et
+un écran : ils ne tournent qu'à la demande, à part (la CI les lance sous un écran virtuel,
+`xvfb`) :
+
+```sh
+GBE_RENDER=1 go test ./internal/ui/...                       # comparer
+GBE_RENDER=1 GBE_RENDER_UPDATE=1 go test ./internal/ui/...   # réécrire les références
+```
+
+Après un changement voulu de l'affichage, réécrire les références, puis les regarder avant de
+les committer. En cas d'écart, `GBE_GOLDEN_OUT=<dossier>` récupère l'image obtenue et une carte
+des pixels différents, en rouge.
+
 Un mode sans fenêtre sert au débogage :
 `./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
 

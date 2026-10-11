@@ -24,7 +24,8 @@ const dropToastTicks = 4 * 60
 // drop opens the game dropped on the window: the first file with the
 // extension of a ROM or of a zip archive, or else the first one, to say why
 // it cannot be opened. Without a game, it starts at once; during one, the
-// player chooses between the two (pageSwitch).
+// player chooses between the two (pageSwitch). A picture dropped during a
+// Game Boy Camera game is what its camera sees.
 func (g *Game) drop(fsys fs.FS) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil || len(entries) == 0 {
@@ -56,6 +57,11 @@ func (g *Game) drop(fsys fs.FS) {
 			return
 		}
 		g.notifyLong(l.T("error.folder"))
+		return
+	}
+	// During a Game Boy Camera game, a picture is what the camera sees.
+	if g.hasCamera() && isCameraImage(path) && filepath.IsAbs(path) {
+		g.setCameraImage(path)
 		return
 	}
 	next, err := g.openGame(path)
@@ -145,6 +151,7 @@ func (g *Game) startGame(next *rom.Game) {
 	g.autoModel, g.newConsole = next.AutoModel, next.NewConsole
 	g.pending, g.bootROMPending = nil, false
 	g.addRecent(next)
+	g.attachCamera()
 
 	g.rewind.clear()
 	g.rewindTick, g.speed, g.frame = 0, playNormal, 0

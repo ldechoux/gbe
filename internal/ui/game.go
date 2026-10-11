@@ -123,6 +123,7 @@ type Game struct {
 	picked         func(dir string) // applies the folder chosen in the dialog
 	bootROMPending bool
 
+	camera     camera                  // what the sensor of a Game Boy Camera sees
 	library    library                 // the games folder
 	stateTimes map[string]time.Time    // see savedAt
 	marquees   map[string]marqueeStart // by list (see marqueeTick)

@@ -91,9 +91,11 @@ func (g *GameBoy) IsCGB() bool { return g.model == ModelCGB }
 // Reset power-cycles the console, keeping the cartridge RAM.
 func (g *GameBoy) Reset() {
 	g.Cart.stopMotor()
+	g.Cart.stopCapture()
 	g.rumble = 0
 	bus := &Bus{cart: g.Cart, cgb: g.model == ModelCGB, hdmaLen: 0xFF}
 	g.Bus = bus
+	g.Cart.clock = &bus.cycles
 	g.CPU = &CPU{bus: bus}
 	g.PPU = &PPU{bus: bus}
 	g.APU = newAPU(bus)

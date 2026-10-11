@@ -12,10 +12,14 @@ import (
 )
 
 // fakePicker records the dialogs opened; the test answers on Game.picks.
-type fakePicker struct{ starts []string }
+type fakePicker struct{ starts, images []string }
 
 func (f *fakePicker) pick(title, start string, done chan<- folderPick) {
 	f.starts = append(f.starts, start)
+}
+
+func (f *fakePicker) pickImage(title, start string, done chan<- folderPick) {
+	f.images = append(f.images, start)
 }
 
 // bootROMDir writes the boot ROMs of models in a new folder.

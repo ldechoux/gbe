@@ -37,6 +37,7 @@ const (
 	pageSwitch  // shown when a game is dropped on the window during another
 	pageGames   // the games to launch: the last played, and those of the games folder
 	pageFolders // the folders of the games and of the boot ROMs
+	pageCamera  // what the Game Boy Camera sees, with that cartridge only
 )
 
 // Start page entries.
@@ -59,6 +60,7 @@ const (
 	itemGames
 	itemDisplay
 	itemControls
+	itemCamera // with a Game Boy Camera only (see mainEntries)
 	itemSound
 	itemFolders
 	itemSpeed
@@ -92,6 +94,21 @@ const (
 	soundBack
 	soundItems
 )
+
+// Camera page entries.
+const (
+	cameraChoose = iota
+	cameraForget
+	cameraMirror
+	cameraBack
+	cameraItems
+)
+
+// cameraDisabled reports whether the Camera page entry i is greyed out:
+// Forget without a picture.
+func cameraDisabled(g *Game, i int) bool {
+	return i == cameraForget && g.cfg.CameraImage == ""
+}
 
 // Folders page entries, on the Games tab.
 const (
@@ -298,6 +315,18 @@ func mainDisabled(g *Game, i int) bool {
 	return g.gb == nil && (i == itemSaveState || i == itemLoadState || i == itemReset)
 }
 
+// mainEntries lists the entries of the main page shown for this game: the
+// Camera page is only for the Game Boy Camera.
+func mainEntries(g *Game) []int {
+	entries := make([]int, 0, mainItems)
+	for i := range mainItems {
+		if i != itemCamera || g.hasCamera() {
+			entries = append(entries, i)
+		}
+	}
+	return entries
+}
+
 // displayEntries lists the entries of the display page shown for this game:
 // the colorization setting only applies to DMG games, and the monitor one
 // needs a second monitor, e.g. a TV.
@@ -314,22 +343,36 @@ func displayEntries(g *Game) []int {
 	return entries
 }
 
-// move goes to the previous (-1) or next (1) entry. On the display page,
-// the cursor is the entry itself (displayPalette...), whichever are hidden.
+// move goes to the previous (-1) or next (1) entry. On the main and
+// display pages, the cursor is the entry itself (itemResume...,
+// displayPalette...), whichever are hidden.
 func (m *menu) move(g *Game, delta int) {
-	if m.page != pageDisplay {
-		n := m.itemCount(g)
-		m.cursor = (m.cursor + n + delta) % n
-		for m.page == pageMain && mainDisabled(g, m.cursor) || m.page == pageSound && soundDisabled(g, m.cursor) ||
-			m.page == pageFolders && m.tab == tabBootROM && bootDisabled(g, m.cursor) ||
-			m.page == pageFolders && m.tab == tabGamesDir && gamesDirDisabled(g, m.cursor) {
-			m.cursor = (m.cursor + n + delta) % n
+	switch m.page {
+	case pageMain:
+		entries := mainEntries(g)
+		i := max(0, slices.Index(entries, m.cursor))
+		for {
+			i = (i + len(entries) + delta) % len(entries)
+			if !mainDisabled(g, entries[i]) {
+				break
+			}
 		}
+		m.cursor = entries[i]
+		return
+	case pageDisplay:
+		entries := displayEntries(g)
+		i := max(0, slices.Index(entries, m.cursor))
+		m.cursor = entries[(i+len(entries)+delta)%len(entries)]
 		return
 	}
-	entries := displayEntries(g)
-	i := max(0, slices.Index(entries, m.cursor))
-	m.cursor = entries[(i+len(entries)+delta)%len(entries)]
+	n := m.itemCount(g)
+	m.cursor = (m.cursor + n + delta) % n
+	for m.page == pageSound && soundDisabled(g, m.cursor) ||
+		m.page == pageFolders && m.tab == tabBootROM && bootDisabled(g, m.cursor) ||
+		m.page == pageFolders && m.tab == tabGamesDir && gamesDirDisabled(g, m.cursor) ||
+		m.page == pageCamera && cameraDisabled(g, m.cursor) {
+		m.cursor = (m.cursor + n + delta) % n
+	}
 }
 
 func (m *menu) itemCount(g *Game) int {
@@ -343,6 +386,8 @@ func (m *menu) itemCount(g *Game) int {
 		return displayItems
 	case pageSound:
 		return soundItems
+	case pageCamera:
+		return cameraItems
 	case pageFolders:
 		if m.tab == tabGamesDir {
 			return gamesDirItems
@@ -358,7 +403,7 @@ func (m *menu) itemCount(g *Game) int {
 		}
 		return len(g.cfg.Recent) + 1 // and Back
 	}
-	return mainItems
+	return len(mainEntries(g))
 }
 
 // backToMain leaves a page opened from the main one, back on its entry. A
@@ -378,6 +423,8 @@ func (m *menu) backToMain() {
 		cursor = itemFolders
 	case pageGames:
 		cursor = itemGames
+	case pageCamera:
+		cursor = itemCamera
 	}
 	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, cursor, "", 0
 }
@@ -474,7 +521,7 @@ func (m *menu) update(g *Game) {
 		case pageSwitch:
 			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
-		case pageControls, pageDisplay, pageSound, pageGames, pageFolders:
+		case pageControls, pageDisplay, pageSound, pageGames, pageFolders, pageCamera:
 			g.menuSound(menusound.Back)
 			m.backToMain()
 		default:
@@ -579,6 +626,13 @@ func (m *menu) adjust(g *Game, delta int) {
 	}
 	if m.page == pageSound {
 		m.adjustSound(g, delta)
+		return
+	}
+	if m.page == pageCamera {
+		if m.cursor == cameraMirror {
+			g.cfg.CameraMirror = !g.cfg.CameraMirror
+			g.saveConfig()
+		}
 		return
 	}
 	if m.page != pageMain {
@@ -827,6 +881,27 @@ func (m *menu) activate(g *Game) {
 		}
 		return
 	}
+	if m.page == pageCamera {
+		switch m.cursor {
+		case cameraChoose:
+			g.menuSound(menusound.Enter)
+			g.chooseCameraImage()
+		case cameraForget:
+			if cameraDisabled(g, cameraForget) {
+				g.menuSound(menusound.Refuse)
+				return
+			}
+			g.menuSound(menusound.Change)
+			g.setCameraImage("")
+			m.cursor = cameraChoose // the entry is greyed out now
+		case cameraMirror:
+			m.adjustSounding(g, 1) // OK switches it like Right
+		default:
+			g.menuSound(menusound.Back)
+			m.backToMain()
+		}
+		return
+	}
 	if m.page == pageFolders && m.tab == tabGamesDir {
 		switch m.cursor {
 		case gamesDirChoose:
@@ -909,6 +984,8 @@ func (m *menu) activate(g *Game) {
 		m.page, m.cursor, m.width = pageDisplay, displayPalette, 0
 	case itemControls:
 		m.page, m.cursor, m.width = pageControls, 0, 0
+	case itemCamera:
+		m.page, m.cursor, m.width = pageCamera, cameraChoose, 0
 	case itemSaveState:
 		g.saveState()
 		m.open = false
@@ -981,6 +1058,8 @@ func (m *menu) view(g *Game) menuView {
 		return m.gamesView(g)
 	case pageFolders:
 		return m.foldersView(g)
+	case pageCamera:
+		return m.cameraView(g)
 	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
@@ -993,8 +1072,10 @@ func (m *menu) view(g *Game) menuView {
 		}
 		v.altItems, v.altFooters = soundAlternatives(g)
 	case pageMain:
-		for i := range items {
-			if mainDisabled(g, i) {
+		entries := mainEntries(g)
+		v.selected = slices.Index(entries, m.cursor)
+		for i, e := range entries {
+			if mainDisabled(g, e) {
 				if v.disabled == nil {
 					v.disabled = map[int]bool{}
 				}
@@ -1125,11 +1206,12 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		}
 		return l.T("sound.title"), items, m.soundFooter(g)
 	}
-	items = []string{
+	labels := []string{
 		l.T("menu.resume"),
 		l.T("menu.games"),
 		l.T("menu.display"),
 		l.T("menu.controls"),
+		l.T("menu.camera"),
 		l.T("menu.sound"),
 		l.T("menu.folders"),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
@@ -1138,6 +1220,9 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.load_state"),
 		l.T("menu.reset"),
 		l.T("menu.quit"),
+	}
+	for _, e := range mainEntries(g) {
+		items = append(items, labels[e])
 	}
 	return l.T("menu.title"), items, mainFooter(g)
 }
@@ -1269,6 +1354,31 @@ func (m *menu) foldersView(g *Game) menuView {
 	v.altItems, v.altFooters = bootAlternatives(g)
 	v.altItems = append(v.altItems, l.T("games_dir.scanning"), l.T("games_dir.none"), l.T("games_dir.count", maxLibrary))
 	v.altFooters = append(v.altFooters, l.T("games_dir.folder_none"))
+	return v
+}
+
+// cameraView is the Camera page: the picture the sensor sees, and whether
+// it is flipped.
+func (m *menu) cameraView(g *Game) menuView {
+	l := g.tr()
+	v := menuView{title: l.T("camera.title"), selected: m.cursor, disabled: map[int]bool{}, items: []string{
+		l.T("camera.choose"),
+		l.T("camera.forget"),
+		l.T("camera.mirror", onOff(l, g.cfg.CameraMirror)),
+		l.T("camera.back"),
+	}}
+	for i := range cameraItems {
+		if cameraDisabled(g, i) {
+			v.disabled[i] = true
+		}
+	}
+	name := l.T("camera.image_none")
+	if g.cfg.CameraImage != "" {
+		name = l.T("camera.image", marquee(shortDir(filepath.Base(g.cfg.CameraImage)), bootDirWidth, int64(ebiten.Tick())))
+	}
+	v.footer = name + "\n" + l.T("camera.help")
+	v.altItems = []string{l.T("camera.mirror", onOff(l, true)), l.T("camera.mirror", onOff(l, false))}
+	v.altFooters = []string{l.T("camera.image_none") + "\n" + l.T("camera.help")}
 	return v
 }
 

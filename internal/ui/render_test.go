@@ -165,3 +165,24 @@ func TestRenderColorGame(t *testing.T) {
 	img := ebiten.NewImageFromImage(g.renderFrame(2))
 	rendertest.Check(t, "color_screenshot", img)
 }
+
+// The Camera page of a Game Boy Camera game, a picture chosen.
+func TestRenderCamera(t *testing.T) {
+	g := renderGame(t, newFakePads())
+	rom := make([]byte, 0x8000)
+	copy(rom[0x134:], "GAMEBOYCAMERA")
+	rom[0x147], rom[0x149] = 0xFC, 0x04
+	copy(rom[0x100:], []byte{0x18, 0xFE}) // JR -2
+	cart, err := gb.NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.gb, err = gb.New(cart, nil); err != nil {
+		t.Fatal(err)
+	}
+	g.cfg.CameraImage, g.cfg.CameraMirror = "/Users/me/Pictures/selfie.png", true
+	g.menu = menu{open: true, page: pageMain, cursor: itemCamera}
+	rendertest.Check(t, "camera_pause", draw(g, 640, 576))
+	g.menu = menu{open: true, page: pageCamera, cursor: cameraMirror}
+	rendertest.Check(t, "camera", draw(g, 640, 576))
+}

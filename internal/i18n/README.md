@@ -83,6 +83,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.sound` | | Entrée qui ouvre la page Son |
 | `menu.folders` | | Entrée qui ouvre la page Dossiers : dossier des jeux et dossier des boot ROM |
+| `menu.camera` | | Entrée qui ouvre la page Caméra, visible seulement pendant une partie de Game Boy Camera |
 | `menu.volume` | `%d` volume en pourcent | Entrée de la page Son : réglage du volume (`%%` affiche `%`) |
 | `menu.stereo` | `%s` mode de sortie (`stereo.*`) | Entrée de la page Son : comment la stéréo arrive aux oreilles (grisée sur `stereo.mono` avec le filtre `audio_filter.speaker`, qui est mono) |
 | `stereo.stereo` | | Sortie : les deux côtés comme la console les mixe |
@@ -174,6 +175,24 @@ Le dossier où gbe liste les jeux (ses sous-dossiers compris), pour la page Jeux
 | `games_dir.folder_none` | | Pied de page : aucun dossier choisi (sinon `boot_rom.folder`) |
 | `games_dir.dialog_title` | | Titre du dialogue du système (police du système : accents permis) |
 | `games_dir.empty` | | Notification : le dossier choisi n'a aucun jeu |
+
+### `camera.*` — page Caméra (menu Pause, cartouche Game Boy Camera)
+
+Ce que voit le capteur de la Game Boy Camera : une image choisie par le joueur, ou du bruit.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `camera.title` | | Titre de la page |
+| `camera.choose` | | Entrée qui ouvre la fenêtre de choix d'une image : ce que voit la caméra |
+| `camera.forget` | | Entrée qui oublie l'image : la caméra voit du bruit (grisée sans image) |
+| `camera.mirror` | `%s` `setting.on` ou `setting.off` | Entrée qui retourne l'image de gauche à droite, comme dans un miroir |
+| `camera.back` | | Entrée qui revient au menu Pause |
+| `camera.image` | `%s` nom du fichier de l'image | Pied de page : l'image que voit la caméra (défile si elle est longue) |
+| `camera.image_none` | | Pied de page, sans image |
+| `camera.help` | | Pied de page, deuxième ligne : on peut aussi déposer une image sur la fenêtre |
+| `camera.dialog_title` | | Titre de la fenêtre de choix d'une image, ouverte par le système (accents permis) |
+| `camera.loaded` | `%s` nom du fichier | Notification : la caméra voit maintenant cette image |
+| `camera.unreadable` | `%s` nom du fichier | Notification : l'image choisie ou déposée ne peut pas être lue |
 
 ### `boot_rom.*` — page Dossiers, onglet des boot ROM
 

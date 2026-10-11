@@ -468,6 +468,20 @@ Après un changement voulu de l'affichage, réécrire les références, puis les
 les committer. En cas d'écart, `GBE_GOLDEN_OUT=<dossier>` récupère l'image obtenue et une carte
 des pixels différents, en rouge.
 
+La couverture des tests a un seuil par package, dans
+[`tools/coverage-thresholds.txt`](tools/coverage-thresholds.txt) : la CI fusionne celle des
+tests et celle des tests de rendu, et échoue si un package passe sous son seuil. Le tableau est
+publié en commentaire de la pull request, mis à jour à chaque push comme le rapport des
+benchmarks, et dans le résumé du run. En local :
+
+```sh
+GBE_RENDER=1 tools/coverage.sh   # sans GBE_RENDER, ui et scaler sont sous leur seuil
+```
+
+Les seuils sont un peu sous la couverture atteinte, mesurée comme en CI, sans les jeux ni les
+ROMs de test : quand des tests s'ajoutent, relever le seuil ; ne jamais le baisser pour faire
+passer un changement.
+
 Un mode sans fenêtre sert au débogage :
 `./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.
 

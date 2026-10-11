@@ -29,10 +29,18 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       # The tests on games and test ROMs are skipped: they are not in the
-      # repository. Those on the benchmark ROM (benchrom/) run.
-      - run: go test ./...
+      # repository. Those on the benchmark ROM (benchrom/) run. Their
+      # coverage goes to the coverage job (-count=1: a cached test writes
+      # none).
+      - run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          go test -count=1 -cover ./... -args -test.gocoverdir="$RUNNER_TEMP/coverage"
         env:
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-tests
+          path: ${{ runner.temp }}/coverage
       # Frames and audio of the benchmark ROM runs that failed.
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -55,10 +63,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb libgl1 libgl1-mesa-dri \
             libxcursor1 libxi6 libxinerama1 libxrandr2 libxxf86vm1
-      - run: xvfb-run -a -s "-screen 0 1280x1024x24" go test ./internal/ui/...
+      - run: |
+          mkdir -p "$RUNNER_TEMP/coverage"
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            go test -count=1 -cover ./internal/ui/... -args -test.gocoverdir="$RUNNER_TEMP/coverage"
         env:
           GBE_RENDER: "1"
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-render
+          path: ${{ runner.temp }}/coverage
       # The images that differ, with a map of the differences.
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -66,6 +81,59 @@ jobs:
           name: render-failures
           path: ${{ runner.temp }}/golden
           if-no-files-found: ignore
+
+  # The coverage of the tests and of the rendering tests, merged: every
+  # package must keep its floor (tools/coverage-thresholds.txt). The table
+  # is posted on the pull request, in a comment updated on every push, as
+  # the benchmarks report, and in the summary of the run.
+  coverage:
+    needs: [test, render]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment on the pull request
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-tests
+          path: ${{ runner.temp }}/coverage-tests
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-render
+          path: ${{ runner.temp }}/coverage-render
+      - name: Check the floors
+        run: tools/coverage.sh "$RUNNER_TEMP/coverage-tests" "$RUNNER_TEMP/coverage-render"
+        env:
+          COVERAGE_REPORT: ${{ runner.temp }}/coverage.md
+      # Also when a package is under its floor: the report says which.
+      - name: Summary of the run
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/coverage.md" ]; then
+            cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # The token of a pull request from a fork cannot comment: the report
+      # is then only in the summary of the run.
+      - name: Comment on the pull request
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # No report when the coverage could not be measured at all.
+          [ -f "$RUNNER_TEMP/coverage.md" ] || exit 0
+          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- gbe-coverage -->"))) | .id' | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/coverage.md" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$RUNNER_TEMP/coverage.md" > /dev/null
+          fi
 
   benchrom:
     runs-on: ubuntu-latest

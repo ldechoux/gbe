@@ -1,0 +1,22 @@
+# The test coverage each package must keep, in percent of its statements,
+# checked by tools/coverage.sh on every pull request. The floors are a
+# little under the coverage reached, measured as the CI does: without the
+# games and test ROMs, which are not in the repository, and with the
+# rendering tests (see internal/rendertest). Raise a floor when tests are
+# added; never lower one to let a change through.
+#
+# package               floor
+assets/icon             80
+cmd/gbe                 90
+internal/audiofx        95
+internal/gb             94
+internal/i18n           85
+internal/menusound      95
+internal/rom            92
+internal/ui             87
+internal/ui/scaler      87
+tools/benchreport       84
+tools/icongen           90
+tools/rumblelab         85
+tools/sitegen           88
+total                   88

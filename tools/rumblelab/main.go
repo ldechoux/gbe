@@ -21,12 +21,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -267,19 +269,33 @@ func markInput(r, quiet *run) {
 }
 
 func main() {
-	frames := flag.Int("frames", 3600, "frames to run (60 s)")
-	script := flag.String("buttons", "right:180/240,a:12/40,b:5/90", "buttons held: name:held/period,...")
-	out := flag.String("out", "rumblelab", "folder for the page")
-	paramsFile := flag.String("params", "", "settings of the detector: a JSON file of gb.RumbleParams, missing ones at their default")
-	bios := flag.String("bios", "bios", "folder of the boot ROMs, for the states saved while one ran")
-	quick := flag.Bool("quick", false, "only the notes and the vibration, in data.json: no page, no run without buttons")
-	flag.Parse()
-	bootROMDirs = []string{*bios}
-	if flag.NArg() != 1 {
-		flag.Usage()
-		os.Exit(2)
+	if err := runLab(os.Args[1:], os.Stdout); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(2)
+		}
+		log.Fatal(err)
 	}
-	path, state, name := flag.Arg(0), "", filepath.Base(flag.Arg(0))
+}
+
+// runLab is rumblelab with the command-line arguments args, its summary
+// printed on stdout.
+func runLab(args []string, stdout io.Writer) error {
+	flags := flag.NewFlagSet("rumblelab", flag.ContinueOnError)
+	frames := flags.Int("frames", 3600, "frames to run (60 s)")
+	script := flags.String("buttons", "right:180/240,a:12/40,b:5/90", "buttons held: name:held/period,...")
+	out := flags.String("out", "rumblelab", "folder for the page")
+	paramsFile := flags.String("params", "", "settings of the detector: a JSON file of gb.RumbleParams, missing ones at their default")
+	bios := flags.String("bios", "bios", "folder of the boot ROMs, for the states saved while one ran")
+	quick := flags.Bool("quick", false, "only the notes and the vibration, in data.json: no page, no run without buttons")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	bootROMDirs = []string{*bios}
+	if flags.NArg() != 1 {
+		flags.Usage()
+		return flag.ErrHelp
+	}
+	path, state, name := flags.Arg(0), "", filepath.Base(flags.Arg(0))
 	params := gb.DefaultRumbleParams()
 	if *paramsFile != "" {
 		data, err := os.ReadFile(*paramsFile)
@@ -287,34 +303,34 @@ func main() {
 			err = json.Unmarshal(data, &params)
 		}
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 	var buttons buttonsAt
 	if strings.HasSuffix(path, ".json") {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		var rec recording
 		if err := json.Unmarshal(data, &rec); err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("%s: %w", path, err)
 		}
 		if buttons, err = replayed(rec.Input); err != nil {
-			log.Fatal(err)
+			return err
 		}
 		state = filepath.Join(filepath.Dir(path), rec.State)
 		path, *frames = rec.ROM, rec.Frames
 	} else {
 		ps, err := parseButtons(*script)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		buttons = scripted(ps)
 	}
 	r, err := play(path, state, *frames, buttons, params, !*quick)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if *quick {
 		data, err := json.Marshal(map[string]any{"notes": r.notes, "level": r.level, "shake": r.shake, "flashes": r.flashes})
@@ -325,27 +341,28 @@ func main() {
 			err = os.WriteFile(filepath.Join(*out, "data.json"), data, 0o644)
 		}
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		summary(os.Stdout, r)
-		return
+		summary(stdout, r)
+		return nil
 	}
 	quiet, err := play(path, state, *frames, func(int) [8]bool { return [8]bool{} }, params, false)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	markInput(r, quiet)
 	if err := os.MkdirAll(*out, 0o755); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := write(*out, name, *script, r); err != nil {
-		log.Fatal(err)
+		return err
 	}
-	summary(os.Stdout, r)
+	summary(stdout, r)
+	return nil
 }
 
 // summary prints what the detector did.
-func summary(w *os.File, r *run) {
+func summary(w io.Writer, r *run) {
 	var effects, inputEffects, ambientShocks, inputShocks, music, inputMusic int
 	for _, n := range r.notes {
 		if n.Ch == 2 || n.Ch == 3 {

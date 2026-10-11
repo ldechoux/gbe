@@ -148,37 +148,58 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	tick := g.marqueeTick("home", key)
 	names := make([]string, len(recent)+1)
 	listScale := u
-	for i, r := range recent {
-		names[i] = listName(recentName(r), gameNameWidth, i == g.recentCursor, tick)
+	for _, r := range recent {
 		listScale = math.Min(listScale, fit(strings.Repeat("x", min(gameNameWidth, len([]rune(recentName(r))))), u))
 	}
-	names[len(recent)] = l.T("drop.all_games")
+	all := l.T("drop.all_games")
 	if n := len(g.library.games); n > 0 {
-		names[len(recent)] = l.T("drop.all_games_count", n)
+		all = l.T("drop.all_games_count", n)
 	}
-	listScale = math.Min(listScale, fit(names[len(recent)], u))
+	listScale = math.Min(listScale, fit(all, u))
 	lineH := 16 * listScale
-	// A hint too wide for one line is split where it has wide spaces.
-	hintScale := math.Max(1, math.Floor(u/2))
-	hintLines := []string{hint}
-	if text.Advance(hint, menuFace)*hintScale > sw-2*margin {
-		hintLines = strings.Split(hint, "   ")
+	// The names are cut, or scroll, to what the window shows: fewer
+	// characters than gameNameWidth in the smallest one (x1 without HiDPI).
+	room := (sw - 2*margin - 16*listScale) / listScale // before scaling
+	chars := max(4, min(gameNameWidth, int(room/advance("x"))))
+	for i, r := range recent {
+		names[i] = listName(recentName(r), chars, i == g.recentCursor, tick)
 	}
+	names[len(recent)] = shorten(all, room)
+	// A hint too wide for one line is split where it has wide spaces, then
+	// between words.
+	hintScale := math.Max(1, math.Floor(u/2))
+	hintLines := wrapText(hint, (sw-2*margin)/hintScale)
 	hintH := float64(len(hintLines)) * 16 * hintScale
 
 	// Too wide even at scale 1 (x1 without HiDPI), the title goes on
 	// several lines.
 	titleLines := wrapText(title, (sw-2*margin)/titleScale)
 	titleH := float64(len(titleLines)) * 13 * titleScale
-	textH := titleH + 6*u + 13*textScale
 	avail := sh - hintH - 3*margin
-	{
-		// In a tiny window (x1 without HiDPI), only the entries that fit,
-		// the selected one among them.
-		listTop := textH + 14*u
-		if len(recent) > 0 {
-			listTop += 13*textScale + 8*u
+	// In a tiny window (x1 without HiDPI), the formats under the title, then
+	// the heading of the recent games, are left out to make room for the
+	// selected entry.
+	showFormats, showHeading := true, len(recent) > 0
+	listTop := func() float64 {
+		h := titleH + 14*u
+		if showFormats {
+			h += 6*u + 13*textScale
 		}
+		if showHeading {
+			h += 13*textScale + 8*u
+		}
+		return h
+	}
+	if listTop()+lineH > avail {
+		showFormats = false
+	}
+	if listTop()+lineH > avail {
+		showHeading = false
+	}
+	var textH float64
+	{
+		// Only the entries that fit, the selected one among them.
+		listTop := listTop()
 		n := min(len(names), max(1, int((avail-listTop)/lineH)))
 		first = max(0, g.recentCursor-n+1)
 		names = names[first : first+n]
@@ -201,12 +222,13 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	for i, line := range titleLines {
 		center(line, y+float64(i)*13*titleScale, titleScale, pal.Colors[3])
 	}
-	y += titleH + 6*u
-	center(formats, y, textScale, pal.Colors[2])
-	y += 13 * textScale
-
+	y += titleH
+	if showFormats {
+		center(formats, y+6*u, textScale, pal.Colors[2])
+		y += 6*u + 13*textScale
+	}
 	y += 14 * u
-	if len(recent) > 0 {
+	if showHeading {
 		center(l.T("drop.recent"), y, textScale, pal.Colors[2])
 		y += 13*textScale + 8*u
 	}

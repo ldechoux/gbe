@@ -27,6 +27,11 @@ func renderGame(t *testing.T, pads padReader) *Game {
 	// The default is Cmd+F2 on macOS and Ctrl+F2 elsewhere: the same
 	// everywhere, for the same image.
 	g.cfg.Screenshot = Hotkey{Key: ebiten.KeyF2, Control: true}
+	// The keys are named after the layout of the keyboard (Z is W on an
+	// AZERTY one): the same names everywhere, those of QWERTY.
+	name := keyName
+	keyName = func(ebiten.Key) string { return "" }
+	t.Cleanup(func() { keyName = name })
 	g.lcd = ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight)
 	g.lcdPrev = ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight)
 	g.stream = &audioStream{}

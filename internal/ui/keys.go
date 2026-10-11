@@ -61,7 +61,7 @@ func keyLabel(l *i18n.Locale, k ebiten.Key) string {
 	}
 	// KeyName follows the active layout. It is empty for keys without a
 	// character, and before the main loop starts (e.g. in tests).
-	if n := ebiten.KeyName(k); printable(n) {
+	if n := keyName(k); printable(n) {
 		if len(n) == 1 && n[0] >= 'a' && n[0] <= 'z' {
 			n = strings.ToUpper(n) // letters as printed on the keycaps
 		}

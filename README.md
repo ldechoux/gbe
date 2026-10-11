@@ -331,11 +331,16 @@ La cartouche Game Boy Camera (Pocket Camera au Japon) est émulée : son capteur
 réglages d'exposition, de contraste et de contours, et ses 30 photos, gardées dans
 `<rom>.sav` comme les autres sauvegardes.
 
-- **Ce que voit la caméra** : une image au choix (PNG, JPEG, GIF ou WebP), choisie dans la
-  page « Caméra... » du menu Pause, ou déposée sur la fenêtre pendant la partie. gbe garde
-  son milieu, au format du capteur (128×112), en niveaux de gris : la ROM fait le reste,
-  dont l'exposition automatique et le tramage en 4 teintes.
-- **Sans image**, la caméra voit du bruit, comme un vrai capteur dans le noir.
+- **Ce que voit la caméra**, au choix dans la page « Caméra... » du menu Pause :
+  - **une webcam** (macOS pour l'instant), choisie parmi celles du système, par exemple celle
+    d'un écran ou un iPhone en Continuity Camera. Elle ne s'allume que pendant la partie.
+    La première fois, macOS demande l'autorisation d'utiliser la caméra ;
+  - **une image** (PNG, JPEG, GIF ou WebP), choisie dans la page ou déposée sur la fenêtre
+    pendant la partie.
+
+  gbe garde le milieu de l'image, au format du capteur (128×112), en niveaux de gris : la ROM
+  fait le reste, dont l'exposition automatique et le tramage en 4 teintes.
+- **Sans webcam ni image**, la caméra voit du bruit, comme un vrai capteur dans le noir.
 - **Miroir** : retourne l'image de gauche à droite, comme le viseur d'un selfie.
 - La page « Caméra... » n'apparaît qu'avec cette cartouche.
 
@@ -604,5 +609,8 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   - Audio : tampon dont le taux d'échantillonnage s'ajuste légèrement pour compenser l'écart
     entre 60 Hz et 59,73 Hz.
   - Menu, configuration JSON.
+- `internal/webcam` : les images d'une webcam en niveaux de gris, en Go pur : AVFoundation
+  par l'intermédiaire de `purego/objc` sous macOS. `GBE_WEBCAM=1 go test ./internal/webcam`
+  essaie la vraie caméra.
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.

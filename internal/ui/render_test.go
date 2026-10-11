@@ -185,4 +185,12 @@ func TestRenderCamera(t *testing.T) {
 	rendertest.Check(t, "camera_pause", draw(g, 640, 576))
 	g.menu = menu{open: true, page: pageCamera, cursor: cameraMirror}
 	rendertest.Check(t, "camera", draw(g, 640, 576))
+
+	// With webcams: the source and the webcam, the webcam on.
+	g.webcams = &fakeWebcams{list: twoWebcams}
+	g.listWebcams()
+	g.cfg.CameraSource, g.cfg.CameraDevice = cameraWebcam, "lg"
+	g.camera.stream = &fakeStream{}
+	g.menu = menu{open: true, page: pageCamera, cursor: cameraDevice}
+	rendertest.Check(t, "camera_webcam", draw(g, 640, 576))
 }

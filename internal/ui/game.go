@@ -118,6 +118,7 @@ type Game struct {
 	// needs a reset to use a new folder.
 	bootROMs       *rom.BootROMSearch
 	picker         folderPicker
+	webcams        webcams // nil in the tests
 	picks          chan folderPick
 	picking        bool
 	picked         func(dir string) // applies the folder chosen in the dialog
@@ -243,7 +244,7 @@ func Run(opts Options) error {
 	g.player.SetVolume(cfg.Volume)
 	g.player.Play()
 	g.sfx = newEbitenSounds(ctx)
-	g.bootROMs, g.picker = opts.BootROMs, systemPicker{}
+	g.bootROMs, g.picker, g.webcams = opts.BootROMs, systemPicker{}, systemWebcams{}
 	if g.bootROMs != nil {
 		g.bootROMs.Dir = cfg.BootROMDir
 	}
@@ -270,6 +271,7 @@ func Run(opts Options) error {
 
 	err = ebiten.RunGame(g)
 	g.closeGame() // so the next launch can resume
+	g.camera.closeWebcam()
 	return err
 }
 
@@ -510,6 +512,7 @@ func (g *Game) Update() error {
 	}
 	g.pollFolderPick()
 	g.pollLibrary()
+	g.syncWebcam()
 	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
 	}

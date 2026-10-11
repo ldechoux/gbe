@@ -57,8 +57,8 @@ func TestMenuNavigation(t *testing.T) {
 		tab  pageTab
 		want int
 	}{
-		{"main", pageMain, tabKeyboard, mainItems - 1}, // without the camera
-		{"camera", pageCamera, tabKeyboard, cameraItems},
+		{"main", pageMain, tabKeyboard, mainItems - 1},       // without the camera
+		{"camera", pageCamera, tabKeyboard, cameraItems - 2}, // without webcams
 		{"display", pageDisplay, tabKeyboard, displayItems},
 		{"sound", pageSound, tabKeyboard, soundItems},
 		{"start", pageStart, tabKeyboard, startItems},

@@ -49,6 +49,46 @@ jobs:
           path: ${{ runner.temp }}/golden
           if-no-files-found: ignore
 
+  # The webcam of Linux read for real (internal/webcam, Video4Linux2): a
+  # virtual camera, v4l2loopback, fed a test pattern by ffmpeg.
+  webcam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install a virtual camera
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "linux-headers-$(uname -r)" v4l2loopback-dkms ffmpeg
+          sudo modprobe v4l2loopback devices=1 video_nr=9 card_label="gbe test camera" exclusive_caps=1
+          sudo chmod 666 /dev/video9
+      - name: Read it
+        run: |
+          ffmpeg -nostdin -loglevel error -re -f lavfi -i testsrc2=size=640x480:rate=30 \
+            -pix_fmt yuyv422 -f v4l2 /dev/video9 &
+          sleep 3
+          go test -count=1 -v ./internal/webcam -run TestRealCamera
+        env:
+          GBE_WEBCAM: "1"
+          GBE_WEBCAM_ID: /dev/video9
+          GBE_WEBCAM_WANT: gbe test camera
+
+  # The webcam of Windows (internal/webcam, Media Foundation through COM):
+  # without a camera, the runner checks the calls that list them.
+  webcam-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go vet ./internal/webcam ./internal/ui
+      - run: go test -count=1 -v ./internal/webcam
+        env:
+          GBE_WEBCAM_LIST: "1"
+
   # The tests that draw through Ebitengine (see internal/rendertest): under
   # a virtual display, drawn by Mesa on the CPU.
   render:

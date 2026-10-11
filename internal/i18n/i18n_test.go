@@ -96,3 +96,22 @@ func TestFallbacks(t *testing.T) {
 		t.Fatalf("unknown key = %q", got)
 	}
 }
+
+func TestHas(t *testing.T) {
+	if !Has("fr") || !Has(Default) || Has("xx") || Has("") {
+		t.Error("Has")
+	}
+}
+
+// A language file without a name, or that is not JSON, is refused.
+func TestParseErrors(t *testing.T) {
+	for _, data := range []string{`{"messages": {}}`, `{`} {
+		if _, err := parse("xx", []byte(data)); err == nil {
+			t.Errorf("%s accepted", data)
+		}
+	}
+	l, err := parse("xx", []byte(`{"name": "Test", "messages": {"k": "v"}}`))
+	if err != nil || l.Code != "xx" || l.T("k") != "v" {
+		t.Errorf("%+v, %v", l, err)
+	}
+}

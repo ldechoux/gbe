@@ -242,24 +242,34 @@ func screenshots(dir string) ([]string, error) {
 }
 
 func main() {
-	releasesPath := flag.String("releases", "", "JSON array from the GitHub releases API (empty: no releases)")
-	repo := flag.String("repo", "ldechoux/gbe", "owner/name of the GitHub repository")
-	siteDir := flag.String("site", "site", "directory with index.html.tmpl and static files")
-	shotsDir := flag.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP, subdirectories included)")
-	outDir := flag.String("out", "_site", "output directory")
-	siteURL := flag.String("url", "", "address of the site, ending with / (default: the GitHub Pages one of -repo)")
-	verification := flag.String("google-verification", "", "Google Search Console verification token (the content of its meta tag)")
-	iconPath := flag.String("icon", "assets/icon/icon-512.png", "application icon, for the icon of a home screen")
-	flag.Parse()
+	if err := run(os.Args[1:]); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// run builds the site with the command-line arguments args.
+func run(args []string) error {
+	flags := flag.NewFlagSet("sitegen", flag.ContinueOnError)
+	releasesPath := flags.String("releases", "", "JSON array from the GitHub releases API (empty: no releases)")
+	repo := flags.String("repo", "ldechoux/gbe", "owner/name of the GitHub repository")
+	siteDir := flags.String("site", "site", "directory with index.html.tmpl and static files")
+	shotsDir := flags.String("screenshots", "screenshots", "directory with the screenshots (PNG, WebP, subdirectories included)")
+	outDir := flags.String("out", "_site", "output directory")
+	siteURL := flags.String("url", "", "address of the site, ending with / (default: the GitHub Pages one of -repo)")
+	verification := flags.String("google-verification", "", "Google Search Console verification token (the content of its meta tag)")
+	iconPath := flags.String("icon", "assets/icon/icon-512.png", "application icon, for the icon of a home screen")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
 
 	var releases []Release
 	if *releasesPath != "" {
 		data, err := os.ReadFile(*releasesPath)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		if err := json.Unmarshal(data, &releases); err != nil {
-			log.Fatalf("parsing %s: %v", *releasesPath, err)
+			return fmt.Errorf("parsing %s: %w", *releasesPath, err)
 		}
 	}
 
@@ -273,15 +283,15 @@ func main() {
 		},
 	}).ParseFiles(filepath.Join(*siteDir, "index.html.tmpl"))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err := os.MkdirAll(*outDir, 0o755); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	f, err := os.Create(filepath.Join(*outDir, "index.html"))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	p := buildPage(*repo, releases)
 	if *siteURL != "" {
@@ -289,20 +299,20 @@ func main() {
 	}
 	p.Verification = *verification
 	if p.Structured, err = structuredData(p); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := tmpl.Execute(f, p); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := f.Close(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Static files: everything in site/ except the template, plus screenshots.
 	copies := map[string]string{}
 	entries, err := os.ReadDir(*siteDir)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for _, e := range entries {
 		if !e.IsDir() && e.Name() != "index.html.tmpl" {
@@ -311,14 +321,14 @@ func main() {
 	}
 	shots, err := screenshots(*shotsDir)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for _, rel := range shots {
 		copies[filepath.Join(*outDir, "img", rel)] = filepath.Join(*shotsDir, rel)
 	}
 	for dst, src := range copies {
 		if err := copyFile(dst, src); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 	share, err := shareImage(*shotsDir)
@@ -326,21 +336,22 @@ func main() {
 		err = writePNG(filepath.Join(*outDir, shareFile), share)
 	}
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	icon, err := touchIcon(*iconPath)
 	if err == nil {
 		err = writePNG(filepath.Join(*outDir, touchFile), icon)
 	}
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := os.WriteFile(filepath.Join(*outDir, "sitemap.xml"), sitemap(p), 0o644); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	// Pages must serve files as-is (no Jekyll processing).
 	if err := os.WriteFile(filepath.Join(*outDir, ".nojekyll"), nil, 0o644); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Printf("site written to %s (%d releases)", *outDir, len(releases))
+	return nil
 }

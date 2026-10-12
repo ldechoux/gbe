@@ -29,6 +29,9 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 lipo -create -output "$app/Contents/MacOS/gbe" "$work/gbe-amd64" "$work/gbe-arm64"
 cp assets/icon/gbe.icns "$app/Contents/Resources/"
+# The licenses of gbe and of the code it contains.
+cp LICENSE NOTICE "$app/Contents/Resources/"
+tools/third-party-licenses.sh "$app/Contents/Resources/THIRD_PARTY_LICENSES.txt"
 sed "s/@VERSION@/$bundle_version/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist" >/dev/null
 codesign --force --sign - "$app"

@@ -447,8 +447,8 @@ func stepWave(a *APU) byte {
 // any time on a CGB, only as it reads it on a DMG (blargg's 09 and 12).
 func TestAPUWaveRAMWhilePlaying(t *testing.T) {
 	a := playWave(newTestCGB(t))
+	stepWave(a)
 	pos := stepWave(a)
-	pos = stepWave(a)
 	a.tick(100)
 	if got, want := a.read(0xFF3F), byte(pos/2*0x11); got != want {
 		t.Errorf("CGB: read %02X at sample %d, want %02X", got, pos, want)

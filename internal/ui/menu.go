@@ -1486,7 +1486,7 @@ func (m *menu) draw(dst *ebiten.Image, g *Game) {
 
 	shadow := pal[3]
 	shadow.A = 0xB0
-	fillRect(dst, 0, 0, sw, sh, color.NRGBA{shadow.R, shadow.G, shadow.B, shadow.A})
+	fillRect(dst, 0, 0, sw, sh, color.NRGBA(shadow))
 	fillRect(dst, x-scale*2, y-scale*2, w+scale*4, h+scale*4, pal[3])
 	fillRect(dst, x, y, w, h, pal[0])
 

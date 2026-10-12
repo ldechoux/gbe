@@ -126,10 +126,10 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	margin := 8 * u
 	// fit is the text scale of s: want, or less if s would not fit.
 	fit := func(s string, want float64) float64 {
-		return math.Max(1, math.Min(want, math.Floor((sw-2*margin)/text.Advance(s, menuFace))))
+		return math.Max(1, math.Min(want, math.Floor((sw-2*margin)/text.AdvanceAt(s, len(s), menuFace))))
 	}
 	center := func(s string, y, sc float64, c color.Color) {
-		drawText(dst, s, math.Round((sw-text.Advance(s, menuFace)*sc)/2), math.Round(y), sc, c)
+		drawText(dst, s, math.Round((sw-text.AdvanceAt(s, len(s), menuFace)*sc)/2), math.Round(y), sc, c)
 	}
 
 	title, formats := l.T("drop.title"), l.T("drop.formats")
@@ -235,7 +235,7 @@ func (g *Game) drawDropScreen(dst *ebiten.Image) {
 	// The highlight keeps its width while the selected name scrolls.
 	width := 0.0
 	for _, name := range names {
-		width = math.Max(width, text.Advance(name, menuFace)*listScale)
+		width = math.Max(width, text.AdvanceAt(name, len(name), menuFace)*listScale)
 	}
 	width = math.Min(sw-2*margin, width+16*listScale)
 	for i, name := range names {

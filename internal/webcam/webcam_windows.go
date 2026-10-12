@@ -41,6 +41,10 @@ const (
 	readerfError     = 0x1        // MF_SOURCE_READERF_ERROR
 	readerfEnd       = 0x2        // MF_SOURCE_READERF_ENDOFSTREAM
 
+	// The width of picture asked for, among those the camera offers:
+	// enough for the 128x112 of the Game Boy Camera, and light to convert.
+	wantWidth = 640
+
 	eAccessDenied   = 0x80070005
 	rpcEChangedMode = 0x80010106 // COM already set up otherwise on the thread
 )
@@ -299,7 +303,7 @@ func openReader(id string) (reader, source *com, err error) {
 	chooseNativeType(reader)
 	var out *com
 	r, _, _ = procMFCreateType.Call(uintptr(unsafe.Pointer(&out)))
-	if err := check("MFCreateMediaType", r); err == nil {
+	if err = check("MFCreateMediaType", r); err == nil {
 		defer out.release()
 		out.call(mSetGUID, uintptr(unsafe.Pointer(&guidMajorType)), uintptr(unsafe.Pointer(&mediaTypeVideo)))
 		out.call(mSetGUID, uintptr(unsafe.Pointer(&guidSubtype)), uintptr(unsafe.Pointer(&formatNV12)))

@@ -40,7 +40,8 @@ compile gbe et joint à la release :
   image disque `gbe-<tag>-macos-universal.dmg` ;
 - **pour Linux, une AppImage** par architecture, `gbe-<tag>-linux-<arch>.AppImage` ;
 - **six archives du binaire seul**, à lancer depuis un terminal, sous la forme
-  `gbe-<tag>-<os>-<arch>` :
+  `gbe-<tag>-<os>-<arch>`, avec la licence (`LICENSE`, `NOTICE`) et celles du code qu'il
+  contient (`THIRD_PARTY_LICENSES.txt`, aussi dans `gbe.app` et l'AppImage) :
 
 | OS | Architectures |
 |---|---|
@@ -653,3 +654,18 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   vérifie la lecture sous Linux, et un runner Windows les appels qui listent les caméras.
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.
+
+## Licence
+
+gbe est distribué sous la [licence Apache 2.0](LICENSE). [`NOTICE`](NOTICE) cite ce qu'il
+reprend de SameBoy (licence Expat/MIT) : les palettes de sa boot ROM Game Boy Color libre et
+le modèle du capteur de la Game Boy Camera.
+
+Les binaires contiennent aussi le code de Go et des modules dont gbe dépend (Ebitengine, purego,
+Oto, zenity, golang.org/x…), tous sous licences permissives (Apache 2.0, MIT, BSD, Unlicense).
+Leurs licences accompagnent chaque release, dans `THIRD_PARTY_LICENSES.txt`, écrit par
+[`tools/third-party-licenses.sh`](tools/third-party-licenses.sh). La CI vérifie que chaque
+module a sa licence.
+
+Game Boy est une marque de Nintendo. gbe est un projet indépendant, sans lien avec Nintendo, et
+ne fournit ni jeu ni boot ROM.

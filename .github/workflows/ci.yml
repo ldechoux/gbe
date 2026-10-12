@@ -74,6 +74,10 @@ jobs:
           done
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      # The binaries come with the licenses of the code they contain: every
+      # module linked into them must have one.
+      - name: Licenses of the dependencies
+        run: tools/third-party-licenses.sh "$RUNNER_TEMP/THIRD_PARTY_LICENSES.txt"
 
   # The tests under the race detector: the webcam, the scan of the games
   # folder, the file dialogs and the sound run on goroutines of their own.

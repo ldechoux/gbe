@@ -68,7 +68,8 @@ jobs:
           mkdir -p "dist/$name"
           go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
             -o "dist/$name/gbe$ext" ./cmd/gbe
-          cp README.md "dist/$name/"
+          cp README.md LICENSE NOTICE "dist/$name/"
+          tools/third-party-licenses.sh "dist/$name/THIRD_PARTY_LICENSES.txt"
           if [ "$GOOS" = linux ]; then
             # The menu entry and the icon, to install them by hand.
             cp packaging/linux/gbe.desktop "dist/$name/"

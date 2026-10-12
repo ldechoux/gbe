@@ -31,6 +31,10 @@ for n in 256 512; do
 	cp "assets/icon/icon-$n.png" "$app/usr/share/icons/hicolor/${n}x$n/apps/gbe.png"
 done
 cp assets/icon/icon-256.png "$app/gbe.png"
+# The licenses of gbe and of the code it contains.
+mkdir -p "$app/usr/share/doc/gbe"
+cp LICENSE NOTICE "$app/usr/share/doc/gbe/"
+tools/third-party-licenses.sh "$app/usr/share/doc/gbe/THIRD_PARTY_LICENSES.txt"
 ln -s gbe.png "$app/.DirIcon"
 ln -s usr/bin/gbe "$app/AppRun"
 

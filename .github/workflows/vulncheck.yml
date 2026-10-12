@@ -1,0 +1,22 @@
+name: Vulnerabilities
+
+# The known vulnerabilities that the code of main reaches, in Go and in the
+# modules it requires: new ones are published after the pull request that
+# brought the code was checked (see the lint job of CI).
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

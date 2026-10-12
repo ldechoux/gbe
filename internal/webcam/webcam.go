@@ -11,13 +11,6 @@ import (
 	"sync"
 )
 
-// The size of picture asked for, when the camera offers a choice: enough
-// for the 128x112 of the Game Boy Camera, and light to convert.
-const (
-	wantWidth  = 640
-	wantHeight = 480
-)
-
 // Device is a camera of the system.
 type Device struct {
 	ID   string // stable from one launch to the next

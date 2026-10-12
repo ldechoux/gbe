@@ -1,0 +1,19 @@
+# Weekly pull requests for the new versions of the Go modules and of the
+# GitHub Actions the workflows use, each kind grouped in one pull request;
+# the CI tests them as any other.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

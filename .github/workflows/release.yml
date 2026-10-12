@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write # needed to upload release assets
+  id-token: write # and these two to attest where they were built
+  attestations: write
 
 jobs:
   test:
@@ -74,12 +76,14 @@ jobs:
           fi
           cd dist
           if [ "$GOOS" = windows ]; then
+            asset="dist/$name.zip"
             zip -qr "$name.zip" "$name"
-            echo "ASSET=dist/$name.zip" >> "$GITHUB_ENV"
           else
+            asset="dist/$name.tar.gz"
             tar -czf "$name.tar.gz" "$name"
-            echo "ASSET=dist/$name.tar.gz" >> "$GITHUB_ENV"
           fi
+          # SUBJECTS: the files to attest, the AppImage added below.
+          { echo "ASSET=$asset"; echo "SUBJECTS=$asset"; } >> "$GITHUB_ENV"
 
       # For Linux, the AppImage too: one file with its icon and menu entry.
       # appimagetool and the runtimes are pinned to a release, and checked.
@@ -101,12 +105,21 @@ jobs:
           chmod +x "$APPIMAGETOOL"
           image=$(packaging/linux/build.sh "$VERSION" "$GOARCH" dist)
           echo "APPIMAGE=$image" >> "$GITHUB_ENV"
+          echo "SUBJECTS=$SUBJECTS,$image" >> "$GITHUB_ENV"
 
       - name: Check that the AppImage starts
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: |
           chmod +x "$APPIMAGE"
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" -version
+
+      # Anyone can check that a file of the release was built here, from
+      # this commit: gh attestation verify <file> --repo ldechoux/gbe.
+      - name: Attest where it was built
+        if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ env.SUBJECTS }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -137,6 +150,12 @@ jobs:
       - name: Build gbe.app and its disk image
         run: echo "ASSET=$(packaging/macos/build.sh "$VERSION" dist)" >> "$GITHUB_ENV"
 
+      - name: Attest where it was built
+        if: github.event_name == 'release'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ env.ASSET }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: gbe-macos-app
@@ -148,3 +167,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+
+  # The SHA-256 of every file of the release, in one file attached to it,
+  # to check a download: sha256sum -c --ignore-missing gbe-<tag>-SHA256SUMS.txt
+  checksums:
+    needs: [build, macos-app]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Attach the checksums
+        run: |
+          mkdir "$RUNNER_TEMP/assets" && cd "$RUNNER_TEMP/assets"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "gbe-*"
+          sums="gbe-$TAG-SHA256SUMS.txt"
+          rm -f "$sums"
+          sha256sum gbe-* > "$sums"
+          cat "$sums"
+          gh release upload "$TAG" "$sums" --clobber --repo "$GITHUB_REPOSITORY"

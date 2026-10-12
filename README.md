@@ -72,6 +72,14 @@ Remarques par plateforme :
 
 `gbe -version` affiche la version.
 
+Pour vérifier un téléchargement :
+- **les sommes SHA-256** de tous les fichiers sont dans `gbe-<tag>-SHA256SUMS.txt`, joint à la
+  release : `sha256sum -c --ignore-missing gbe-<tag>-SHA256SUMS.txt` (sous macOS,
+  `shasum -a 256 -c --ignore-missing …`) ;
+- **l'attestation de provenance** de chaque fichier prouve qu'il a été compilé par le workflow
+  de release de ce dépôt, depuis le commit de la release :
+  `gh attestation verify <fichier> --repo ldechoux/gbe`.
+
 ## Lancer
 
 Avec Go 1.27 ou plus récent, gbe s'installe directement (sans cgo) :
@@ -508,6 +516,27 @@ GBE_RENDER=1 tools/coverage.sh   # sans GBE_RENDER, ui et scaler sont sous leur 
 Les seuils sont un peu sous la couverture atteinte, mesurée comme en CI, sans les jeux ni les
 ROMs de test : quand des tests s'ajoutent, relever le seuil ; ne jamais le baisser pour faire
 passer un changement.
+
+La CI vérifie aussi, à chaque pull request :
+- **le lint** : le formatage (`gofmt`), `go.mod` et `go.sum` à jour (`go mod tidy -diff`),
+  [staticcheck](https://staticcheck.dev) pour macOS, Linux et Windows (chacun a ses propres
+  fichiers), et les vulnérabilités connues que le code atteint
+  ([govulncheck](https://go.dev/blog/govulncheck)) ;
+- **les tests sous le détecteur de concurrence** (`go test -race`) : la webcam, la lecture du
+  dossier des jeux, les fenêtres de choix et le son tournent sur leurs propres goroutines.
+
+En local, avant une pull request :
+
+```sh
+gofmt -l . && go mod tidy -diff && go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+go test -race ./...   # long avec les ROMs locales : environ 10 minutes
+```
+
+govulncheck repasse aussi chaque lundi sur `main` ([`vulncheck.yml`](.github/workflows/vulncheck.yml)),
+pour les vulnérabilités publiées depuis. Dependabot propose chaque semaine, en une pull request
+par type, les nouvelles versions des modules Go et des actions GitHub.
 
 Un mode sans fenêtre sert au débogage :
 `./bin/gbe -frames 600 -input "start:400-410" -screenshot out.png -wav out.wav jeu.gb`.

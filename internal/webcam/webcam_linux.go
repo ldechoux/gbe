@@ -32,6 +32,11 @@ const (
 	fieldAny            = 0
 
 	numBuffers = 4
+
+	// The size of picture asked for: enough for the 128x112 of the Game
+	// Boy Camera, and light to convert.
+	wantWidth  = 640
+	wantHeight = 480
 )
 
 // ioc is _IOC of linux/ioctl.h: the direction (1 write, 2 read), the type

@@ -49,6 +49,43 @@ jobs:
           path: ${{ runner.temp }}/golden
           if-no-files-found: ignore
 
+  # Static checks: the formatting, go.mod and go.sum, staticcheck for the
+  # three systems (each has its own files), and the known vulnerabilities
+  # the code reaches.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Formatting
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then echo "Not formatted (gofmt -w):"; echo "$files"; exit 1; fi
+      - name: go.mod and go.sum
+        run: go mod tidy -diff
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.2
+          for os in linux darwin windows; do
+            echo "== $os"
+            GOOS=$os "$(go env GOPATH)/bin/staticcheck" ./...
+          done
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  # The tests under the race detector: the webcam, the scan of the games
+  # folder, the file dialogs and the sound run on goroutines of their own.
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go test -race -count=1 ./...
+
   # The webcam of Linux read for real (internal/webcam, Video4Linux2): a
   # virtual camera, v4l2loopback, fed a test pattern by ffmpeg.
   webcam:

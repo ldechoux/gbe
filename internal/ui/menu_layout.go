@@ -31,7 +31,7 @@ type menuLayout struct {
 }
 
 // advance is the width of s in the menu font, before scaling.
-func advance(s string) float64 { return text.Advance(s, menuFace) }
+func advance(s string) float64 { return text.AdvanceAt(s, len(s), menuFace) }
 
 // shorten fits s in width: first without the spaces that align it
 // ("Volume    < 80% >"), then cut, with "...".

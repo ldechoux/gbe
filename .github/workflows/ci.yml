@@ -23,8 +23,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: go vet ./...
@@ -37,12 +37,12 @@ jobs:
           go test -count=1 -cover ./... -args -test.gocoverdir="$RUNNER_TEMP/coverage"
         env:
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-tests
           path: ${{ runner.temp }}/coverage
       # Frames and audio of the benchmark ROM runs that failed.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: golden-failures
@@ -55,8 +55,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Formatting
@@ -84,8 +84,8 @@ jobs:
   race:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: go test -race -count=1 ./...
@@ -95,8 +95,8 @@ jobs:
   webcam:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install a virtual camera
@@ -127,8 +127,8 @@ jobs:
   webcam-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - run: go vet ./internal/webcam ./internal/ui
@@ -141,8 +141,8 @@ jobs:
   render:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install a virtual display and OpenGL
@@ -157,12 +157,12 @@ jobs:
         env:
           GBE_RENDER: "1"
           GBE_GOLDEN_OUT: ${{ runner.temp }}/golden
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-render
           path: ${{ runner.temp }}/coverage
       # The images that differ, with a map of the differences.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: render-failures
@@ -180,15 +180,15 @@ jobs:
       contents: read
       pull-requests: write # to comment on the pull request
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: coverage-tests
           path: ${{ runner.temp }}/coverage-tests
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: coverage-render
           path: ${{ runner.temp }}/coverage-render
@@ -228,7 +228,7 @@ jobs:
       RGBDS_VERSION: v1.0.4
       RGBDS_SHA256: 3e19e50ea602e316be709160acaf0a708b1fa6d32d219ec541f244442895dbb7
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install RGBDS
         run: |
           curl -sSfL -o rgbds.tar.xz "https://github.com/gbdev/rgbds/releases/download/$RGBDS_VERSION/rgbds-linux-x86_64.tar.xz"
@@ -249,8 +249,8 @@ jobs:
       # Same settings as the release: pure Go, cross-compiled from Linux.
       CGO_ENABLED: "0"
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Build for every release platform

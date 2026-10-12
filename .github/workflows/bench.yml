@@ -59,10 +59,10 @@ jobs:
   compare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # every commit, branch and tag
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Check out the two versions
@@ -152,7 +152,7 @@ jobs:
           go run ./tools/benchreport -base "$BASE_LABEL" -head "$HEAD_LABEL" -note "$NOTE" \
             "$RUNNER_TEMP/bench/base.txt" "$RUNNER_TEMP/bench/head.txt" > "$RUNNER_TEMP/report.md"
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.versions.outputs.skip != 'true'
         with:
           name: benchmarks

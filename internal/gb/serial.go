@@ -28,8 +28,12 @@ type Serial struct {
 	// left for the transfers with nothing connected.
 	linkEnd uint64
 	// seenSB and seenSC are SB and SC as the cable last saw them (see
-	// written).
+	// written), writtenAt the bus cycle the game last changed them, and
+	// settled whether the port armed as a slave has been left alone since
+	// for linkSettle T-cycles.
 	seenSB, seenSC byte
+	writtenAt      uint64
+	settled        bool
 }
 
 func (s *Serial) read(addr uint16) byte {

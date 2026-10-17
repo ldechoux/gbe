@@ -1,10 +1,12 @@
 package gb
 
 import (
+	"archive/zip"
 	"bytes"
 	"io"
 	"net"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -192,6 +194,7 @@ func TestLinkSlave(t *testing.T) {
 	g.Bus.write(0xFF01, 0x34)
 	g.Bus.write(0xFF02, 0x80)
 	g.Serial.poll()
+	settle(g)
 	// Answered at once, without the emulation running.
 	p.send(msgTransfer, 7, 0x99)
 	if seq := p.expect(msgReply, 0x34); seq != 7 {
@@ -209,15 +212,48 @@ func TestLinkSlave(t *testing.T) {
 	g.Serial.poll()
 	p.expectNone()
 
-	// Until the game arms the port.
+	// Until the game arms the port, and leaves it alone.
 	g.Bus.write(0xFF01, 0x35)
 	g.Bus.write(0xFF02, 0x80)
 	g.Serial.poll()
+	p.expectNone()
+	settle(g)
 	if seq := p.expect(msgReply, 0x35); seq != 8 {
 		t.Errorf("answer to transfer %d, want 8", seq)
 	}
 	if g.Bus.ifl&IntSerial == 0 || g.Bus.read(0xFF01) != 0x98 {
 		t.Errorf("held transfer: IF %02X SB %02X, want the interrupt and 98", g.Bus.ifl, g.Bus.read(0xFF01))
+	}
+}
+
+// settle runs the port for linkSettle T-cycles, the game leaving it alone.
+func settle(g *GameBoy) {
+	g.Bus.cycles += linkSettle
+	g.Serial.poll()
+}
+
+// Dr. Mario's slave arms the port with 0x66, then writes the byte to send
+// 180 T-cycles later: a transfer coming in between gets the latter.
+func TestLinkSlaveWritesAfterArming(t *testing.T) {
+	g, p := newLinkedGB(t)
+	g.Bus.write(0xFF01, 0x66)
+	g.Bus.write(0xFF02, 0x80)
+	g.Serial.poll()
+	p.send(msgTransfer, 1, 0x04)
+	time.Sleep(10 * time.Millisecond)
+	g.Bus.cycles += 180
+	g.Serial.poll()
+	p.expectNone()
+	g.Bus.write(0xFF01, 0x0A) // the echo
+	g.Serial.poll()
+	g.Bus.cycles += linkSettle - 1
+	g.Serial.poll()
+	p.expectNone()
+	g.Bus.cycles++
+	g.Serial.poll()
+	p.expect(msgReply, 0x0A)
+	if g.Bus.ifl&IntSerial == 0 || g.Bus.read(0xFF01) != 0x04 {
+		t.Errorf("IF %02X SB %02X, want the interrupt and 04", g.Bus.ifl, g.Bus.read(0xFF01))
 	}
 }
 
@@ -419,4 +455,111 @@ func TestLinkPeerNotReading(t *testing.T) {
 	if d := time.Since(begin); d > linkTimeout+time.Second {
 		t.Errorf("1000 transfers took %v", d)
 	}
+}
+
+// linkGames runs two Game Boys linked by a cable, each at its own pace, for
+// frames, pressing buttons at the given frames for 5 frames. pause is the
+// time between two frames: as in the window, each Game Boy then waits for
+// the next frame between bursts of emulation.
+func linkGames(t *testing.T, gs [2]*GameBoy, frames int, pause time.Duration, presses [2]map[int]Button, after func(i int, g *GameBoy)) {
+	t.Helper()
+	a, b := net.Pipe()
+	gs[0].SetLink(NewLink(a))
+	gs[1].SetLink(NewLink(b))
+	defer gs[0].Link().Close()
+	var wg sync.WaitGroup
+	for i, g := range gs {
+		wg.Go(func() {
+			for f := range frames {
+				var down [8]bool
+				for at, b := range presses[i] {
+					down[b] = down[b] || f >= at && f < at+5
+				}
+				for b, d := range down {
+					g.SetButton(Button(b), d)
+				}
+				g.RunLinkedFrame()
+				if after != nil {
+					after(i, g)
+				}
+				time.Sleep(pause)
+			}
+		})
+	}
+	wg.Wait()
+}
+
+// loadZippedROM loads the ROM of a .zip archive of gameDir.
+func loadZippedROM(t *testing.T, name string) *GameBoy {
+	t.Helper()
+	zr, err := zip.OpenReader(filepath.Join(gameDir, name))
+	if err != nil {
+		t.Skipf("%s not available: %v", name, err)
+	}
+	defer zr.Close()
+	f, err := zr.File[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rom, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cart, err := NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewModel(cart, nil, ModelDMG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return g
+}
+
+// TestLinkDrMario starts a game of Dr. Mario for two: the master sends the
+// viruses to the other Game Boy, whose game checks each byte through an
+// echo written after arming the port (see linkSettle). Both bottles must
+// get the viruses at the same places.
+func TestLinkDrMario(t *testing.T) {
+	var gs [2]*GameBoy
+	for i := range gs {
+		gs[i] = loadZippedROM(t, "Dr. Mario (World) (Rev 1).zip")
+	}
+	// The viruses of each bottle, 30 frames after the first one shows:
+	// all are there, and the first capsule is still above them.
+	var viruses [2][]int
+	var shown [2]int
+	linkGames(t, gs, 900, 2*time.Millisecond, [2]map[int]Button{
+		{200: ButtonDown, 250: ButtonStart, 500: ButtonStart}, // 2 PLAYER GAME, then the settings
+		{200: ButtonDown, 500: ButtonStart},
+	}, func(i int, g *GameBoy) {
+		switch c := bottleCells(g); {
+		case shown[i] == 0 && len(c) > 0:
+			shown[i] = 1
+		case shown[i] > 0 && shown[i] < 30:
+			shown[i]++
+		case shown[i] == 30:
+			viruses[i], shown[i] = c, 31
+		}
+	})
+	if len(viruses[0]) == 0 || !slices.Equal(viruses[0], viruses[1]) {
+		t.Errorf("viruses at %v and %v: the bottles differ", viruses[0], viruses[1])
+	}
+}
+
+// bottleCells lists the cells of Dr. Mario's bottle with something in them,
+// below where the capsules come in.
+func bottleCells(g *GameBoy) (occupied []int) {
+	fb := g.Framebuffer()
+	for row := 8; row < 17; row++ {
+		for col := 2; col < 10; col++ {
+			for i := range 64 {
+				if fb[(row*8+i/8)*ScreenWidth+col*8+i%8] >= 2 {
+					occupied = append(occupied, row*32+col)
+					break
+				}
+			}
+		}
+	}
+	return occupied
 }

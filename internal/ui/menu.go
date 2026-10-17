@@ -38,6 +38,8 @@ const (
 	pageGames   // the games to launch: the last played, and those of the games folder
 	pageFolders // the folders of the games and of the boot ROMs
 	pageCamera  // what the Game Boy Camera sees, with that cartridge only
+	pageLink    // the link cable: host, join, unplug (see link_menu.go)
+	pageJoin    // the gbe hosting on the local network, to join one
 )
 
 // Start page entries.
@@ -63,6 +65,7 @@ const (
 	itemCamera // with a Game Boy Camera only (see mainEntries)
 	itemSound
 	itemFolders
+	itemLink
 	itemSpeed
 	itemLanguage
 	itemSaveState
@@ -352,6 +355,9 @@ func (m *menu) move(g *Game, delta int) {
 	case pageCamera:
 		m.moveCamera(g, delta)
 		return
+	case pageLink:
+		m.moveLink(g, delta)
+		return
 	}
 	n := m.itemCount(g)
 	m.cursor = (m.cursor + n + delta) % n
@@ -375,6 +381,10 @@ func (m *menu) itemCount(g *Game) int {
 		return soundItems
 	case pageCamera:
 		return len(cameraEntries(g))
+	case pageLink:
+		return len(linkEntries(g))
+	case pageJoin:
+		return len(g.foundGames()) + 1 // and Back
 	case pageFolders:
 		if m.tab == tabGamesDir {
 			return gamesDirItems
@@ -412,6 +422,8 @@ func (m *menu) backToMain() {
 		cursor = itemGames
 	case pageCamera:
 		cursor = itemCamera
+	case pageLink:
+		cursor = itemLink
 	}
 	m.page, m.tab, m.cursor, m.notice, m.width = pageMain, tabKeyboard, cursor, "", 0
 }
@@ -508,9 +520,12 @@ func (m *menu) update(g *Game) {
 		case pageSwitch:
 			g.menuSound(menusound.Back)
 			m.keepPlaying(g)
-		case pageControls, pageDisplay, pageSound, pageGames, pageFolders, pageCamera:
+		case pageControls, pageDisplay, pageSound, pageGames, pageFolders, pageCamera, pageLink:
 			g.menuSound(menusound.Back)
 			m.backToMain()
+		case pageJoin:
+			g.menuSound(menusound.Back)
+			m.showLink(g)
 		default:
 			g.menuSound(menusound.Back)
 			m.open = false
@@ -869,6 +884,14 @@ func (m *menu) activate(g *Game) {
 		m.activateCamera(g)
 		return
 	}
+	if m.page == pageLink {
+		m.activateLink(g)
+		return
+	}
+	if m.page == pageJoin {
+		m.activateJoin(g)
+		return
+	}
 	if m.page == pageFolders && m.tab == tabGamesDir {
 		switch m.cursor {
 		case gamesDirChoose:
@@ -953,6 +976,8 @@ func (m *menu) activate(g *Game) {
 		m.page, m.cursor, m.width = pageControls, 0, 0
 	case itemCamera:
 		m.showCamera(g)
+	case itemLink:
+		m.showLink(g)
 	case itemSaveState:
 		g.saveState()
 		m.open = false
@@ -1027,6 +1052,10 @@ func (m *menu) view(g *Game) menuView {
 		return m.foldersView(g)
 	case pageCamera:
 		return m.cameraView(g)
+	case pageLink:
+		return m.linkView(g)
+	case pageJoin:
+		return m.joinView(g)
 	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}
@@ -1181,6 +1210,7 @@ func (m *menu) lines(g *Game) (title string, items []string, footer string) {
 		l.T("menu.camera"),
 		l.T("menu.sound"),
 		l.T("menu.folders"),
+		l.T("menu.link"),
 		l.T("menu.fast_forward", g.cfg.FastForwardSpeed),
 		l.T("menu.language", l.Name),
 		l.T("menu.save_state"),

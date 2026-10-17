@@ -20,12 +20,15 @@ import (
 //     transfer at once, each shifts in 0xFF (as in SameBoy).
 //
 // The two emulators run each at their own pace, so the master waits for the
-// answer when its transfer ends (at most linkTimeout). An armed slave is
-// answered at once by the goroutine reading the connection, even between
-// two frames, so the master hardly waits. A transfer reaching a slave that
-// is not armed yet is held for linkWindow T-cycles of the slave, in case
-// the slave's game is only about to arm it: on the hardware, the master
-// would have started later.
+// answer when its transfer ends (at most linkTimeout). A slave is answered
+// as of when its game has left SB and SC alone for linkSettle T-cycles:
+// games often arm the port and then write the byte to send (Dr. Mario arms
+// with 0x66, then writes the echo of the last byte), which on the hardware
+// they have time to do before the master starts the next transfer. Once
+// settled, it is answered at once by the goroutine reading the connection,
+// even between two frames, so the master hardly waits. Before that, the
+// transfer is held, until the port settles or, if it is not armed, for
+// linkWindow T-cycles in case the game is about to arm it.
 
 // Messages are 3 bytes: the kind, a sequence number and the data. The
 // answer has the sequence number of the transfer, so that a late answer to
@@ -45,6 +48,11 @@ const linkTimeout = 200 * time.Millisecond
 // armed is held: about 4 transfers at 8192 Hz.
 const linkWindow = 4 * 8 * 512
 
+// linkSettle is how many T-cycles a slave's game leaves SB and SC alone
+// before its answer is taken: Dr. Mario writes SB about 180 T-cycles after
+// arming the port, and its master waits about 5400 between two transfers.
+const linkSettle = 2048
+
 // Link is a link cable plugged into another Game Boy, over a connection
 // that carries the messages (see internal/link). It may be moved from one
 // GameBoy to another, but plugged into one at a time (see SetLink).
@@ -57,8 +65,9 @@ type Link struct {
 	once   sync.Once
 
 	mu sync.Mutex // guards the fields below, shared with the reader
-	// armed reports whether the serial port is armed as a slave: the
-	// reader then answers a transfer with sb, disarming it.
+	// armed reports whether the serial port is armed as a slave, and
+	// settled (see linkSettle): the reader then answers a transfer with sb,
+	// disarming it.
 	armed bool
 	// master reports whether the serial port is shifting with its internal
 	// clock: the reader then answers a transfer with 0xFF.
@@ -176,7 +185,7 @@ func (l *Link) write() {
 // or shifting as a master.
 func (l *Link) setPort(sc, sb byte) {
 	l.mu.Lock()
-	l.armed = sc&0x81 == 0x80
+	l.armed = false // until settled
 	l.master = sc&0x81 == 0x81
 	l.sb = sb
 	l.mu.Unlock()
@@ -184,7 +193,15 @@ func (l *Link) setPort(sc, sb byte) {
 
 func (l *Link) setSB(sb byte) {
 	l.mu.Lock()
+	l.armed = false // until settled
 	l.sb = sb
+	l.mu.Unlock()
+}
+
+// setArmed tells the reader that the port armed as a slave has settled.
+func (l *Link) setArmed() {
+	l.mu.Lock()
+	l.armed = true
 	l.mu.Unlock()
 }
 
@@ -232,8 +249,8 @@ func (s *Serial) plug(l *Link) {
 	if s.link != nil && s.waiting {
 		s.remaining = 4 // ends with the next M-cycle
 	}
-	s.link, s.waiting, s.held, s.stalled = l, false, false, false
-	s.seenSB, s.seenSC = s.sb, s.sc
+	s.link, s.waiting, s.held, s.stalled, s.settled = l, false, false, false, false
+	s.seenSB, s.seenSC, s.writtenAt = s.sb, s.sc, s.bus.cycles
 	if l != nil {
 		l.setPort(s.sc, s.sb)
 	}
@@ -254,13 +271,11 @@ func (s *Serial) written() {
 	}
 	scChanged := s.sc != s.seenSC
 	s.seenSB, s.seenSC = s.sb, s.sc
-	switch {
-	case !scChanged:
-		s.link.setSB(s.sb)
-	case s.sc&0x81 == 0x80:
-		s.armLinked()
-	default:
+	s.writtenAt, s.settled = s.bus.cycles, false
+	if scChanged {
 		s.link.setPort(s.sc, s.sb)
+	} else {
+		s.link.setSB(s.sb)
 	}
 }
 
@@ -276,15 +291,26 @@ func (s *Serial) startLinked() {
 	s.link.send(msgTransfer, s.seq, s.sb)
 }
 
-// armLinked has the serial port wait for a transfer from the other side.
-func (s *Serial) armLinked() {
+// settle tells the reader, or the transfer held, that the port armed as a
+// slave has settled: it has been left alone for linkSettle T-cycles.
+func (s *Serial) settle() {
+	s.settled = true
 	if s.held {
-		s.held = false
-		s.link.send(msgReply, s.heldSeq, s.sb)
-		s.complete(s.heldData)
+		s.answerHeld()
 		return
 	}
-	s.link.setPort(s.sc, s.sb)
+	s.link.setArmed()
+}
+
+// answerHeld answers the transfer held, as the port is now.
+func (s *Serial) answerHeld() {
+	s.held = false
+	if s.sc&0x81 != 0x80 { // not armed: nothing shifted
+		s.link.send(msgReply, s.heldSeq, 0x00)
+		return
+	}
+	s.link.send(msgReply, s.heldSeq, s.sb)
+	s.complete(s.heldData)
 }
 
 // complete ends a transfer, shifting in b.
@@ -292,7 +318,7 @@ func (s *Serial) complete(b byte) {
 	s.sb = b
 	s.sc &^= 0x80
 	s.bus.requestInterrupt(IntSerial)
-	s.seenSB, s.seenSC = s.sb, s.sc
+	s.seenSB, s.seenSC, s.settled = s.sb, s.sc, false
 	if s.link != nil {
 		s.link.setPort(s.sc, s.sb)
 	}
@@ -305,10 +331,11 @@ func (s *Serial) poll() {
 		s.written()
 	}
 	s.drain()
-	if s.held && s.bus.cycles-s.heldAt >= linkWindow {
-		// Not armed in time: nothing shifted.
-		s.held = false
-		s.link.send(msgReply, s.heldSeq, 0x00)
+	switch {
+	case !s.settled && s.sc&0x81 == 0x80 && s.bus.cycles-s.writtenAt >= linkSettle:
+		s.settle()
+	case s.held && s.bus.cycles-s.heldAt >= linkWindow:
+		s.answerHeld() // not armed or not settled in time: as it is
 	}
 	if s.waiting && s.bus.cycles >= s.linkEnd {
 		s.complete(s.awaitAnswer())
@@ -332,11 +359,11 @@ func (s *Serial) handle(e linkEvent) {
 			s.answered, s.answer = true, e.data
 		}
 	case msgTransfer:
-		// The port was neither armed nor shifting when it came in. It may
+		// The port was neither settled nor shifting when it came in. It may
 		// have changed since.
 		switch {
 		case time.Since(e.at) > linkTimeout: // the master gave up
-		case s.sc&0x81 == 0x80:
+		case s.sc&0x81 == 0x80 && s.settled:
 			s.link.send(msgReply, e.seq, s.sb)
 			s.complete(e.data)
 		case s.sc&0x81 == 0x81:

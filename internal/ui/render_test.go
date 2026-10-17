@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/link"
 	"github.com/ldechoux/gbe/internal/rendertest"
 	"github.com/ldechoux/gbe/internal/rom"
 )
@@ -109,7 +110,16 @@ func TestRenderMenus(t *testing.T) {
 		{"controls_capture", func() { *m = menu{open: true, page: pageControls, cursor: 1, capturing: true} }},
 		{"games_recent", func() { *m = menu{open: true, page: pageGames, tab: tabRecent} }},
 		{"folders_boot_rom", func() { *m = menu{open: true, page: pageFolders, tab: tabBootROM, cursor: bootChoose} }},
+		{"link", func() { *m = menu{open: true, page: pageLink, cursor: linkJoin} }},
+		{"link_join", func() {
+			g.browser = &fakeBrowser{games: []link.Found{
+				{Name: "Laurent-MacBook", Title: "TETRIS", Addr: "192.168.1.20:5555"},
+				{Name: "salon", Addr: "192.168.1.21:5555"},
+			}}
+			*m = menu{open: true, page: pageJoin}
+		}},
 		{"start", func() {
+			g.browser = nil
 			g.stateTime = time.Date(2026, 10, 11, 9, 30, 0, 0, time.UTC)
 			m.showStart()
 		}},

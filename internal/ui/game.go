@@ -181,6 +181,13 @@ type Game struct {
 	cable      CableEnd
 	link       *gb.Link
 	linkHinted bool
+	// linkTarget names the gbe the cable connects to, chosen in the menu.
+	linkTarget string
+	// browser lists the gbe hosting on the local network, while the Join
+	// page is open; browseErr is why it could not.
+	browser   gameBrowser
+	browseErr error
+	cables    cableMakers
 }
 
 // playMode is how the emulation advances on this tick.
@@ -225,6 +232,7 @@ func Run(opts Options) error {
 		rumbleDebug: opts.RumbleDebug,
 		open:        opts.Open,
 		cable:       opts.Cable,
+		cables:      systemCable,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream:      &audioStream{},
@@ -282,6 +290,8 @@ func Run(opts Options) error {
 
 	err = ebiten.RunGame(g)
 	g.closeGame() // so the next launch can resume
+	g.stopBrowsing()
+	g.stopCable()
 	g.camera.closeWebcam()
 	return err
 }
@@ -702,6 +712,9 @@ func (g *Game) speedBadge() string {
 		return fmt.Sprintf(">> x%d", g.cfg.FastForwardSpeed)
 	case playRewind:
 		return "<<"
+	}
+	if g.link != nil {
+		return "LINK" // why rewinding and fast forward do nothing
 	}
 	return ""
 }

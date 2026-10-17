@@ -5,7 +5,8 @@
 #   palettes   gb/palette_{dmg,bgb,sepia,violet}
 #   colorized  gbc/colorized_{tetris,zelda,sml,tetris_leftb}
 #   filters    {gb,gbc}/filter_lcd, gb/filter_{nearest,scale2x,scale3x,mmpx}
-#   scenes     {gb,gbc}/{game_title,menu,save_state_resume} (Captures section)
+#   scenes     {gb,gbc}/{game_title,menu,save_state_resume} (Captures section),
+#              gb/link_join (the link cable, in the quick start: over Dr. Mario)
 #   drop       gb/drop_screen (quick start)
 #   camera     gb/camera_viewfinder, gb/camera_picture (the Game Boy Camera)
 # Writes <out>/{gb,gbc}/<name>.png and .webp (lossless), and
@@ -32,6 +33,7 @@ sml=roms/Super_Mario_Land_World_Rev1.gb
 ladx=roms/Legend_of_Zelda_The_Links_Awakening_DX.gbc
 la=roms/Legend_of_Zelda_The_Links_Awakening.gb
 tetris=roms/Tetris_World_Rev1.gb
+drmario="roms/Dr. Mario (World) (Rev 1).zip"
 # The recent games of the drop screen, the first one selected, with the
 # names the lists show (the file names of the usual collections).
 recent=(
@@ -50,7 +52,7 @@ want hero && roms+=("$sml" "$ladx")
 want palettes && roms+=("$sml")
 want colorized && roms+=("$tetris" "$la" "$sml")
 want filters && roms+=("$sml" "$ladx")
-want scenes && roms+=("$sml" "$ladx")
+want scenes && roms+=("$sml" "$ladx" "$drmario")
 want drop && roms+=("${recent[@]%%=*}")
 want camera && roms+=("$camera")
 for rom in "${roms[@]}"; do
@@ -147,9 +149,13 @@ common=(-scale "${SCALE:-8}" -filter "${FILTER:-lcd}" -lang "${UI_LANG:-fr}")
 if want scenes; then
 	"$zz" -rom "$sml" -model gb -title-at 200 -out "$out/gb" "${common[@]}"
 	"$zz" -rom "$ladx" -model gbc -title-at 900 -start-at 500 -out "$out/gbc" "${common[@]}"
+	# The Join page of the link cable over Dr. Mario's title screen, a game
+	# for two.
+	"$zz" -link -rom "$drmario" -model gb -title-at 300 -out "$out/gb" "${common[@]}"
 	for c in gb gbc; do
 		for n in game_title menu save_state_resume; do webp "$c/$n"; done
 	done
+	webp gb/link_join
 	endrow
 fi
 if want drop; then

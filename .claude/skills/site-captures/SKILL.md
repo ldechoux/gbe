@@ -16,7 +16,7 @@ l'autre.
 | `palettes` | `gb/palette_{dmg,bgb,sepia,violet}` (640×576) | Le début du niveau 1-1 de Super Mario Land, dans les palettes DMG vert, BGB, Sepia et Violet | Game Boy : 10 palettes |
 | `colorized` | `gbc/colorized_{tetris,zelda,sml,tetris_leftb}` (640×576) | Jeux DMG colorisés par la Game Boy Color : Tetris, Link's Awakening, Super Mario Land avec la palette choisie par la console, et Tetris avec la combinaison Gauche + B | Les jeux Game Boy en couleurs |
 | `filters` | `{gb,gbc}/filter_lcd` (480×360), `gb/filter_{nearest,scale2x,scale3x,mmpx}` (480×432) | Des détails en taille réelle : le filtre LCD en ×15 (hauteur d'un écran 4K), les autres en ×8 | Grand écran |
-| `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement ; en ×8 avec le filtre LCD | Captures (`#captures`) |
+| `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}`, `gb/link_join` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement, et la page « Rejoindre » du câble link sur l'écran titre de Dr. Mario ; en ×8 avec le filtre LCD | Captures (`#captures`) ; `link_join` dans « Démarrage rapide » (`figure.drop-shot`) |
 | `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents et « Tous les jeux » | Télécharger, « Démarrage rapide » (`figure.drop-shot`) |
 | `camera` | `gb/camera_viewfinder` (640×576), `gb/camera_picture` (512×448) | Le viseur de la Game Boy Camera, qui voit la mascotte du skill (un poussin fan de chiptune), et la mascotte elle-même | Game Boy Camera (`#camera`) |
 
@@ -59,7 +59,11 @@ Toutes tournent sans boot ROM. Les appuis sont tenus pendant 10 images, de l'ima
   fonction du raccourci de capture. L'écran de reprise est pris avant la première image, avec
   la date du jour. L'écran titre est à l'image 200 pour Super Mario Land, et à l'image 900
   pour Link's Awakening DX, après Start à l'image 500. Le menu Pause est ouvert ensuite sur
-  l'écran titre. Le harnais donne au menu un jeu récent : « Jeux... » est actif.
+  l'écran titre. Le harnais donne au menu un jeu récent : « Jeux... » est actif. Enfin,
+  `gb/link_join` (mode `-link` du harnais) : Dr. Mario en DMG, un jeu à deux, à l'écran titre
+  (image 300, « 2 PLAYER GAME » visible), sous la page « Rejoindre » du câble link. Elle
+  liste deux gbe fictifs trouvés sur le réseau local : « Mac-du-salon », qui héberge
+  DR.MARIO, et « PC-bureau », sans jeu (`captureBrowser`).
 - **`drop`** : un `Game` sans ROM, en ×8. Il n'a pas de jeu, donc pas de filtre : il est
   dans la palette par défaut (DMG vert). Ses jeux récents sont, dans l'ordre, Link's
   Awakening DX (sélectionné), Super Mario Land, Tetris DX, Wario Land 3 et Donkey Kong
@@ -86,6 +90,7 @@ Toutes tournent sans boot ROM. Les appuis sont tenus pendant 10 images, de l'ima
 
 - Les ROMs, absentes de git : dans `roms/`, `Super_Mario_Land_World_Rev1.gb`,
   `Legend_of_Zelda_The_Links_Awakening_DX.gbc`, `Legend_of_Zelda_The_Links_Awakening.gb`,
+  `Dr. Mario (World) (Rev 1).zip`,
   `Tetris_World_Rev1.gb`, `Tetris_DX.zip`, `Wario_Land_3.zip`, `Donkey_Kong_Country.zip` et
   `Game Boy Camera (USA, Europe) (SGB Enhanced).zip`. Le script ne vérifie que celles des
   groupes demandés.
@@ -137,7 +142,8 @@ Le harnais ignore les manettes branchées sur la machine (`noPads`) : le menu s'
 toujours comme sans manette, sans « Start+Select: menu » dans son aide.
 
 Si le harnais ne compile plus, c'est que l'API qu'il utilise a changé : `renderFrame`,
-`menu.show`, `menu.showStart`, `started`, `stateTime`, `frame`, `Config.Recent`, `padReader`, la
+`menu.show`, `menu.showStart`, `pageJoin`, `Game.browser`, `link.Found`, `started`, `stateTime`,
+`frame`, `Config.Recent`, `padReader`, la
 construction de `Game` faite par `ui.Run`, `rom.Open`, `rom.Read`, `ui.Screenshot`,
 `ui.Palettes`, `SetCompatPalette`, `scaler.Pipeline`, `readImage`, `sensorImage` ou
 `Cartridge.SetCameraSource`. Adapter `harness/`, et mettre le skill à jour
@@ -174,6 +180,7 @@ Contrôler :
 - les détails des filtres montrent bien leur sujet : MARI, le bateau, la pente ;
 - le menu est à jour (les entrées actuelles de `internal/ui/menu.go`) et son texte est
   net : en ×8, il est dessiné en ×3. « Jeux... » est actif, et non grisé ;
+- la page « Rejoindre » montre les deux gbe fictifs, le premier sélectionné, et « Retour » ;
 - la grille LCD est visible sur les scènes ;
 - l'écran de reprise affiche « PARTIE EN COURS » et la date du jour ;
 - l'écran de dépôt montre la cartouche, l'invitation « Deposez une ROM Game Boy ici », les

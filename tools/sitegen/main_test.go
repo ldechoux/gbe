@@ -25,8 +25,8 @@ func TestBuildPage(t *testing.T) {
 		}},
 	}
 	p := buildPage("o/r", releases)
-	if len(p.Releases) != 2 {
-		t.Fatalf("%d releases listed, drafts must be hidden", len(p.Releases))
+	if n := len(p.Releases) + len(p.Older); n != 2 {
+		t.Fatalf("%d releases listed, drafts must be hidden", n)
 	}
 	if p.Latest == nil || p.Latest.TagName != "v0.1.0" {
 		t.Fatalf("latest = %+v, want the newest stable release", p.Latest)
@@ -48,8 +48,7 @@ func TestBuildPage(t *testing.T) {
 	}
 }
 
-// Only the latest releases are shown with their notes; the others are
-// linked.
+// Only the latest release is shown with its notes; the others are linked.
 func TestBuildPageOlderReleases(t *testing.T) {
 	var releases []Release
 	for _, tag := range []string{"v0.5.0", "v0.4.0", "v0.3.1", "v0.3.0", "v0.2.0"} {
@@ -63,10 +62,10 @@ func TestBuildPageOlderReleases(t *testing.T) {
 		}
 		return out
 	}
-	if got := tags(p.Releases); !slices.Equal(got, []string{"v0.5.0", "v0.4.0", "v0.3.1"}) {
+	if got := tags(p.Releases); !slices.Equal(got, []string{"v0.5.0"}) {
 		t.Errorf("detailed releases %v", got)
 	}
-	if got := tags(p.Older); !slices.Equal(got, []string{"v0.3.0", "v0.2.0"}) {
+	if got := tags(p.Older); !slices.Equal(got, []string{"v0.4.0", "v0.3.1", "v0.3.0", "v0.2.0"}) {
 		t.Errorf("older releases %v", got)
 	}
 	if p.Latest == nil || p.Latest.TagName != "v0.5.0" {

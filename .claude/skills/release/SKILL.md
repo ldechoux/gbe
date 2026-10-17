@@ -105,7 +105,7 @@ Les fonctionnalités expérimentales sont présentées comme telles, avec la mê
 que le README.
 
 **Sur le site** : la section « Notes de version » de https://ldechoux.github.io/gbe/
-affiche en détail les notes des **trois dernières releases publiées**. Les précédentes n'y
+affiche en détail les notes de la **dernière release publiée**, sur toute la largeur. Les précédentes n'y
 sont qu'un lien vers leur page GitHub. `tools/sitegen` applique cette règle à chaque
 redéploiement (constante `detailedReleases`), donc rien n'est à modifier à la main. Une
 note doit se suffire à elle-même : ne pas renvoyer à une note plus ancienne, qui ne sera

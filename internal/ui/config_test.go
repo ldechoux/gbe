@@ -19,7 +19,8 @@ func TestLoadConfigIgnoresInvalidEntries(t *testing.T) {
 		"volume": 2,
 		"keys": {"A": "K", "Turbo": "L"},
 		"gamepad": {"A": "NoSuchButton", "Turbo": "`+padButtonNames[std(ebiten.StandardGamepadButtonRightTop)]+`"},
-		"screenshot": {"key": "ShiftLeft"}
+		"screenshot": {"key": "ShiftLeft"},
+		"link_address": "192.168.1.300"
 	}`), 0o644)
 	cfg, err := LoadConfig(path)
 	if err != nil {
@@ -37,6 +38,21 @@ func TestLoadConfigIgnoresInvalidEntries(t *testing.T) {
 	}
 	if cfg.Screenshot != def.Screenshot {
 		t.Errorf("invalid snapshot hotkey kept: %v", cfg.Screenshot)
+	}
+	if cfg.LinkAddress != "" {
+		t.Errorf("invalid link address kept: %q", cfg.LinkAddress)
+	}
+}
+
+func TestLoadConfigLinkAddress(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := DefaultConfig()
+	cfg.LinkAddress = "192.168.1.20"
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	if loaded, err := LoadConfig(path); err != nil || loaded.LinkAddress != "192.168.1.20" {
+		t.Errorf("link address %q, %v", loaded.LinkAddress, err)
 	}
 }
 

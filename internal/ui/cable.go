@@ -128,8 +128,8 @@ func (g *Game) foundGames() []link.Found {
 // it when the connection ends. It runs even while the menu is open, so the
 // other side need not wait.
 func (g *Game) pollCable() {
-	if g.browser != nil && (!g.menu.open || g.menu.page != pageJoin) {
-		g.stopBrowsing() // the menu was closed on the Join page
+	if g.browser != nil && (!g.menu.open || g.menu.page != pageJoin && g.menu.page != pageAddress) {
+		g.stopBrowsing() // the menu was closed on the Join or Address page
 	}
 	if g.cable == nil {
 		return

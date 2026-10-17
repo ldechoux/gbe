@@ -58,6 +58,9 @@ var letterKeys = func() []ebiten.Key {
 	for k := ebiten.KeyDigit0; k <= ebiten.KeyDigit9; k++ {
 		keys = append(keys, k)
 	}
+	for k := ebiten.KeyNumpad0; k <= ebiten.KeyNumpad9; k++ {
+		keys = append(keys, k)
+	}
 	return keys
 }()
 
@@ -65,14 +68,20 @@ var letterKeys = func() []ebiten.Key {
 var keyName = ebiten.KeyName
 
 // keyLetter is the letter or digit of k on the active layout (the A key of
-// a QWERTY keyboard is Q on an AZERTY one), 0 for none.
+// a QWERTY keyboard is Q on an AZERTY one), 0 for none. A digit key is its
+// digit, whatever its name: on an AZERTY keyboard, the digits are shifted,
+// and the keys of 2, 7, 9 and 0 are named after the letters é, è, ç and à.
 func keyLetter(k ebiten.Key) rune {
+	switch {
+	case k >= ebiten.KeyDigit0 && k <= ebiten.KeyDigit9:
+		return '0' + rune(k-ebiten.KeyDigit0)
+	case k >= ebiten.KeyNumpad0 && k <= ebiten.KeyNumpad9:
+		return '0' + rune(k-ebiten.KeyNumpad0)
+	}
 	if r := []rune(keyName(k)); len(r) == 1 && (unicode.IsLetter(r[0]) || unicode.IsDigit(r[0])) {
 		return unicode.ToLower(r[0])
 	}
 	switch {
-	case k >= ebiten.KeyDigit0 && k <= ebiten.KeyDigit9: // AZERTY: the digits are shifted
-		return '0' + rune(k-ebiten.KeyDigit0)
 	case k >= ebiten.KeyA && k <= ebiten.KeyZ: // no name yet (tests)
 		return 'a' + rune(k-ebiten.KeyA)
 	}

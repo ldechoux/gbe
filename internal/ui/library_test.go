@@ -336,9 +336,11 @@ func TestFastRepeatTick(t *testing.T) {
 // is the key of A on a QWERTY one.
 func TestKeyLetter(t *testing.T) {
 	defer func(f func(ebiten.Key) string) { keyName = f }(keyName)
-	names := map[ebiten.Key]string{ebiten.KeyA: "q", ebiten.KeyDigit1: "&", ebiten.KeyM: ","}
+	names := map[ebiten.Key]string{ebiten.KeyA: "q", ebiten.KeyDigit1: "&", ebiten.KeyDigit2: "\u00e9", ebiten.KeyM: ",", ebiten.KeyNumpad7: "7"}
 	keyName = func(k ebiten.Key) string { return names[k] }
-	for k, want := range map[ebiten.Key]rune{ebiten.KeyA: 'q', ebiten.KeyDigit1: '1', ebiten.KeyM: 'm', ebiten.KeyB: 'b'} {
+	for k, want := range map[ebiten.Key]rune{
+		ebiten.KeyA: 'q', ebiten.KeyDigit1: '1', ebiten.KeyDigit2: '2', ebiten.KeyM: 'm', ebiten.KeyB: 'b', ebiten.KeyNumpad7: '7',
+	} {
 		if got := keyLetter(k); got != want {
 			t.Errorf("%v: %q, want %q", k, got, want)
 		}

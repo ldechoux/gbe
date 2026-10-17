@@ -118,6 +118,9 @@ func TestRenderMenus(t *testing.T) {
 			}}
 			*m = menu{open: true, page: pageJoin}
 		}},
+		{"link_address", func() {
+			*m = menu{open: true, page: pageAddress, cursor: addrDigits - 2, addr: addrToDigits("192.168.1.20")}
+		}},
 		{"start", func() {
 			g.browser = nil
 			g.stateTime = time.Date(2026, 10, 11, 9, 30, 0, 0, time.UTC)

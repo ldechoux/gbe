@@ -146,7 +146,11 @@ func (g *Game) closeGame() {
 // startGame runs next, from scratch: nothing of the previous game is kept.
 // When next has a save state, the player is asked whether to resume it.
 func (g *Game) startGame(next *rom.Game) {
+	if g.gb != nil {
+		g.gb.SetLink(nil)
+	}
 	g.gb, g.title, g.romPath = next.Console, next.Title, next.Path
+	g.plugCable()
 	g.savePath, g.statePath = next.SavePath, next.StatePath
 	g.autoModel, g.newConsole = next.AutoModel, next.NewConsole
 	g.pending, g.bootROMPending = nil, false

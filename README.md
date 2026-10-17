@@ -172,6 +172,8 @@ Options utiles :
 | `-audio-filter nom` | Filtre audio : `off`, `soft`, `warm` ou `speaker` (voir [Son](#son)) |
 | `-screenshot-dir chemin` | Dossier des captures d'écran (défaut `~/Pictures/gbe`) |
 | `-config chemin` | Fichier de config (défaut `~/Library/Application Support/gbe/config.json` sur macOS) |
+| `-link-host adresse` | Câble link : attend qu'un autre gbe se connecte, par exemple `:5555` (voir [Câble link](#câble-link)) |
+| `-link-connect hôte:port` | Câble link : se connecte au gbe qui attend à cette adresse, par exemple `192.168.1.20:5555` |
 
 ## Commandes
 
@@ -427,6 +429,34 @@ manettes XInput (Xbox et compatibles) y vibrent, et les entrées sont grisées p
 Sous macOS (manettes Xbox, PlayStation, MFi) et Linux (manettes à retour de force), le test
 permet de vérifier.
 
+## Câble link
+
+Deux gbe se relient par le réseau comme deux Game Boy par un câble link : échanger des
+Pokémon, jouer à Tetris ou Dr. Mario à deux, sur la même machine ou entre deux machines du
+réseau local.
+
+```sh
+gbe -link-host :5555 tetris.gb                   # le premier attend…
+gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
+```
+
+- **Sur la même machine** : `-link-host :5555` d'un côté, `-link-connect 127.0.0.1:5555` de
+  l'autre. L'ordre de lancement n'importe pas : `-link-connect` réessaie chaque seconde.
+- **Branché, débranché** : une notification l'annonce. Si l'un quitte, l'autre continue comme
+  sans câble ; dès qu'il revient, la connexion se refait. Changer de jeu ou redémarrer la
+  console garde le câble.
+- **Pendant une liaison**, le rembobinage, l'avance rapide et le chargement d'état sont
+  refusés : les deux consoles avanceraient chacune de leur côté. Reprendre un état au
+  lancement du jeu reste possible.
+- **Réseau** : prévu pour un réseau local. Chaque octet échangé demande un aller-retour, et la
+  console qui mène l'échange l'attend : par Internet, les jeux qui échangent beaucoup
+  ralentiraient. Le port TCP doit être ouvert dans le pare-feu de la machine qui attend.
+- **Ce qui se passe** : la console qui mène un transfert (horloge interne) envoie son octet ;
+  l'autre répond avec le sien si elle est prête (horloge externe), sinon 0x00 ; si les deux
+  mènent en même temps, chacune reçoit 0xFF, comme sur le matériel. Une console en pause dans
+  le menu ne répond pas : l'autre reçoit 0xFF au bout de 200 ms, et les jeux réessaient.
+- Sans `-link-host` ni `-link-connect`, rien ne change : la boucle d'émulation est la même.
+
 ## Save states
 
 - **À la fermeture** : quand on quitte (menu « Quitter » ou fermeture de la fenêtre), l'état
@@ -636,6 +666,10 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   - PPU : rendu ligne par ligne, en teintes (DMG) ou en couleurs RGB555 (CGB).
   - APU : 4 canaux, sortie à bande limitée (sans repliement des aigus), filtre passe-haut.
   - Timer, joypad, port série, MBC.
+  - Câble link (`link.go`) : le protocole du port série entre deux consoles, sur une
+    connexion quelconque. Pendant une liaison, le frontend appelle `RunLinkedFrame` au
+    lieu de `RunFrame`, qui reste celle du jeu sans câble, à l'identique : la boucle
+    d'émulation est sensible à l'emplacement de son code en mémoire.
   - Game Boy Camera (`camera.go`) : le contrôleur MAC-GBD et un modèle du capteur M64282FP,
     en entiers pour des photos identiques sur toutes les machines. Le frontend lui donne
     l'image à voir (`gb.CameraSource`).
@@ -652,6 +686,8 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   Media Foundation par ses interfaces COM sous Windows. `GBE_WEBCAM=1 go test
   ./internal/webcam` essaie la vraie caméra. En CI, une caméra virtuelle (`v4l2loopback`)
   vérifie la lecture sous Linux, et un runner Windows les appels qui listent les caméras.
+- `internal/link` : le câble link en TCP (`-link-host`, `-link-connect`) : connexion,
+  vérification de la version du protocole, reconnexion.
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.
 

@@ -1,13 +1,35 @@
 package gb
 
-// Serial implements the link port with nothing connected: transfers driven
-// by the internal clock complete after 8 bits and shift in 0xFF. Outgoing
-// bytes are recorded, which is how test ROMs report their results.
+// Serial implements the link port. With nothing connected, transfers driven
+// by the internal clock complete after 8 bits and shift in 0xFF, and
+// outgoing bytes are recorded, which is how test ROMs report their results.
+// With a link cable plugged in, see link.go.
 type Serial struct {
 	bus       *Bus
 	sb, sc    byte
 	remaining int // T-cycles until the current transfer completes
 	Output    []byte
+
+	// The link cable, nil with nothing connected, and the state of the
+	// transfers through it (see link.go).
+	link     *Link
+	seq      byte // of the last transfer started as master
+	waiting  bool // a transfer started as master awaits its answer
+	answered bool // the answer came in: answer
+	answer   byte
+	stalled  bool // the last answer timed out (see linkTimeout)
+	// held reports a transfer from the other side that came in while the
+	// port was not armed (see linkWindow).
+	held              bool
+	heldSeq, heldData byte
+	heldAt            uint64 // the bus cycle it came in
+	// linkEnd is the bus cycle at which the transfer started as master
+	// ends. remaining stays 0 meanwhile: tick, run on every M-cycle, is
+	// left for the transfers with nothing connected.
+	linkEnd uint64
+	// seenSB and seenSC are SB and SC as the cable last saw them (see
+	// written).
+	seenSB, seenSC byte
 }
 
 func (s *Serial) read(addr uint16) byte {

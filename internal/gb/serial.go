@@ -14,6 +14,9 @@ func (s *Serial) read(addr uint16) byte {
 	if addr == 0xFF01 {
 		return s.sb
 	}
+	if s.bus.cgbMode() {
+		return s.sc | 0x7C // bit 1 selects the fast clock
+	}
 	return s.sc | 0x7E
 }
 
@@ -26,6 +29,9 @@ func (s *Serial) write(addr uint16, v byte) {
 	if v&0x81 == 0x81 {
 		s.Output = append(s.Output, s.sb)
 		s.remaining = 8 * 512 // 8192 Hz clock
+		if v&0x02 != 0 && s.bus.cgbMode() {
+			s.remaining = 8 * 16 // 262144 Hz clock
+		}
 	}
 }
 

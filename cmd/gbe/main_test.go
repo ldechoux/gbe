@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"image/png"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/link"
 	"github.com/ldechoux/gbe/internal/ui"
 )
 
@@ -159,5 +162,46 @@ func TestBootROMDirs(t *testing.T) {
 func TestWriteWAVError(t *testing.T) {
 	if err := writeWAV(filepath.Join(t.TempDir(), "missing", "a.wav"), nil, 48000); err == nil {
 		t.Error("written in a missing folder")
+	}
+}
+
+// -link-host and -link-connect hand the window each end of a link cable.
+func TestRunLinkCable(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "c.json")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"-link-host", ":0", "-link-connect", "127.0.0.1:1"}, "one end each"},
+		{[]string{"-link-host", ":0", "-frames", "1", benchROM}, "needs the window"},
+		{[]string{"-link-host", "256.0.0.1:0"}, "listen"},
+	} {
+		if code, _, errs := gbe(t, append([]string{"-config", cfg}, c.args...)...); code != 1 || !strings.Contains(errs, c.want) {
+			t.Errorf("%v: exit %d, %q; want %q", c.args, code, errs, c.want)
+		}
+	}
+
+	defer func(f func(ui.Options) error) { runUI = f }(runUI)
+	var host *link.Cable
+	runUI = func(o ui.Options) error {
+		host = o.Cable.(*link.Cable)
+		// The other end, launched while this one waits.
+		runUI = func(o ui.Options) error {
+			for _, c := range []ui.CableEnd{host, o.Cable} {
+				select {
+				case <-c.Links():
+				case <-time.After(5 * time.Second):
+					return errors.New("not connected")
+				}
+			}
+			return nil
+		}
+		if code, _, errs := gbe(t, "-config", cfg, "-link-connect", host.Addr().String()); code != 0 {
+			return fmt.Errorf("-link-connect: exit %d, %q", code, errs)
+		}
+		return nil
+	}
+	if code, _, errs := gbe(t, "-config", cfg, "-link-host", "127.0.0.1:0"); code != 0 {
+		t.Fatalf("-link-host: exit %d, %q", code, errs)
 	}
 }

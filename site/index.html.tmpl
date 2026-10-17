@@ -30,20 +30,34 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script>
+  // The theme chosen with the button of the top bar, applied before the
+  // page shows so that it does not flash; without a choice, the system's.
+  try {
+    var theme = localStorage.getItem("gbe-theme");
+    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  } catch (e) {}
+</script>
 </head>
 <body>
 
 <header class="topbar">
   <div class="wrap topbar-inner">
     <a class="brand" href="#top">gbe</a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>Menu</button>
     <nav id="site-nav">
       <a href="#fonctionnalites">Fonctionnalités</a>
-      <a href="#captures">Captures</a>
+      <a href="#images">En images</a>
       <a href="#telecharger">Télécharger</a>
       <a href="#notes">Notes de version</a>
       <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">GitHub</a>
     </nav>
+    <div class="topbar-tools">
+      <button class="icon-btn theme-toggle" type="button" aria-label="Thème sombre" aria-pressed="false" hidden>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 12.5A6.5 6.5 0 0 1 7.5 5a6.5 6.5 0 1 0 7.5 7.5Z"/></svg>
+      </button>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" hidden>Menu</button>
+      <a class="btn btn-primary topbar-cta" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
+    </div>
   </div>
 </header>
 
@@ -55,9 +69,10 @@
     <h1>gbe</h1>
     <p class="lead">Un émulateur Game Boy et Game Boy Color pour macOS, Linux et Windows. Déposez une ROM <code>.gb</code> ou <code>.gbc</code>, même compressée en <code>.zip</code>, sur la fenêtre, et jouez : image, son et sauvegardes, tout y est.</p>
     <div class="actions">
-      <a class="btn btn-primary" href="#telecharger">Télécharger{{with .Latest}} {{.TagName}}{{end}}</a>
+      <a class="btn btn-primary" href="#telecharger"><span class="hero-download">Télécharger</span>{{with .Latest}} <span class="size">{{.TagName}}</span>{{end}}</a>
       <a target="_blank" rel="noopener" class="btn" href="https://github.com/{{.Repo}}">Code source</a>
     </div>
+    <p class="hero-note">macOS · Linux · Windows — libre, sous licence Apache 2.0</p>
   </div>
   <div class="consoles" data-carousel aria-roledescription="carrousel" aria-label="Les deux consoles émulées">
     <figure class="console" aria-label="Écran titre d'un jeu Game Boy affiché par gbe">
@@ -83,239 +98,175 @@
   </div>
 </section>
 
+<!-- A band of the features, sliding forever (still without motion). -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    {{range $i := 2}}<span>SAVE STATES</span><span>REMBOBINAGE</span><span>CÂBLE LINK</span><span>{{len $.Palettes}} PALETTES</span><span>GAME BOY COLOR</span><span>FILTRE LCD</span><span>MMPX</span><span>4K</span><span>GAME BOY CAMERA</span><span>MANETTES</span><span>SON STÉRÉO</span><span>VIBRATIONS</span>{{end}}
+  </div>
+</div>
+
+<section id="images" class="reel-section">
+  <div class="wrap section-head">
+    <h2>En images</h2>
+    <p class="section-lead">Captures faites avec le raccourci de gbe, à l'échelle ×8 (1280×1152) et avec le filtre LCD. Le rail s'arrête au survol.</p>
+  </div>
+  <div class="reel" tabindex="0" aria-label="Captures de gbe">
+    <div class="reel-track">
+      {{range $i := 2}}
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gb/game_title.webp" width="1280" height="1152" loading="lazy" alt="Écran titre de Super Mario Land dans gbe, aux couleurs de la palette DMG verte, avec la grille du filtre LCD"><figcaption>Super Mario Land</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gbc/game_title.webp" width="1280" height="1152" loading="lazy" alt="Écran titre de Zelda: Link's Awakening DX en couleurs dans gbe, avec la grille du filtre LCD"><figcaption>Zelda: Link's Awakening DX</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gb/menu.webp" width="1280" height="1152" loading="lazy" alt="Menu de pause de gbe au-dessus de l'écran titre de Super Mario Land, aux couleurs de la palette DMG verte"><figcaption>Menu de pause (Échap), aux couleurs de la palette</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gb/link_join.webp" width="1280" height="1152" loading="lazy" alt="Page Rejoindre du câble link de gbe, au-dessus de l'écran titre de Dr. Mario : deux gbe trouvés sur le réseau local, puis l'entrée Saisir une adresse"><figcaption>Câble link : les gbe du réseau local</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gbc/menu.webp" width="1280" height="1152" loading="lazy" alt="Menu de pause de gbe en noir et blanc au-dessus de l'écran titre de Zelda: Link's Awakening DX"><figcaption>Sur un jeu Game Boy Color, le menu est en noir et blanc</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gb/drop_screen.webp" width="1280" height="1152" loading="lazy" alt="Écran d'accueil de gbe lancé sans ROM : une cartouche en pixel art, l'invitation à déposer une ROM et la liste des jeux récents"><figcaption>Lancé sans ROM : déposez un jeu, ou relancez l'un des derniers</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gb/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Super Mario Land, gbe propose de reprendre la partie sauvegardée"><figcaption>Au lancement : reprendre ou recommencer</figcaption></figure>
+      <figure{{if $i}} aria-hidden="true"{{end}}><img src="img/gbc/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Zelda: Link's Awakening DX, gbe propose de reprendre la partie sauvegardée"><figcaption>Les save states, en couleurs aussi</figcaption></figure>
+      {{end}}
+    </div>
+  </div>
+</section>
+
 <section id="fonctionnalites" class="wrap">
-  <h2>Fonctionnalités</h2>
-  <!-- The detailed sections that follow, which the top menu leaves out. -->
-  <nav class="toc" aria-label="Fonctionnalités en détail">
-    <span>En détail :</span>
-    <a href="#palettes">Palettes</a>
-    <a href="#gbc">Game Boy Color</a>
-    <a href="#ecran">Grand écran</a>
-    <a href="#camera">Game Boy Camera</a>
-  </nav>
-  <div class="grid features">
-    <article class="card">
-      <h3>Émulation fidèle</h3>
+  <div class="section-head">
+    <h2>Ce que fait gbe</h2>
+    <nav class="toc" aria-label="Chapitres">
+      <a href="#jouer">Jouer</a><a href="#palettes">Palettes</a><a href="#gbc">Game Boy Color</a><a href="#ecran">Grand écran</a><a href="#link">À deux</a><a href="#camera">Caméra</a>
+    </nav>
+  </div>
+
+  <article class="chapter" id="jouer">
+    <div class="chapter-text">
+      <p class="chapter-num">01 · Jouer</p>
+      <h2>Comme sur la console</h2>
       <p>Processeur, écran, son et manette se comportent comme sur la console, en mode Game Boy comme en mode Game Boy Color. gbe réussit les ROMs de test de référence de la communauté (blargg, dmg-acid2, cgb-acid2), qui vérifient le processeur, les timings et l'affichage au pixel près.</p>
-    </article>
-    <article class="card">
-      <h3>Son stéréo</h3>
-      <p>Les quatre voies du Game Boy en stéréo, avec un son propre, sans sifflements parasites dans les aigus. La page Son du menu l'adapte : au casque, chaque oreille entend un peu l'autre côté, ce qui fatigue moins ; des filtres adoucissent les aigus ou imitent le petit haut-parleur de la console. Les menus font aussi de petits bruitages, à la façon de la Game Boy.</p>
-    </article>
-    <article class="card">
-      <h3>Cartouches</h3>
-      <p>gbe gère les cartouches de la grande majorité des jeux (MBC1, MBC2, MBC5, et MBC3 avec son horloge, celle de Pokémon Or et Argent), et la <a href="#camera">Game Boy Camera</a>, encore expérimentale sous Linux et Windows. Une ROM se lance en la déposant sur la fenêtre ou en ligne de commande, et une archive <code>.zip</code> n'est jamais modifiée. Les jeux qui sauvegardent sur leur cartouche gardent leur progression dans un fichier <code>.sav</code>, à côté de la ROM.</p>
-    </article>
-    <article class="card">
-      <h3>Save states et rembobinage</h3>
-      <p>La partie est enregistrée en quittant. Au lancement suivant, gbe propose de reprendre là où vous en étiez ou de recommencer. En jeu, maintenez la touche Retour arrière (⌫) pour remonter jusqu'à 10 secondes en arrière, et Tab pour accélérer le jeu (×2 à ×8) et passer les dialogues.</p>
-    </article>
-    <article class="card">
-      <h3>Câble link</h3>
-      <p>Deux gbe se relient par le réseau comme deux consoles par un câble link : échangez vos Pokémon, ou affrontez-vous à Tetris et Dr. Mario, sur le même ordinateur ou entre deux machines de la maison. Dans le menu, l'un choisit «&nbsp;Héberger une partie&nbsp;», l'autre «&nbsp;Rejoindre une partie&nbsp;» et le retrouve dans la liste, sans adresse à taper (ou la saisit, si le réseau cache la recherche).</p>
-    </article>
-    <article class="card">
-      <h3>Grand écran</h3>
-      <p>Du plein écran Full HD à la 4K, des filtres agrandissent l'image en gardant le charme des pixels : grille de l'écran LCD d'origine, pixels nets, ou lissage des diagonales avec Scale2x, Scale3x et MMPX. <a href="#ecran">Voir les filtres</a>.</p>
-    </article>
-    <article class="card">
-      <h3>Clavier et manettes</h3>
-      <p>Manettes Xbox, PlayStation et Switch Pro reconnues dès le branchement. Clavier et manette se configurent chacun dans leur onglet du menu, qui affiche les noms selon votre disposition de clavier (AZERTY, QWERTZ…).</p>
-    </article>
-    <article class="card">
-      <h3>Captures d'écran</h3>
-      <p>Cmd+F2 (Ctrl+F2 hors macOS) enregistre une image PNG dans le dossier Images/gbe, à la taille de la fenêtre, avec le filtre d'affichage choisi. Le raccourci se change lui aussi dans le menu.</p>
-    </article>
-    <article class="card">
-      <h3>Vibrations</h3>
-      <p>Les cartouches à moteur, comme Pokémon Pinball ou Perfect Dark, font vibrer la manette avec l'intensité du moteur de la cartouche. Les autres jeux peuvent vibrer aussi, de façon encore expérimentale : gbe devine les explosions et les chocs d'après les bruitages, et quand l'écran tremble ou flashe. Les vibrations s'activent, se règlent en intensité et se testent dans l'onglet Manette du menu, et s'arrêtent en pause ou pendant le rembobinage.</p>
-    </article>
-    <article class="card">
-      <h3>Français et anglais</h3>
-      <p>L'interface est disponible en français et en anglais : la langue se choisit dans le menu. Ajouter une langue ne demande qu'un fichier de traduction.</p>
-    </article>
-  </div>
-</section>
-
-<section id="palettes" class="wrap">
-  <h2>Game Boy : {{len .Palettes}} palettes</h2>
-  <p class="section-lead">Les jeux Game Boy n'affichent que quatre teintes. gbe les colore avec la palette de votre choix, du vert de la console d'origine au noir et blanc : changez-la dans le menu, qui montre l'aperçu en direct, ou avec la touche P. Ils peuvent aussi être colorisés comme sur une Game Boy Color (voir plus bas).</p>
-  <ul class="palettes">
-    {{range .Palettes}}
-    <li>
-      <span class="swatches" aria-hidden="true">{{range .Colors}}<span style="background:{{hex .}}"></span>{{end}}</span>
-      <span class="palette-name">{{.Name}}</span>
-    </li>
-    {{end}}
-  </ul>
-  <div class="grid palette-shots">
-    <figure>
-      <img class="pixelated" src="img/gb/palette_dmg.webp" width="640" height="576" loading="lazy" alt="Super Mario Land, palette DMG verte">
-      <figcaption>DMG vert</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gb/palette_bgb.webp" width="640" height="576" loading="lazy" alt="Super Mario Land, palette BGB">
-      <figcaption>BGB</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gb/palette_sepia.webp" width="640" height="576" loading="lazy" alt="Super Mario Land, palette Sepia">
-      <figcaption>Sepia</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gb/palette_violet.webp" width="640" height="576" loading="lazy" alt="Super Mario Land, palette Violet">
-      <figcaption>Violet</figcaption>
-    </figure>
-  </div>
-</section>
-
-<section id="gbc" class="wrap">
-  <h2>Game Boy Color</h2>
-  <p class="section-lead">Les jeux Game Boy Color, et ceux compatibles avec les deux consoles, démarrent automatiquement en couleurs. gbe émule tout ce que la Game Boy Color ajoute à la Game Boy : ses 32 768 couleurs, sa mémoire supplémentaire, son mode double vitesse et son animation de démarrage.</p>
-  <div class="grid features">
-    <article class="card">
-      <h3>Couleurs d'origine</h3>
-      <p>L'écran de la Game Boy Color était plus pâle que les nôtres. Par défaut, gbe corrige les couleurs pour retrouver ce rendu ; la touche P ou le menu affichent les couleurs vives, sans correction.</p>
-    </article>
-    <article class="card">
-      <h3>Choix de la console</h3>
-      <p>gbe choisit automatiquement la console d'après la cartouche. Un jeu compatible avec les deux peut aussi tourner sur la Game Boy d'origine, en quatre teintes avec votre palette, avec l'option <code>-model gb</code> en ligne de commande.</p>
-    </article>
-    <article class="card">
-      <h3>Save states</h3>
-      <p>Les save states fonctionnent aussi en couleurs. Une partie sauvegardée reprend sur la console où elle a été jouée, même si vous avez changé de réglage entre-temps ; « Recommencer » relance le jeu sur la console choisie dans les réglages.</p>
-    </article>
-  </div>
-  <h3 class="subhead">Les jeux Game Boy en couleurs</h3>
-  <p class="section-lead">Comme une vraie Game Boy Color, gbe peut coloriser les jeux Game Boy : activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code>. Les jeux Nintendo reçoivent la palette prévue pour eux, les autres une palette par défaut. Les 12 palettes que la console offrait en maintenant une direction (avec A ou B) au démarrage se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Si vous avez la boot ROM de la Game Boy Color (son programme de démarrage, non fourni), l'animation s'affiche et ces combinaisons se font pendant le logo, comme sur la console.</p>
-  <div class="grid palette-shots">
-    <figure>
-      <img class="pixelated" src="img/gbc/colorized_tetris.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris colorisé en jaune et rouge">
-      <figcaption>Tetris</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gbc/colorized_zelda.webp" width="640" height="576" loading="lazy" alt="Écran titre de Zelda: Link's Awakening colorisé en rose et rouge">
-      <figcaption>Zelda: Link's Awakening</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gbc/colorized_sml.webp" width="640" height="576" loading="lazy" alt="Super Mario Land colorisé, ciel bleu et sol jaune">
-      <figcaption>Super Mario Land</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gbc/colorized_tetris_leftb.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris en niveaux de gris">
-      <figcaption>Tetris, palette Gauche+B</figcaption>
-    </figure>
-  </div>
-</section>
-
-<section id="ecran" class="wrap">
-  <h2>Grand écran</h2>
-  <p class="section-lead">L'image de la Game Boy ne fait que 160×144 pixels. Pour l'afficher sur une télévision ou un écran 4K, l'entrée « Filtre » du menu, ou l'option <code>-filter</code>, choisit comment l'agrandir. Les filtres tournent sur la carte graphique : même en 4K, le jeu reste à 60 images par seconde. F11 passe en plein écran, et gbe s'en souvient au lancement suivant.</p>
-  <h3 class="subhead">LCD : l'écran d'origine</h3>
-  <p class="section-lead">Le filtre LCD reproduit la grille de points de la console, séparés par un fin interstice. Sur Game Boy Color, chaque point se divise en bandes rouge, verte et bleue, discrètes pour garder la luminosité de l'image. Sur Game Boy, l'interstice prend la teinte la plus claire de la palette, comme un pixel éteint. Ce filtre prend tout son sens en 4K, où chaque pixel de la console occupe 15 pixels de l'écran ; aux petites échelles, la grille s'estompe.</p>
-  <div class="grid lcd-shots">
-    <figure>
-      <img src="img/gbc/filter_lcd.webp" width="480" height="360" loading="lazy" alt="Détail de l'écran titre de Zelda: Link's Awakening DX avec le filtre LCD : un bateau sur les vagues, chaque pixel séparé par une fine grille">
-      <figcaption>Game Boy Color, en 4K : la grille et les bandes de couleur</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/filter_lcd.webp" width="480" height="360" loading="lazy" alt="Détail de Super Mario Land avec le filtre LCD : les lettres MARI en points sombres sur fond vert, la grille visible sur la bande grise">
-      <figcaption>Game Boy, en 4K : la grille sur les points sombres</figcaption>
-    </figure>
-  </div>
-  <h3 class="subhead">Les autres filtres</h3>
-  <p class="section-lead">« Net » agrandit l'image jusqu'à remplir l'écran, sans que certains pixels paraissent plus gros que d'autres : seuls leurs bords sont très légèrement adoucis. Scale2x et Scale3x arrondissent les diagonales sans ajouter de couleurs, et MMPX, un algorithme récent conçu pour le pixel art, lisse les pentes en préservant le texte et les contours. Le filtre par défaut, « Pixels entiers », garde des pixels carrés, tous agrandis autant.</p>
-  <div class="grid palette-shots">
-    <figure>
-      <img src="img/gb/filter_nearest.webp" width="480" height="432" loading="lazy" alt="Détail de Super Mario Land, pixels carrés : la pente de la pyramide en escalier">
-      <figcaption>Pixels entiers (par défaut)</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/filter_scale2x.webp" width="480" height="432" loading="lazy" alt="Le même détail avec Scale2x : la pente de la pyramide lissée">
-      <figcaption>Scale2x</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/filter_scale3x.webp" width="480" height="432" loading="lazy" alt="Le même détail avec Scale3x : la pente et les palmiers lissés">
-      <figcaption>Scale3x</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/filter_mmpx.webp" width="480" height="432" loading="lazy" alt="Le même détail avec MMPX : la pente lissée, Mario et les palmiers préservés">
-      <figcaption>MMPX</figcaption>
-    </figure>
-  </div>
-  <p class="note">L'option « Rémanence » imite l'écran LCD de la console, lent à réagir, en mélangeant chaque image à la précédente. Certains jeux s'en servaient pour rendre des sprites transparents en les faisant clignoter. Deux modes, inspirés de SameBoy : « simple », qui mélange les deux images à parts égales, et « fidèle », plus proche du véritable écran de la console.</p>
-  <h3 class="subhead">Sur la TV, sans câble</h3>
-  <p class="section-lead">Sur Mac, une Apple TV devient un second écran : dans le Centre de contrôle, « Recopie de l'écran », en mode « Utiliser comme écran séparé ». Dans la page Affichage du menu, l'entrée « Ecran » envoie alors gbe sur la TV, et l'entrée « Mode » passe en plein écran, à la manette comme au clavier. Le son suit, et le retard reste assez faible pour jouer, la manette en main depuis le canapé. gbe s'en souvient et se rouvre sur la TV au lancement suivant. Avec un câble HDMI, les mêmes entrées fonctionnent sur tous les systèmes.</p>
-</section>
-
-<section id="camera" class="wrap">
-  <h2>Game Boy Camera</h2>
-  <p class="section-lead">L'accessoire photo de la Game Boy fonctionne dans gbe : la cartouche, son capteur et ses 30 photos, gardées dans le fichier <code>.sav</code> comme sur la vraie cartouche. Ce que voit sa caméra se choisit dans la page «&nbsp;Caméra&nbsp;» du menu, qui n'apparaît qu'avec ce jeu. <strong>Sous Linux et Windows, cette fonctionnalité est encore expérimentale.</strong></p>
-  <div class="grid features">
-    <article class="card">
-      <h3>Une webcam</h3>
-      <p>Celle de votre ordinateur, de votre écran, ou un iPhone avec Continuity Camera sur Mac : choisissez-la dans la liste. Elle ne s'allume que pendant la partie, et l'option «&nbsp;Miroir&nbsp;» retourne l'image pour les selfies.</p>
-    </article>
-    <article class="card">
-      <h3>Une image</h3>
-      <p>Une photo ou un dessin en PNG, JPEG, GIF ou WebP, choisi dans le menu ou simplement déposé sur la fenêtre pendant la partie. gbe en garde le milieu, au format du capteur (128×112 pixels), en niveaux de gris.</p>
-    </article>
-    <article class="card">
-      <h3>Comme la console</h3>
-      <p>Le jeu fait le reste, comme sur la vraie Game Boy Camera : il règle l'exposition tout seul, applique la luminosité et le contraste choisis, et trame l'image en quatre teintes. Sans webcam ni image, la caméra voit du bruit, comme un vrai capteur dans le noir.</p>
-    </article>
-  </div>
-  <div class="grid camera-shots">
-    <figure>
-      <img src="img/gb/camera_picture.webp" width="512" height="448" loading="lazy" alt="Dessin d'un poussin jaune rond, les yeux fermés, avec un casque audio et des notes de musique, sur un fond beige">
-      <figcaption>L'image donnée à la caméra : la mascotte de gbe</figcaption>
-    </figure>
-    <figure>
-      <img class="pixelated" src="img/gb/camera_viewfinder.webp" width="640" height="576" loading="lazy" alt="Le viseur de la Game Boy Camera dans gbe : le poussin tramé en quatre teintes vertes, avec 29 photos restantes et les réglages de luminosité et de contraste">
-      <figcaption>Ce qu'en fait la Game Boy Camera, dans son viseur</figcaption>
-    </figure>
-  </div>
-</section>
-
-<section id="captures" class="wrap">
-  <h2>Captures</h2>
-  <p class="section-lead">Captures faites avec le raccourci de gbe, à l'échelle ×8 (1280×1152) et avec le filtre LCD.</p>
-  <h3 class="shots-head">Game Boy</h3>
-  <div class="grid shots">
-    <figure>
-      <img src="img/gb/game_title.webp" width="1280" height="1152" loading="lazy" alt="Écran titre de Super Mario Land dans gbe, aux couleurs de la palette DMG verte, avec la grille du filtre LCD">
-      <figcaption>Écran de jeu</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/menu.webp" width="1280" height="1152" loading="lazy" alt="Menu de pause de gbe au-dessus de l'écran titre de Super Mario Land, aux couleurs de la palette DMG verte">
-      <figcaption>Menu de pause (Échap), aux couleurs de la palette</figcaption>
-    </figure>
-    <figure>
-      <img src="img/gb/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Super Mario Land, gbe propose de reprendre la partie sauvegardée">
+      <ul class="ticks">
+        <li><strong>Save states.</strong> La partie est enregistrée en quittant. Au lancement suivant, gbe propose de reprendre là où vous en étiez ou de recommencer.</li>
+        <li><strong>Rembobinage et avance rapide.</strong> Maintenez Retour arrière (⌫) pour remonter jusqu'à 10 secondes en arrière, et Tab pour accélérer le jeu (×2 à ×8) et passer les dialogues.</li>
+        <li><strong>Cartouches.</strong> MBC1, MBC2, MBC5, et MBC3 avec son horloge, celle de Pokémon Or et Argent. Une archive <code>.zip</code> n'est jamais modifiée, et les jeux qui sauvegardent sur leur cartouche gardent leur progression dans un fichier <code>.sav</code>, à côté de la ROM.</li>
+      </ul>
+    </div>
+    <figure class="chapter-media">
+      <img class="framed" src="img/gb/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Super Mario Land, gbe propose de reprendre la partie sauvegardée">
       <figcaption>Au lancement : reprendre la partie ou recommencer</figcaption>
     </figure>
-  </div>
-  <h3 class="shots-head">Game Boy Color</h3>
-  <div class="grid shots">
-    <figure>
-      <img src="img/gbc/game_title.webp" width="1280" height="1152" loading="lazy" alt="Écran titre de Zelda: Link's Awakening DX en couleurs dans gbe, avec la grille du filtre LCD">
-      <figcaption>Écran de jeu</figcaption>
+  </article>
+
+  <article class="chapter flip" id="palettes">
+    <div class="chapter-text">
+      <p class="chapter-num">02 · Palettes</p>
+      <h2>Game Boy : {{len .Palettes}} palettes</h2>
+      <p>Les jeux Game Boy n'affichent que quatre teintes. gbe les colore avec la palette de votre choix, du vert de la console d'origine au noir et blanc : changez-la dans le menu, qui montre l'aperçu en direct, ou avec la touche P.</p>
+      <div class="palette-pick" role="group" aria-label="Palette de l'aperçu">
+        {{range .Palettes}}{{if eq .ID "dmg" "bgb" "sepia" "purple"}}
+        <button type="button" class="palette-btn" data-shot="img/gb/palette_{{if eq .ID "purple"}}violet{{else}}{{.ID}}{{end}}.webp" data-name="{{.Name}}" aria-pressed="{{if eq .ID "dmg"}}true{{else}}false{{end}}">
+          <span class="swatches" aria-hidden="true">{{range .Colors}}<span style="background:{{hex .}}"></span>{{end}}</span>
+          {{.Name}}
+        </button>
+        {{end}}{{end}}
+      </div>
+      <p class="note">Toutes les palettes :</p>
+      <ul class="palettes">
+        {{range .Palettes}}<li><span class="swatches" aria-hidden="true">{{range .Colors}}<span style="background:{{hex .}}"></span>{{end}}</span><span class="palette-name">{{.Name}}</span></li>{{end}}
+      </ul>
+    </div>
+    <figure class="chapter-media">
+      <img class="framed pixelated palette-shot" src="img/gb/palette_dmg.webp" width="640" height="576" loading="lazy" alt="Super Mario Land, palette DMG vert">
+      <figcaption class="palette-caption">DMG vert</figcaption>
     </figure>
-    <figure>
-      <img src="img/gbc/menu.webp" width="1280" height="1152" loading="lazy" alt="Menu de pause de gbe en noir et blanc au-dessus de l'écran titre de Zelda: Link's Awakening DX">
-      <figcaption>Menu de pause : sur un jeu Game Boy Color, il s'affiche en noir et blanc</figcaption>
+  </article>
+
+  <article class="chapter" id="gbc">
+    <div class="chapter-text">
+      <p class="chapter-num">03 · Couleurs</p>
+      <h2>Game Boy Color</h2>
+      <p>Les jeux Game Boy Color, et ceux compatibles avec les deux consoles, démarrent automatiquement en couleurs. gbe émule tout ce que la Game Boy Color ajoute : ses 32 768 couleurs, sa mémoire supplémentaire, son mode double vitesse et son animation de démarrage.</p>
+      <ul class="ticks">
+        <li><strong>Couleurs d'origine.</strong> L'écran de la Game Boy Color était plus pâle que les nôtres : gbe corrige les couleurs pour retrouver ce rendu ; la touche P ou le menu affichent les couleurs vives.</li>
+        <li><strong>Choix de la console.</strong> gbe la choisit d'après la cartouche. Un jeu compatible avec les deux peut aussi tourner sur la Game Boy d'origine, en quatre teintes, avec <code>-model gb</code>.</li>
+        <li><strong>Save states.</strong> Une partie sauvegardée reprend sur la console où elle a été jouée ; « Recommencer » relance le jeu sur la console choisie dans les réglages.</li>
+        <li><strong>Les jeux Game Boy en couleurs.</strong> Activez « Coloriser » dans le menu, ou lancez-les avec <code>-model gbc</code> : les jeux Nintendo reçoivent la palette prévue pour eux. Les 12 palettes du démarrage (une direction, avec A ou B) se choisissent dans le menu ou avec P, et gbe s'en souvient pour chaque jeu. Avec la boot ROM de la Game Boy Color (non fournie), l'animation s'affiche et ces combinaisons se font pendant le logo.</li>
+      </ul>
+    </div>
+    <div class="chapter-media mosaic">
+      <figure><img class="framed pixelated" src="img/gbc/colorized_tetris.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris colorisé en jaune et rouge"><figcaption>Tetris</figcaption></figure>
+      <figure><img class="framed pixelated" src="img/gbc/colorized_zelda.webp" width="640" height="576" loading="lazy" alt="Écran titre de Zelda: Link's Awakening colorisé en rose et rouge"><figcaption>Zelda: Link's Awakening</figcaption></figure>
+      <figure><img class="framed pixelated" src="img/gbc/colorized_sml.webp" width="640" height="576" loading="lazy" alt="Super Mario Land colorisé, ciel bleu et sol jaune"><figcaption>Super Mario Land</figcaption></figure>
+      <figure><img class="framed pixelated" src="img/gbc/colorized_tetris_leftb.webp" width="640" height="576" loading="lazy" alt="Écran titre de Tetris en niveaux de gris"><figcaption>Tetris, palette Gauche+B</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="chapter flip" id="ecran">
+    <div class="chapter-text">
+      <p class="chapter-num">04 · Grand écran</p>
+      <h2>Du Full HD à la 4K</h2>
+      <p>L'image de la Game Boy ne fait que 160×144 pixels. Pour l'afficher sur une télévision ou un écran 4K, l'entrée « Filtre » du menu, ou l'option <code>-filter</code>, choisit comment l'agrandir. Les filtres tournent sur la carte graphique : même en 4K, le jeu reste à 60 images par seconde. F11 passe en plein écran, et gbe s'en souvient.</p>
+      <ul class="ticks">
+        <li><strong>LCD.</strong> La grille de points de la console, séparés par un fin interstice ; sur Game Boy Color, chaque point se divise en bandes rouge, verte et bleue. En 4K, chaque pixel de la console occupe 15 pixels de l'écran.</li>
+        <li><strong>Les autres filtres.</strong> « Pixels entiers », par défaut, garde des pixels carrés ; « Net » remplit l'écran ; Scale2x et Scale3x arrondissent les diagonales ; MMPX lisse les pentes en préservant le texte et les contours.</li>
+        <li><strong>Rémanence.</strong> Imite l'écran lent de la console, dont certains jeux se servaient pour rendre des sprites transparents : « simple » ou « fidèle », inspirés de SameBoy.</li>
+        <li><strong>Sur la TV, sans câble.</strong> Sur Mac, une Apple TV devient un second écran (« Utiliser comme écran séparé ») : l'entrée « Ecran » de la page Affichage y envoie gbe, le son suit. Avec un câble HDMI, les mêmes entrées fonctionnent sur tous les systèmes.</li>
+      </ul>
+    </div>
+    <div class="chapter-media mosaic">
+      <figure class="wide"><img class="framed" src="img/gbc/filter_lcd.webp" width="480" height="360" loading="lazy" alt="Détail de l'écran titre de Zelda: Link's Awakening DX avec le filtre LCD : un bateau sur les vagues, chaque pixel séparé par une fine grille"><figcaption>LCD, Game Boy Color en 4K</figcaption></figure>
+      <figure><img class="framed" src="img/gb/filter_nearest.webp" width="480" height="432" loading="lazy" alt="Détail de Super Mario Land, pixels carrés : la pente de la pyramide en escalier"><figcaption>Pixels entiers</figcaption></figure>
+      <figure><img class="framed" src="img/gb/filter_mmpx.webp" width="480" height="432" loading="lazy" alt="Le même détail avec MMPX : la pente lissée, Mario et les palmiers préservés"><figcaption>MMPX</figcaption></figure>
+      <figure><img class="framed" src="img/gb/filter_scale2x.webp" width="480" height="432" loading="lazy" alt="Le même détail avec Scale2x : la pente de la pyramide lissée"><figcaption>Scale2x</figcaption></figure>
+      <figure><img class="framed" src="img/gb/filter_scale3x.webp" width="480" height="432" loading="lazy" alt="Le même détail avec Scale3x : la pente et les palmiers lissés"><figcaption>Scale3x</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="chapter" id="link">
+    <div class="chapter-text">
+      <p class="chapter-num">05 · À deux</p>
+      <h2>Le câble link, par le réseau</h2>
+      <p>Deux gbe se relient par le réseau comme deux consoles par un câble link : échangez vos Pokémon, ou affrontez-vous à Tetris et Dr. Mario, sur le même ordinateur ou entre deux machines de la maison.</p>
+      <ul class="ticks">
+        <li>Sur le premier ordinateur, ouvrez le menu (Échap), page « Câble link », et choisissez « Héberger une partie ».</li>
+        <li>Sur le second, « Rejoindre une partie » liste les gbe du réseau local qui hébergent : choisissez le bon, et lancez le mode deux joueurs du jeu des deux côtés.</li>
+        <li>Si votre réseau ne laisse pas passer la recherche, « Saisir une adresse » se connecte à celle que l'hôte affiche.</li>
+      </ul>
+    </div>
+    <figure class="chapter-media">
+      <img class="framed" src="img/gb/link_join.webp" width="1280" height="1152" loading="lazy" alt="Page Rejoindre du câble link de gbe, au-dessus de l'écran titre de Dr. Mario : deux gbe trouvés sur le réseau local, Mac-du-salon qui héberge Dr. Mario et PC-bureau sans jeu, puis l'entrée Saisir une adresse">
+      <figcaption>Rejoindre une partie : les gbe qui hébergent sur le réseau local</figcaption>
     </figure>
-    <figure>
-      <img src="img/gbc/save_state_resume.webp" width="1280" height="1152" loading="lazy" alt="Au lancement de Zelda: Link's Awakening DX, gbe propose de reprendre la partie sauvegardée">
-      <figcaption>Au lancement : reprendre la partie ou recommencer</figcaption>
-    </figure>
+  </article>
+
+  <article class="chapter flip" id="camera">
+    <div class="chapter-text">
+      <p class="chapter-num">06 · Accessoire</p>
+      <h2>Game Boy Camera</h2>
+      <p>L'accessoire photo de la Game Boy fonctionne dans gbe : la cartouche, son capteur et ses 30 photos, gardées dans le fichier <code>.sav</code> comme sur la vraie cartouche. Ce que voit sa caméra se choisit dans la page « Caméra » du menu, qui n'apparaît qu'avec ce jeu. <strong>Sous Linux et Windows, cette fonctionnalité est encore expérimentale.</strong></p>
+      <ul class="ticks">
+        <li><strong>Une webcam.</strong> Celle de votre ordinateur, de votre écran, ou un iPhone avec Continuity Camera sur Mac. Elle ne s'allume que pendant la partie, et « Miroir » retourne l'image pour les selfies.</li>
+        <li><strong>Une image.</strong> Une photo ou un dessin en PNG, JPEG, GIF ou WebP, choisi dans le menu ou déposé sur la fenêtre : gbe en garde le milieu, au format du capteur (128×112), en niveaux de gris.</li>
+        <li><strong>Comme la console.</strong> Le jeu règle l'exposition, applique luminosité et contraste, et trame l'image en quatre teintes. Sans webcam ni image, la caméra voit du bruit, comme un vrai capteur dans le noir.</li>
+      </ul>
+    </div>
+    <div class="chapter-media mosaic">
+      <figure><img class="framed camera" src="img/gb/camera_picture.webp" width="512" height="448" loading="lazy" alt="Dessin d'un poussin jaune rond, les yeux fermés, avec un casque audio et des notes de musique, sur un fond beige"><figcaption>L'image donnée : la mascotte de gbe</figcaption></figure>
+      <figure><img class="framed pixelated camera" src="img/gb/camera_viewfinder.webp" width="640" height="576" loading="lazy" alt="Le viseur de la Game Boy Camera dans gbe : le poussin tramé en quatre teintes vertes, avec 29 photos restantes et les réglages de luminosité et de contraste"><figcaption>Ce qu'en fait le viseur</figcaption></figure>
+    </div>
+  </article>
+</section>
+
+<section class="wrap" id="aussi">
+  <div class="section-head"><h2>Et aussi</h2></div>
+  <div class="also">
+    <article class="card"><h3>Son stéréo</h3><p>Les quatre voies du Game Boy en stéréo, sans sifflements parasites. Au casque, chaque oreille entend un peu l'autre côté ; des filtres adoucissent les aigus ou imitent le haut-parleur de la console. Les menus font de petits bruitages.</p></article>
+    <article class="card"><h3>Clavier et manettes</h3><p>Manettes Xbox, PlayStation et Switch Pro reconnues dès le branchement. Clavier et manette se configurent dans leur onglet du menu, qui suit votre disposition (AZERTY, QWERTZ…).</p></article>
+    <article class="card"><h3>Vibrations</h3><p>Les cartouches à moteur (Pokémon Pinball, Perfect Dark) font vibrer la manette. Les autres jeux aussi, en expérimental : gbe devine chocs et explosions d'après les bruitages et l'écran.</p></article>
+    <article class="card"><h3>Captures d'écran</h3><p>Cmd+F2 (Ctrl+F2 hors macOS) enregistre un PNG dans Images/gbe, à la taille de la fenêtre, avec le filtre choisi. Le raccourci se change dans le menu.</p></article>
+    <article class="card"><h3>Français et anglais</h3><p>L'interface est en français et en anglais, au choix dans le menu. Ajouter une langue ne demande qu'un fichier de traduction.</p></article>
   </div>
 </section>
 
 <section id="telecharger" class="wrap">
-  <h2>Télécharger</h2>
-  {{with .Latest}}
-  <p class="section-lead">Dernière version : <a target="_blank" rel="noopener" href="{{.HTMLURL}}"><strong>{{.TagName}}</strong></a>, publiée le {{date .PublishedAt}}.</p>
-  {{end}}
+  <div class="section-head">
+    <h2>Télécharger</h2>
+    {{with .Latest}}<p class="section-lead">Dernière version : <a target="_blank" rel="noopener" href="{{.HTMLURL}}"><strong>{{.TagName}}</strong></a>, publiée le {{date .PublishedAt}}.</p>{{end}}
+  </div>
   {{if .Platforms}}
   <div class="grid downloads">
     {{range .Platforms}}
@@ -335,57 +286,63 @@
   {{end}}
 
   <h3 class="subhead">Démarrage rapide</h3>
-  <p class="section-lead">Ouvrez gbe (l'application sur macOS, <code>gbe.exe</code> sous Windows, l'AppImage sous Linux), puis déposez une ROM <code>.gb</code>, <code>.gbc</code> ou <code>.zip</code> sur la fenêtre : l'écran d'accueil propose aussi les derniers jeux lancés, à relancer à la manette. Choisissez le dossier de vos ROM dans la page « Dossiers » du menu, et tous vos jeux sont listés, prêts à être lancés sans clavier ni souris. Déposée pendant une partie, une ROM peut remplacer le jeu en cours, qui est sauvegardé pour être repris plus tard.</p>
-  <figure class="drop-shot">
-    <img src="img/gb/drop_screen.webp" width="1280" height="1152" loading="lazy" alt="Écran d'accueil de gbe lancé sans ROM : une cartouche Game Boy en pixel art sous une flèche, l'invitation « Deposez une ROM Game Boy ici », la liste des jeux récents, Zelda sélectionné, et l'entrée « Tous les jeux »">
-    <figcaption>Lancé sans ROM : déposez une ROM, relancez l'un des derniers jeux, ou choisissez parmi tous vos jeux</figcaption>
-  </figure>
-  <p class="section-lead">Depuis un terminal, gbe lance directement la ROM donnée en argument :</p>
-  <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu-couleur.gbc</code><code>./gbe mon-jeu.zip</code></pre>
-  <p class="section-lead">À deux, avec le câble link : sur le premier ordinateur, ouvrez le menu (Échap), page «&nbsp;Câble link&nbsp;», et choisissez «&nbsp;Héberger une partie&nbsp;». Sur le second, «&nbsp;Rejoindre une partie&nbsp;» liste les gbe du réseau local qui hébergent : choisissez le bon, et lancez le mode deux joueurs du jeu des deux côtés. Si votre réseau ne laisse pas passer la recherche, «&nbsp;Saisir une adresse&nbsp;» se connecte à celle que l'hôte affiche.</p>
-  <figure class="drop-shot">
-    <img src="img/gb/link_join.webp" width="1280" height="1152" loading="lazy" alt="Page Rejoindre du câble link de gbe, au-dessus de l'écran titre de Dr. Mario : deux gbe trouvés sur le réseau local, Mac-du-salon qui héberge Dr. Mario et PC-bureau sans jeu, puis l'entrée Saisir une adresse">
-    <figcaption>Rejoindre une partie : les gbe qui hébergent sur le réseau local</figcaption>
-  </figure>
+  <div class="quick">
+    <ol class="steps">
+      <li class="card"><span class="step-num">1</span><p>Ouvrez gbe : l'application sur macOS, <code>gbe.exe</code> sous Windows, l'AppImage sous Linux.</p></li>
+      <li class="card"><span class="step-num">2</span><p>Déposez une ROM <code>.gb</code>, <code>.gbc</code> ou <code>.zip</code> sur la fenêtre. Ou choisissez le dossier de vos ROM dans la page « Dossiers » du menu : tous vos jeux sont listés, prêts à être lancés sans clavier ni souris.</p></li>
+      <li class="card"><span class="step-num">3</span><p>Jouez. Déposée pendant une partie, une ROM peut remplacer le jeu en cours, sauvegardé pour être repris plus tard. Depuis un terminal, gbe lance la ROM donnée en argument :</p>
+        <pre class="terminal"><code>./gbe mon-jeu.gb</code><code>./gbe mon-jeu.zip</code></pre></li>
+    </ol>
+    <figure class="quick-shot">
+      <img class="framed" src="img/gb/drop_screen.webp" width="1280" height="1152" loading="lazy" alt="Écran d'accueil de gbe lancé sans ROM : une cartouche Game Boy en pixel art sous une flèche, l'invitation « Deposez une ROM Game Boy ici », la liste des jeux récents, Zelda sélectionné, et l'entrée « Tous les jeux »">
+      <figcaption>Lancé sans ROM : déposez une ROM, relancez l'un des derniers jeux, ou choisissez parmi tous vos jeux</figcaption>
+    </figure>
+  </div>
 
-  <h3 class="subhead">Contrôles</h3>
-  <table class="keys">
-    <thead><tr><th>Touche</th><th>Action</th></tr></thead>
-    <tbody>
-      <tr><td>Flèches</td><td>Croix directionnelle</td></tr>
-      <tr><td>X / Z (X / W en AZERTY)</td><td>A / B</td></tr>
-      <tr><td>Entrée / Maj droite</td><td>Start / Select</td></tr>
-      <tr><td>Tab (maintenu)</td><td>Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu)</td></tr>
-      <tr><td>Retour arrière (maintenu)</td><td>Rembobinage : le jeu revient en arrière, jusqu'à 10 s</td></tr>
-      <tr><td>Échap</td><td>Menu : palette ou couleurs, filtre d'affichage, contrôles, son, boot ROM, save states</td></tr>
-      <tr><td>P</td><td>Palette suivante ; sur un jeu Game Boy Color, active ou coupe la correction des couleurs</td></tr>
-      <tr><td>Cmd+F2 (Ctrl+F2 sous Windows et Linux)</td><td>Capture d'écran</td></tr>
-      <tr><td>F11</td><td>Plein écran (retenu au lancement suivant ; aussi dans la page Affichage, à la manette)</td></tr>
-      <tr><td>Manette : Start + Select</td><td>Menu, piloté à la croix, A et B</td></tr>
-      <tr><td>Manette : gâchettes hautes R / L (maintenues)</td><td>Avance rapide / rembobinage</td></tr>
-    </tbody>
-  </table>
+  <details class="card controls">
+    <summary>Contrôles</summary>
+    <table class="keys">
+      <thead><tr><th>Touche</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Flèches</td><td>Croix directionnelle</td></tr>
+        <tr><td>X / Z (X / W en AZERTY)</td><td>A / B</td></tr>
+        <tr><td>Entrée / Maj droite</td><td>Start / Select</td></tr>
+        <tr><td>Tab (maintenu)</td><td>Avance rapide (x4 par défaut, réglable de x2 à x8 dans le menu)</td></tr>
+        <tr><td>Retour arrière (maintenu)</td><td>Rembobinage : le jeu revient en arrière, jusqu'à 10 s</td></tr>
+        <tr><td>Échap</td><td>Menu : palette ou couleurs, filtre d'affichage, contrôles, son, boot ROM, save states</td></tr>
+        <tr><td>P</td><td>Palette suivante ; sur un jeu Game Boy Color, active ou coupe la correction des couleurs</td></tr>
+        <tr><td>Cmd+F2 (Ctrl+F2 sous Windows et Linux)</td><td>Capture d'écran</td></tr>
+        <tr><td>F11</td><td>Plein écran (retenu au lancement suivant ; aussi dans la page Affichage, à la manette)</td></tr>
+        <tr><td>Manette : Start + Select</td><td>Menu, piloté à la croix, A et B</td></tr>
+        <tr><td>Manette : gâchettes hautes R / L (maintenues)</td><td>Avance rapide / rembobinage</td></tr>
+      </tbody>
+    </table>
+  </details>
   <p class="note">Aucune ROM ni boot ROM n'est fournie : utilisez vos propres copies. Les boot ROM, facultatives, se choisissent dans la page « Dossiers » du menu, onglet Boot ROM : indiquez le dossier qui contient <code>gb_bios.bin</code> et <code>gbc_bios.bin</code> (voir le <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}#lancer">README</a>).</p>
 </section>
 
 <section id="notes" class="wrap">
-  <h2>Notes de version</h2>
-  {{range .Releases}}
-  <article class="card release">
-    <header class="release-head">
-      <h3><a target="_blank" rel="noopener" href="{{.HTMLURL}}">{{.TagName}}</a></h3>
-      <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time>
-      {{if .Prerelease}}<span class="tag">pré-version</span>{{end}}
-    </header>
-    {{if and .Name (ne .Name .TagName)}}<p class="release-title">{{.Name}}</p>{{end}}
-    <div class="release-body">{{trusted .BodyHTML}}</div>
-  </article>
-  {{else}}
-  <p class="section-lead">Pas encore de version publiée.</p>
-  {{end}}
+  <div class="section-head">
+    <h2>Notes de version</h2>
+    <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}/releases">Toutes les versions sur GitHub</a>
+  </div>
+  <div class="releases">
+    {{range .Releases}}
+    <article class="card release">
+      <header class="release-head">
+        <h3><a target="_blank" rel="noopener" href="{{.HTMLURL}}">{{.TagName}}</a></h3>
+        <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time>
+        {{if .Prerelease}}<span class="tag">pré-version</span>{{end}}
+      </header>
+      {{if and .Name (ne .Name .TagName)}}<p class="release-title">{{.Name}}</p>{{end}}
+      <div class="release-body">{{trusted .BodyHTML}}</div>
+    </article>
+    {{else}}
+    <p class="section-lead">Pas encore de version publiée.</p>
+    {{end}}
+  </div>
   {{with .Older}}
   <h3 class="subhead">Versions précédentes</h3>
-  <p class="section-lead">Leurs notes de version sont sur GitHub.</p>
   <ul class="older-releases">
     {{range .}}
     <li><a target="_blank" rel="noopener" href="{{.HTMLURL}}">{{.TagName}}</a> <time datetime="{{.PublishedAt.Format "2006-01-02"}}">{{date .PublishedAt}}</time></li>
@@ -394,61 +351,41 @@
   {{end}}
 </section>
 
-<section id="credits" class="wrap">
-  <h2>Crédits</h2>
-  <p class="section-lead">gbe s'appuie sur des projets libres et sur le travail de la communauté Game Boy. Merci à leurs auteurs.</p>
-  <h3 class="subhead">Bibliothèques</h3>
-  <div class="grid features credits">
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://ebitengine.org">Ebitengine</a></h3>
-      <p>Le moteur de jeu 2D en Go de Hajime Hoshi : fenêtre, rendu sur la carte graphique et shaders Kage des filtres, son, clavier et manettes. Avec <a target="_blank" rel="noopener" href="https://github.com/ebitengine/oto">Oto</a> pour le son et <a target="_blank" rel="noopener" href="https://github.com/ebitengine/purego">purego</a>, qui permet de se passer de cgo.</p>
-    </article>
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://go.dev">Go</a></h3>
-      <p>Le langage dans lequel gbe est écrit, de bout en bout.</p>
-    </article>
-  </div>
-  <h3 class="subhead">Inspirations</h3>
-  <div class="grid features credits">
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://sameboy.github.io">SameBoy</a></h3>
-      <p>L'émulateur Game Boy de Lior Halphon, réputé pour sa précision. gbe lui doit les palettes de sa boot ROM couleur libre, pour coloriser les jeux Game Boy, et le modèle de sa rémanence. Il sert aussi de référence pour valider l'image et le son. <a target="_blank" rel="noopener" href="https://github.com/LIJI32/SameBoy">Code source</a>.</p>
-    </article>
-    <article class="card">
-      <h3>Algorithmes des filtres</h3>
-      <p><a target="_blank" rel="noopener" href="https://casual-effects.com/research/McGuire2021PixelArt/">MMPX</a>, de Morgan McGuire et Mara Gagiu (2021), et <a target="_blank" rel="noopener" href="https://www.scale2x.it">Scale2x et Scale3x</a>, d'Andrea Mazzoleni pour AdvanceMAME.</p>
-    </article>
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://github.com/higan-emu/higan">higan</a></h3>
-      <p>L'émulateur de byuu, d'où vient la formule de correction des couleurs de la Game Boy Color, qui retrouve le rendu plus pâle de son écran.</p>
-    </article>
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://bgb.bircd.org">BGB</a></h3>
-      <p>L'émulateur et débogueur Game Boy de beware. gbe reprend sa palette « BGB » et le format de l'horloge MBC3 de ses sauvegardes : les <code>.sav</code> de Pokémon Or et Argent restent compatibles.</p>
-    </article>
-  </div>
-  <h3 class="subhead">Tests et outils</h3>
-  <div class="grid features credits">
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://github.com/retrio/gb-test-roms">Tests de blargg</a></h3>
-      <p>Les ROMs de test de Shay Green (blargg), qui vérifient le processeur, les timings et le son : gbe les réussit en Game Boy et en Game Boy Color.</p>
-    </article>
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://github.com/mattcurrie/dmg-acid2">dmg-acid2</a> et <a target="_blank" rel="noopener" href="https://github.com/mattcurrie/cgb-acid2">cgb-acid2</a></h3>
-      <p>Les ROMs de test de Matt Currie pour l'affichage, que gbe rend au pixel près.</p>
-    </article>
-    <article class="card">
-      <h3><a target="_blank" rel="noopener" href="https://rgbds.gbdev.io">RGBDS</a></h3>
-      <p>L'assembleur Game Boy de la communauté gbdev, avec lequel est construite la ROM de test de gbe.</p>
-    </article>
-  </div>
-</section>
-
 </main>
 
-<footer class="footer">
+<footer class="footer" id="credits">
   <div class="wrap">
-    <p>gbe · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · <a href="#credits">Crédits</a> · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}/blob/main/LICENSE">Licence Apache 2.0</a> · page mise à jour le {{.Built}}</p>
+    <div class="credits">
+      <div class="credits-intro">
+        <p class="brand">gbe</p>
+        <p class="note">gbe s'appuie sur des projets libres et sur le travail de la communauté Game Boy. Merci à leurs auteurs.</p>
+      </div>
+      <div>
+        <h3>Bibliothèques</h3>
+        <ul>
+          <li><a target="_blank" rel="noopener" href="https://ebitengine.org">Ebitengine</a> : fenêtre, rendu, shaders des filtres, son, manettes ; avec <a target="_blank" rel="noopener" href="https://github.com/ebitengine/oto">Oto</a> et <a target="_blank" rel="noopener" href="https://github.com/ebitengine/purego">purego</a></li>
+          <li><a target="_blank" rel="noopener" href="https://go.dev">Go</a> : le langage de gbe, de bout en bout</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Inspirations</h3>
+        <ul>
+          <li><a target="_blank" rel="noopener" href="https://sameboy.github.io">SameBoy</a> : palettes de colorisation, rémanence, référence d'image et de son</li>
+          <li><a target="_blank" rel="noopener" href="https://github.com/higan-emu/higan">higan</a> : la correction des couleurs</li>
+          <li><a target="_blank" rel="noopener" href="https://bgb.bircd.org">BGB</a> : sa palette et l'horloge MBC3 des <code>.sav</code></li>
+          <li><a target="_blank" rel="noopener" href="https://casual-effects.com/research/McGuire2021PixelArt/">MMPX</a>, <a target="_blank" rel="noopener" href="https://www.scale2x.it">Scale2x et Scale3x</a> : les filtres</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tests et outils</h3>
+        <ul>
+          <li><a target="_blank" rel="noopener" href="https://github.com/retrio/gb-test-roms">Tests de blargg</a> : processeur, timings, son</li>
+          <li><a target="_blank" rel="noopener" href="https://github.com/mattcurrie/dmg-acid2">dmg-acid2</a> et <a target="_blank" rel="noopener" href="https://github.com/mattcurrie/cgb-acid2">cgb-acid2</a> : l'affichage</li>
+          <li><a target="_blank" rel="noopener" href="https://rgbds.gbdev.io">RGBDS</a> : la ROM de test de gbe</li>
+        </ul>
+      </div>
+    </div>
+    <p class="footer-line">gbe · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}">github.com/{{.Repo}}</a> · <a target="_blank" rel="noopener" href="https://github.com/{{.Repo}}/blob/main/LICENSE">Licence Apache 2.0</a> · page mise à jour le {{.Built}}</p>
     <p class="note">Game Boy est une marque de Nintendo. gbe est un projet indépendant, sans lien avec Nintendo.</p>
   </div>
 </footer>
@@ -480,12 +417,49 @@
     });
   })();
 
-  // Highlight the visitor's platform in the download section.
+  // The theme button: light or dark, remembered; the system's until then.
+  (function () {
+    var button = document.querySelector(".theme-toggle");
+    var root = document.documentElement;
+    var system = window.matchMedia("(prefers-color-scheme: dark)");
+    function dark() { return root.dataset.theme ? root.dataset.theme === "dark" : system.matches; }
+    function update() {
+      button.setAttribute("aria-pressed", dark() ? "true" : "false");
+    }
+    button.hidden = false;
+    update();
+    system.addEventListener("change", update);
+    button.addEventListener("click", function () {
+      root.dataset.theme = dark() ? "light" : "dark";
+      try { localStorage.setItem("gbe-theme", root.dataset.theme); } catch (e) {}
+      update();
+    });
+  })();
+
+  // Highlight the visitor's platform in the download section, and name it
+  // on the button of the hero.
   (function () {
     var ua = navigator.userAgent;
     var os = /Mac/.test(ua) ? "macos" : /Win/.test(ua) ? "windows" : /Linux/.test(ua) ? "linux" : "";
     var card = os && document.querySelector('.download[data-os="' + os + '"]');
-    if (card) card.classList.add("current");
+    if (!card) return;
+    card.classList.add("current");
+    document.querySelector(".hero-download").textContent = "Télécharger pour " + card.querySelector("h3").textContent;
+  })();
+
+  // The palette of the preview, in the Palettes chapter.
+  (function () {
+    var shot = document.querySelector(".palette-shot");
+    var caption = document.querySelector(".palette-caption");
+    var buttons = document.querySelectorAll(".palette-btn");
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        buttons.forEach(function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+        shot.src = b.dataset.shot;
+        shot.alt = "Super Mario Land, palette " + b.dataset.name;
+        caption.textContent = b.dataset.name;
+      });
+    });
   })();
 
   // Hero carousel: one console at a time. Without JavaScript both stay side
@@ -504,8 +478,6 @@
       var next = (index + slides.length) % slides.length;
       if (next !== current) {
         var incoming = slides[next];
-        // Start the incoming console on the side it comes from, then let
-        // the transition bring it in while the current one leaves.
         incoming.classList.remove("to-left", "to-right");
         incoming.classList.add(step > 0 ? "from-right" : "from-left");
         void incoming.offsetWidth;
@@ -546,7 +518,6 @@
       else if (e.key === "ArrowRight") show(current + 1, 1);
     });
 
-    // Swipe on touch screens.
     var startX = null;
     root.addEventListener("pointerdown", function (e) { startX = e.clientX; });
     root.addEventListener("pointerup", function (e) {

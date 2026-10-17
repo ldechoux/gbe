@@ -166,6 +166,7 @@
     "games.saved_at": "Sauvegarde du %s",
     "toast.game_loaded": "Jeu lance: %s",
     "toast.same_game": "Ce jeu est deja lance",
+    "toast.other_slot": "Deja ouvert dans un autre gbe: sauvegardes dans %s",
     "error.not_rom_ext": "Fichier non supporte: %s (.gb, .gbc ou .zip)",
     "error.folder": "Deposez un fichier, pas un dossier",
     "error.zip_empty": "Aucune ROM .gb ou .gbc dans l'archive",

@@ -5,6 +5,8 @@ package rom
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ldechoux/gbe/internal/filelock"
 	"github.com/ldechoux/gbe/internal/gb"
 )
 
@@ -126,6 +129,9 @@ type Options struct {
 	// Strict refuses the files whose extension is not .gb, .gbc or .zip
 	// (ErrNotROM), as for a file dropped on the window.
 	Strict bool
+	// LockDir keeps the locks of the games opened (see Game.Slot); ""
+	// opens them without one.
+	LockDir string
 }
 
 // Game is an opened game, ready to run.
@@ -136,6 +142,13 @@ type Game struct {
 	// SavePath and StatePath are the battery save and the save state, next
 	// to the ROM.
 	SavePath, StatePath string
+	// Slot is 1, unless the game is already open in another gbe: each gbe
+	// that opens it at once gets the next slot, and its own SavePath and
+	// StatePath (game.2.sav, game.2.state...), for the two not to write
+	// over each other's. A new slot starts from the battery save of the
+	// first. Close gives the slot back.
+	Slot int
+	lock io.Closer
 	// AutoModel is true when the hardware follows the game (Options.Model
 	// auto), so that the menu may switch it.
 	AutoModel bool
@@ -171,12 +184,23 @@ func Open(path string, opts Options) (*Game, error) {
 	g := &Game{
 		Path:      path,
 		Title:     cart.Title,
-		SavePath:  base + ".sav",
-		StatePath: base + ".state",
+		Slot:      1,
 		AutoModel: opts.Model == gb.ModelAuto,
 	}
+	if opts.LockDir != "" {
+		g.Slot, g.lock = claim(opts.LockDir, base)
+	}
+	slotBase := base
+	if g.Slot > 1 {
+		slotBase = fmt.Sprintf("%s.%d", base, g.Slot)
+	}
+	g.SavePath, g.StatePath = slotBase+".sav", slotBase+".state"
 	if cart.Battery {
-		if data, err := os.ReadFile(g.SavePath); err == nil {
+		data, err := os.ReadFile(g.SavePath)
+		if errors.Is(err, fs.ErrNotExist) && g.Slot > 1 {
+			data, err = os.ReadFile(base + ".sav") // the progress of the first
+		}
+		if err == nil {
 			cart.LoadSaveData(data)
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			log.Printf("reading save: %v", err)
@@ -199,9 +223,54 @@ func Open(path string, opts Options) (*Game, error) {
 		}
 	}
 	if g.Console, err = g.NewConsole(launch); err != nil {
+		g.Close()
 		return nil, err
 	}
 	return g, nil
+}
+
+// Close gives back the slot of the game (see Slot), once its files are
+// written.
+func (g *Game) Close() {
+	if g.lock != nil {
+		g.lock.Close()
+		g.lock = nil
+	}
+}
+
+// maxSlots is how many gbe may play the same game at once.
+const maxSlots = 9
+
+// claim takes the first slot of the game at base (its path without the
+// extension) that no other gbe holds, locking it in dir. Without a lock (a
+// folder that cannot be written, every slot taken), the game is opened in
+// the first slot, as before slots.
+func claim(dir, base string) (int, io.Closer) {
+	abs, err := filepath.Abs(base)
+	if err != nil {
+		abs = base
+	}
+	sum := sha256.Sum256([]byte(abs))
+	name := hex.EncodeToString(sum[:8])
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		log.Printf("locking %s: %v", base, err)
+		return 1, nil
+	}
+	for slot := 1; slot <= maxSlots; slot++ {
+		f, ok, err := filelock.TryLock(filepath.Join(dir, fmt.Sprintf("%s.%d.lock", name, slot)))
+		if err != nil {
+			log.Printf("locking %s: %v", base, err)
+			return 1, nil
+		}
+		if ok {
+			if slot > 1 {
+				log.Printf("%s is open in another gbe: slot %d", base, slot)
+			}
+			return slot, f
+		}
+	}
+	log.Printf("%s is open in %d other gbe", base, maxSlots)
+	return 1, nil
 }
 
 // BootROMSearch is where the default boot ROMs are searched: the folder

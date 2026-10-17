@@ -72,8 +72,12 @@ func (g *Game) drop(fsys fs.FS) {
 	case g.gb == nil:
 		g.switchGame(next)
 	case sameFile(next.Path, g.romPath):
+		next.Close()
 		g.notify(l.T("toast.same_game"))
 	default:
+		if g.pending != nil {
+			g.pending.Close() // replaced by this one
+		}
 		g.pending = next
 		g.menu.showSwitch()
 	}
@@ -128,7 +132,9 @@ func sameFile(a, b string) bool {
 func (g *Game) switchGame(next *rom.Game) {
 	g.closeGame()
 	g.startGame(next)
-	g.notify(g.tr().T("toast.game_loaded", next.Title))
+	if next.Slot == 1 { // otherwise startGame tells where its saves go
+		g.notify(g.tr().T("toast.game_loaded", next.Title))
+	}
 }
 
 // closeGame saves the current game, if any: its state, unless the resume
@@ -149,6 +155,8 @@ func (g *Game) startGame(next *rom.Game) {
 	if g.gb != nil {
 		g.gb.SetLink(nil)
 	}
+	g.releaseGame() // its files are written (see switchGame)
+	g.release = next.Close
 	g.gb, g.title, g.romPath = next.Console, next.Title, next.Path
 	g.plugCable()
 	if g.cable != nil {
@@ -178,6 +186,9 @@ func (g *Game) startGame(next *rom.Game) {
 	if fi, err := os.Stat(g.statePath); g.statePath != "" && err == nil {
 		g.stateTime, g.started = fi.ModTime(), false
 		g.menu.showStart()
+	}
+	if next.Slot > 1 {
+		g.notifyLong(g.tr().T("toast.other_slot", filepath.Base(next.SavePath)))
 	}
 	ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, 0, !g.started))
 }

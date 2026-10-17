@@ -15,6 +15,7 @@ import (
 
 	"github.com/ldechoux/gbe/internal/audiofx"
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/link"
 	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui"
 	"github.com/ldechoux/gbe/internal/ui/scaler"
@@ -50,6 +51,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	shot := flags.String("screenshot", "", "headless mode: write the last frame to this PNG file")
 	inputs := flags.String("input", "", `headless mode: button presses, e.g. "start:200-210,right:300-600"`)
 	wav := flags.String("wav", "", "headless mode: record the audio to this WAV file (with -stereo and -audio-filter only, not the config)")
+	linkHost := flags.String("link-host", "", `link cable: wait for another gbe to connect on this address, e.g. ":5555" (every interface) or "127.0.0.1:5555"`)
+	linkConnect := flags.String("link-connect", "", `link cable: connect to the gbe waiting on this address, e.g. "192.168.1.20:5555"`)
 	showVersion := flags.Bool("version", false, "print the version and exit")
 	rumbleRecord := flags.String("rumble-record", "", "development: record stretches of play in this folder, to tune the rumble detector (tools/rumblelab, -rumble-tune)")
 	rumbleDebug := flags.Bool("rumble-debug", false, "development: show what the rumble detector hears")
@@ -70,6 +73,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "usage: gbe [flags] game.gb|game.gbc|game.zip")
 		flags.PrintDefaults()
 		return 2
+	}
+
+	if *linkHost != "" && *linkConnect != "" {
+		return fail(fmt.Errorf("-link-host and -link-connect: one end each"))
+	}
+	if (*linkHost != "" || *linkConnect != "") && *frames > 0 {
+		return fail(fmt.Errorf("the link cable needs the window, not -frames"))
 	}
 
 	model, err := parseModel(*modelName)
@@ -130,6 +140,23 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	var cable *link.Cable
+	switch {
+	case *linkHost != "":
+		if cable, err = link.Host(*linkHost); err != nil {
+			return fail(err)
+		}
+		log.Printf("link cable: waiting on %v", cable.Addr())
+	case *linkConnect != "":
+		cable = link.Connect(*linkConnect)
+		log.Printf("link cable: connecting to %s", *linkConnect)
+	}
+	var end ui.CableEnd
+	if cable != nil {
+		defer cable.Close()
+		end = cable
+	}
+
 	if err := runUI(ui.Options{
 		Game:        game,
 		LaunchPath:  *romPath,
@@ -146,6 +173,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		RumbleRecord:  *rumbleRecord,
 		RumbleDebug:   *rumbleDebug,
 		RumbleTune:    *rumbleTune,
+		Cable:         end,
 		// A dropped game opens with the same -model and -bios.
 		Open: func(path string, colorize bool) (*rom.Game, error) {
 			o := opts

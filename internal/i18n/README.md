@@ -358,6 +358,9 @@ nommés par leur nom de fichier, qui n'est pas traduit.
 | `toast.no_state` | | Chargement demandé sans sauvegarde existante |
 | `toast.state_unreadable` | `%s` erreur | La sauvegarde existe mais n'a pas pu être chargée |
 | `toast.state_restored` | | L'état a été rechargé |
+| `toast.link_connected` | | Le câble link vient de se connecter à l'autre gbe |
+| `toast.link_disconnected` | | La connexion du câble link s'est coupée |
+| `toast.link_blocked` | | Rembobinage, avance rapide ou chargement d'état refusés pendant une liaison |
 | `toast.screenshot` | `%s` nom du fichier | Capture d'écran enregistrée |
 | `toast.screenshot_failed` | `%s` erreur | La capture d'écran a échoué |
 | `toast.game_loaded` | `%s` titre du jeu | Un jeu déposé sur la fenêtre a démarré |

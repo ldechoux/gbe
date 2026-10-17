@@ -40,6 +40,7 @@ type GameBoy struct {
 	// (see SetRumbleParams).
 	rumbleParams RumbleParams
 	rumbleTuned  bool
+	link         *Link // see SetLink
 }
 
 // New creates a Game Boy running the given cartridge, on a CGB if the game
@@ -106,6 +107,9 @@ func (g *GameBoy) Reset() {
 	g.Timer = &Timer{bus: bus}
 	g.Joypad = &Joypad{bus: bus, sel: 0x30}
 	g.Serial = &Serial{bus: bus}
+	if g.link != nil {
+		g.Serial.plug(g.link)
+	}
 	bus.ppu, bus.apu, bus.timer, bus.joypad, bus.serial = g.PPU, g.APU, g.Timer, g.Joypad, g.Serial
 
 	if g.boot != nil {

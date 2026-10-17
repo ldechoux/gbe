@@ -11,6 +11,7 @@ cmd/gbe                 90
 internal/audiofx        95
 internal/gb             94
 internal/i18n           85
+internal/link           87
 internal/menusound      95
 internal/rom            92
 internal/ui             87

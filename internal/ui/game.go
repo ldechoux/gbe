@@ -66,6 +66,9 @@ type Options struct {
 	// RumbleTune, when set, is a tuning session to run instead of a game
 	// (see tuner).
 	RumbleTune string
+	// Cable is the end of the link cable gbe was launched with (see
+	// link.Host and link.Connect), nil without one.
+	Cable CableEnd
 }
 
 // Game implements ebiten.Game.
@@ -171,6 +174,13 @@ type Game struct {
 
 	toast      string // short on-screen notification
 	toastUntil int64  // tick at which the toast disappears
+
+	// The link cable: its end (nil without one), and the connection
+	// through it (nil while not connected). linkHinted is set once told
+	// that an action is unavailable while connected (see linkBlocks).
+	cable      CableEnd
+	link       *gb.Link
+	linkHinted bool
 }
 
 // playMode is how the emulation advances on this tick.
@@ -214,6 +224,7 @@ func Run(opts Options) error {
 		shotDir:     opts.ScreenshotDir,
 		rumbleDebug: opts.RumbleDebug,
 		open:        opts.Open,
+		cable:       opts.Cable,
 		lcd:         ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		lcdPrev:     ebiten.NewImage(gb.ScreenWidth, gb.ScreenHeight),
 		stream:      &audioStream{},
@@ -386,6 +397,10 @@ func (g *Game) saveState() {
 // loadState restores the save state; on failure the game keeps running.
 // It reports whether the state was loaded.
 func (g *Game) loadState() bool {
+	if g.started && g.link != nil { // the other Game Boy would not follow
+		g.notify(g.tr().T("toast.link_blocked"))
+		return false
+	}
 	data, err := os.ReadFile(g.statePath)
 	if err == nil {
 		err = g.gb.LoadState(data)
@@ -462,7 +477,9 @@ func (g *Game) restart() {
 		g.gb.Reset()
 		return
 	}
+	g.gb.SetLink(nil)
 	g.gb = console
+	g.plugCable()
 }
 
 // screenshot saves the screen as a PNG at the scale of the window: the
@@ -512,6 +529,7 @@ func (g *Game) Update() error {
 	}
 	g.pollFolderPick()
 	g.pollLibrary()
+	g.pollCable()
 	g.syncWebcam()
 	if g.fps.update(time.Now()) && g.gb != nil {
 		ebiten.SetWindowTitle(windowTitle(g.tr(), g.title, g.fps.fps, g.menu.open))
@@ -568,7 +586,11 @@ func (g *Game) Update() error {
 		g.gb.SetButton(b, g.down[i])
 	}
 	g.applyCompatChoice()
-	g.advance(g.held(actionFastForward), g.held(actionRewind))
+	fast, rewind := g.held(actionFastForward), g.held(actionRewind)
+	if g.linkBlocks(fast || rewind) {
+		fast, rewind = false, false
+	}
+	g.advance(fast, rewind)
 
 	g.frame++
 	if g.frame%saveEveryFrame == 0 {
@@ -619,7 +641,7 @@ func (g *Game) advance(fast, rewind bool) {
 		if g.recorder != nil {
 			g.recorder.begin(g.gb, g.title, g.romPath)
 		}
-		g.gb.RunFrame()
+		g.runFrame()
 		if g.recorder != nil {
 			g.recorder.frame(g.gb, g.down)
 		}

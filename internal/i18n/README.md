@@ -83,6 +83,7 @@ Les clés sont préfixées par la zone de l'interface où elles apparaissent.
 | `menu.controls` | | Entrée qui ouvre la page Contrôles |
 | `menu.sound` | | Entrée qui ouvre la page Son |
 | `menu.folders` | | Entrée qui ouvre la page Dossiers : dossier des jeux et dossier des boot ROM |
+| `menu.link` | | Entrée qui ouvre la page Câble link : héberger, rejoindre, débrancher |
 | `menu.camera` | | Entrée qui ouvre la page Caméra, visible seulement pendant une partie de Game Boy Camera |
 | `menu.volume` | `%d` volume en pourcent | Entrée de la page Son : réglage du volume (`%%` affiche `%`) |
 | `menu.stereo` | `%s` mode de sortie (`stereo.*`) | Entrée de la page Son : comment la stéréo arrive aux oreilles (grisée sur `stereo.mono` avec le filtre `audio_filter.speaker`, qui est mono) |
@@ -205,6 +206,31 @@ Ce que voit le capteur de la Game Boy Camera : une webcam, une image choisie par
 | `camera.denied` | | Notification : le système refuse l'accès à la caméra (à autoriser dans ses réglages) |
 | `camera.no_webcam` | | Notification : aucune webcam, ou la webcam choisie est débranchée |
 | `camera.webcam_failed` | | Notification : la webcam ne s'ouvre pas pour une autre raison |
+
+### `link.*` — page Câble link (menu Pause)
+
+Relier deux gbe du réseau local : héberger une partie, en rejoindre une trouvée sur le réseau, débrancher.
+
+| Clé | Paramètres | Usage |
+|---|---|---|
+| `link.title` | | Titre de la page Câble link |
+| `link.host` | | Entrée : attendre qu'un autre gbe se connecte, en s'annonçant sur le réseau local |
+| `link.join` | | Entrée qui ouvre la liste des gbe qui hébergent sur le réseau local |
+| `link.cancel` | | Entrée : arrêter d'héberger ou de se connecter |
+| `link.unplug` | | Entrée : couper la connexion en cours |
+| `link.back` | | Entrée qui revient à la page précédente |
+| `link.help` | | Pied de page : à quoi sert le câble link |
+| `link.waiting` | | Pied de page : on héberge, en attendant l'autre gbe |
+| `link.address` | | Pied de page : l'adresse de cette machine, `%s` adresse IP (et port s'il n'est pas 5555) |
+| `link.joining` | | Pied de page : connexion en cours, `%s` nom ou adresse de l'autre gbe |
+| `link.connected` | | Pied de page : câble branché, `%s` nom de l'autre machine |
+| `link.connected_help` | | Pied de page : ce qui est refusé pendant une liaison |
+| `link.host_failed` | | Pied de page : l'écoute a échoué, `%s` erreur (port déjà pris…) |
+| `link.join_title` | | Titre de la page qui liste les gbe qui hébergent |
+| `link.searching` | | Pied de page de la liste, pendant la recherche |
+| `link.none` | | Pied de page : aucun gbe trouvé pour l'instant |
+| `link.browse_failed` | | Pied de page : la recherche n'a pas pu démarrer, `%s` erreur |
+| `link.no_game` | | Dans la liste, à la place du titre d'un gbe qui héberge sans jeu lancé |
 
 ### `boot_rom.*` — page Dossiers, onglet des boot ROM
 

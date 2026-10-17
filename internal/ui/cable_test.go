@@ -9,12 +9,29 @@ import (
 	"github.com/ldechoux/gbe/internal/gb"
 )
 
-type fakeCable struct{ links chan *gb.Link }
+// fakeCable is an end of the cable, connected by the test.
+type fakeCable struct {
+	links        chan *gb.Link
+	hosting      bool
+	target, peer string
+	title        string
+	closed       bool
+}
 
-func (c fakeCable) Links() <-chan *gb.Link { return c.links }
+func newFakeCable(hosting bool) *fakeCable {
+	return &fakeCable{links: make(chan *gb.Link, 1), hosting: hosting, peer: "pc"}
+}
+
+func (c *fakeCable) Links() <-chan *gb.Link { return c.links }
+func (c *fakeCable) Peer() string           { return c.peer }
+func (c *fakeCable) SetTitle(title string)  { c.title = title }
+func (c *fakeCable) Hosting() bool          { return c.hosting }
+func (c *fakeCable) Port() int              { return 5555 }
+func (c *fakeCable) Target() string         { return c.target }
+func (c *fakeCable) Close()                 { c.closed = true }
 
 // connect hands g a connection through its cable, returning the other end.
-func connect(t *testing.T, g *Game, c fakeCable) net.Conn {
+func connect(t *testing.T, g *Game, c *fakeCable) net.Conn {
 	t.Helper()
 	a, b := net.Pipe()
 	l := gb.NewLink(a)
@@ -33,7 +50,7 @@ func connect(t *testing.T, g *Game, c fakeCable) net.Conn {
 func TestCable(t *testing.T) {
 	g := withModes(withGameBoy(t, newTestGame(t, newFakePads())))
 	g.started = true
-	c := fakeCable{make(chan *gb.Link, 1)}
+	c := newFakeCable(true)
 	g.cable = c
 	g.pollCable() // nothing yet
 	if g.link != nil {

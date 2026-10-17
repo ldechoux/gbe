@@ -151,6 +151,9 @@ func (g *Game) startGame(next *rom.Game) {
 	}
 	g.gb, g.title, g.romPath = next.Console, next.Title, next.Path
 	g.plugCable()
+	if g.cable != nil {
+		g.cable.SetTitle(g.title) // as Host announces it
+	}
 	g.savePath, g.statePath = next.SavePath, next.StatePath
 	g.autoModel, g.newConsole = next.AutoModel, next.NewConsole
 	g.pending, g.bootROMPending = nil, false

@@ -143,12 +143,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	var cable *link.Cable
 	switch {
 	case *linkHost != "":
-		if cable, err = link.Host(*linkHost); err != nil {
+		if cable, err = link.Host(*linkHost, link.LocalName()); err != nil {
 			return fail(err)
 		}
 		log.Printf("link cable: waiting on %v", cable.Addr())
 	case *linkConnect != "":
-		cable = link.Connect(*linkConnect)
+		cable = link.Connect(*linkConnect, link.LocalName())
 		log.Printf("link cable: connecting to %s", *linkConnect)
 	}
 	var end ui.CableEnd

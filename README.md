@@ -435,13 +435,30 @@ Deux gbe se relient par le réseau comme deux Game Boy par un câble link : éch
 Pokémon, jouer à Tetris ou Dr. Mario à deux, sur la même machine ou entre deux machines du
 réseau local.
 
+**Depuis le menu** (page « Câble link », accessible aussi avant de lancer un jeu) :
+
+1. Sur la première machine, **Héberger une partie** : gbe attend l'autre et s'annonce sur le
+   réseau local. La page affiche l'adresse de la machine.
+2. Sur la seconde, **Rejoindre une partie** : la liste montre les gbe qui hébergent, avec le
+   nom de leur machine et leur jeu. Choisir le bon suffit.
+3. Une fois branché, la page indique à qui, et **Débrancher** coupe la liaison. Un badge
+   `LINK` reste affiché pendant la partie.
+
+**En ligne de commande**, les mêmes choses :
+
 ```sh
 gbe -link-host :5555 tetris.gb                   # le premier attend…
 gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
 ```
 
-- **Sur la même machine** : `-link-host :5555` d'un côté, `-link-connect 127.0.0.1:5555` de
-  l'autre. L'ordre de lancement n'importe pas : `-link-connect` réessaie chaque seconde.
+- **Sur la même machine** : héberger dans une fenêtre et rejoindre dans l'autre (la liste
+  la montre), ou `-link-host :5555` d'un côté et `-link-connect 127.0.0.1:5555` de l'autre.
+  L'ordre de lancement n'importe pas : `-link-connect` réessaie chaque seconde. Donner à
+  chaque fenêtre sa copie de la ROM et sa config (`-config`), pour qu'elles n'écrivent pas
+  dans les mêmes `.sav`, `.state` et `config.json`.
+- **Découverte** : l'hôte s'annonce chaque seconde en UDP (broadcast sur le port 5556) tant
+  que personne ne l'a rejoint. Certains réseaux (Wi-Fi d'invités, isolation des clients) ne
+  laissent pas passer ces annonces, ni les connexions entre machines.
 - **Branché, débranché** : une notification l'annonce. Si l'un quitte, l'autre continue comme
   sans câble ; dès qu'il revient, la connexion se refait. Changer de jeu ou redémarrer la
   console garde le câble.
@@ -450,7 +467,8 @@ gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
   lancement du jeu reste possible.
 - **Réseau** : prévu pour un réseau local. Chaque octet échangé demande un aller-retour, et la
   console qui mène l'échange l'attend : par Internet, les jeux qui échangent beaucoup
-  ralentiraient. Le port TCP doit être ouvert dans le pare-feu de la machine qui attend.
+  ralentiraient. Le port TCP doit être ouvert dans le pare-feu de la machine qui attend :
+  macOS demande d'autoriser gbe à recevoir des connexions au premier « Héberger ».
 - **Ce qui se passe** : la console qui mène un transfert (horloge interne) envoie son octet ;
   l'autre répond avec le sien si elle est prête (horloge externe), sinon 0x00 ; si les deux
   mènent en même temps, chacune reçoit 0xFF, comme sur le matériel. Une console en pause dans
@@ -686,8 +704,9 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
   Media Foundation par ses interfaces COM sous Windows. `GBE_WEBCAM=1 go test
   ./internal/webcam` essaie la vraie caméra. En CI, une caméra virtuelle (`v4l2loopback`)
   vérifie la lecture sous Linux, et un runner Windows les appels qui listent les caméras.
-- `internal/link` : le câble link en TCP (`-link-host`, `-link-connect`) : connexion,
-  vérification de la version du protocole, reconnexion.
+- `internal/link` : le câble link en TCP (`-link-host`, `-link-connect`, page « Câble
+  link » du menu) : connexion, vérification de la version du protocole, nom de chaque
+  machine, reconnexion, et découverte des hôtes sur le réseau local (`discovery.go`).
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.
 

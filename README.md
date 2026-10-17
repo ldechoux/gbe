@@ -440,7 +440,11 @@ réseau local.
 1. Sur la première machine, **Héberger une partie** : gbe attend l'autre et s'annonce sur le
    réseau local. La page affiche l'adresse de la machine.
 2. Sur la seconde, **Rejoindre une partie** : la liste montre les gbe qui hébergent, avec le
-   nom de leur machine et leur jeu. Choisir le bon suffit.
+   nom de leur machine et leur jeu. Choisir le bon suffit. S'il n'y apparaît pas, **Saisir
+   une adresse** : celle que la page de l'hôte affiche. Haut et Bas changent le chiffre sous
+   le curseur, Gauche et Droite le déplacent, les chiffres du clavier s'écrivent directement,
+   et OK se connecte, sur le port 5555. gbe retient l'adresse pour la fois suivante ; la
+   première fois, il propose celle de la machine, dont seul le dernier nombre change souvent.
 3. Une fois branché, la page indique à qui, et **Débrancher** coupe la liaison. Un badge
    `LINK` reste affiché pendant la partie.
 
@@ -457,8 +461,9 @@ gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
   fenêtres peuvent ouvrir la même ROM : la seconde garde ses propres sauvegardes (voir
   [Save states](#save-states)).
 - **Découverte** : l'hôte s'annonce chaque seconde en UDP (broadcast sur le port 5556) tant
-  que personne ne l'a rejoint. Certains réseaux (Wi-Fi d'invités, isolation des clients) ne
-  laissent pas passer ces annonces, ni les connexions entre machines.
+  que personne ne l'a rejoint. Certains réseaux ne laissent pas passer ces annonces : saisir
+  alors l'adresse. D'autres (Wi-Fi d'invités, isolation des clients) bloquent aussi les
+  connexions entre machines.
 - **Branché, débranché** : une notification l'annonce. Si l'un quitte, l'autre continue comme
   sans câble ; dès qu'il revient, la connexion se refait. Changer de jeu ou redémarrer la
   console garde le câble.

@@ -209,7 +209,7 @@ Ce que voit le capteur de la Game Boy Camera : une webcam, une image choisie par
 
 ### `link.*` — page Câble link (menu Pause)
 
-Relier deux gbe du réseau local : héberger une partie, en rejoindre une trouvée sur le réseau, débrancher.
+Relier deux gbe du réseau local : héberger une partie, en rejoindre une trouvée sur le réseau ou à une adresse saisie, débrancher.
 
 | Clé | Paramètres | Usage |
 |---|---|---|
@@ -231,6 +231,10 @@ Relier deux gbe du réseau local : héberger une partie, en rejoindre une trouv�
 | `link.none` | | Pied de page : aucun gbe trouvé pour l'instant |
 | `link.browse_failed` | | Pied de page : la recherche n'a pas pu démarrer, `%s` erreur |
 | `link.no_game` | | Dans la liste, à la place du titre d'un gbe qui héberge sans jeu lancé |
+| `link.enter_address` | | Dans la liste, entrée qui ouvre la page où saisir l'adresse d'un gbe que la recherche ne trouve pas |
+| `link.address_title` | | Titre de la page de saisie de l'adresse |
+| `link.address_help` | | Pied de page de la saisie : Haut/Bas changent le chiffre, OK se connecte |
+| `link.bad_address` | | Pied de page : un nombre de l'adresse dépasse 255 |
 
 ### `boot_rom.*` — page Dossiers, onglet des boot ROM
 

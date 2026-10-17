@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -86,6 +87,10 @@ type Config struct {
 	// CameraDevice is the webcam (webcam.Device.ID); "" for the default
 	// one of the system.
 	CameraDevice string `json:"camera_device"`
+	// LinkAddress is the IPv4 address last typed on the Address page of
+	// the link cable, to join a gbe the local network search does not
+	// find; "" for none.
+	LinkAddress string `json:"link_address"`
 }
 
 // RecentGame is a game of Config.Recent.
@@ -293,6 +298,9 @@ func LoadConfig(path string) (*Config, error) {
 	cfg.CameraMirror = loaded.CameraMirror
 	if loaded.CameraSource == cameraWebcam {
 		cfg.CameraSource, cfg.CameraDevice = cameraWebcam, loaded.CameraDevice
+	}
+	if ip := net.ParseIP(loaded.LinkAddress); ip != nil && ip.To4() != nil {
+		cfg.LinkAddress = ip.String()
 	}
 	for _, r := range loaded.Recent {
 		if r.Path != "" && len(cfg.Recent) < maxRecent {

@@ -40,6 +40,7 @@ const (
 	pageCamera  // what the Game Boy Camera sees, with that cartridge only
 	pageLink    // the link cable: host, join, unplug (see link_menu.go)
 	pageJoin    // the gbe hosting on the local network, to join one
+	pageAddress // the address of a gbe to join, typed
 )
 
 // Start page entries.
@@ -247,6 +248,9 @@ type menu struct {
 	// nameChars is how many characters of a game name the list had room
 	// for, the last time it was drawn (0: not drawn yet).
 	nameChars int
+	// addr is the address typed on the Address page, a digit by byte; the
+	// cursor is the digit edited.
+	addr [addrDigits]byte
 }
 
 // Controls page layout: one entry per button and action, then these.
@@ -387,7 +391,9 @@ func (m *menu) itemCount(g *Game) int {
 	case pageLink:
 		return len(linkEntries(g))
 	case pageJoin:
-		return len(g.foundGames()) + 1 // and Back
+		return len(g.foundGames()) + 2 // and Enter an address, Back
+	case pageAddress:
+		return 1
 	case pageFolders:
 		if m.tab == tabGamesDir {
 			return gamesDirItems
@@ -529,11 +535,15 @@ func (m *menu) update(g *Game) {
 		case pageJoin:
 			g.menuSound(menusound.Back)
 			m.showLink(g)
+		case pageAddress: // back on its entry, under the gbe found
+			g.menuSound(menusound.Back)
+			m.page, m.cursor, m.notice, m.width = pageJoin, len(g.foundGames()), "", 0
 		default:
 			g.menuSound(menusound.Back)
 			m.open = false
 		}
 	case m.page == pageGames && m.tab == tabAll && m.moveList(g):
+	case m.page == pageAddress && m.editAddress(g):
 	case a.up:
 		m.moveSounding(g, -1)
 	case a.down:
@@ -895,6 +905,10 @@ func (m *menu) activate(g *Game) {
 		m.activateJoin(g)
 		return
 	}
+	if m.page == pageAddress {
+		m.activateAddress(g)
+		return
+	}
 	if m.page == pageFolders && m.tab == tabGamesDir {
 		switch m.cursor {
 		case gamesDirChoose:
@@ -1059,6 +1073,8 @@ func (m *menu) view(g *Game) menuView {
 		return m.linkView(g)
 	case pageJoin:
 		return m.joinView(g)
+	case pageAddress:
+		return m.addressView(g)
 	}
 	title, items, footer := m.lines(g)
 	v := menuView{title: title, items: items, selected: m.cursor, footer: footer}

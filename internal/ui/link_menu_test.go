@@ -142,13 +142,13 @@ func TestLinkMenuJoin(t *testing.T) {
 	if g.menu.page != pageJoin || g.browser == nil {
 		t.Fatalf("page %d, browser %v", g.menu.page, g.browser)
 	}
-	if got, footer := items(g); !slices.Equal(got, []string{l.T("link.back")}) || !strings.Contains(footer, l.T("link.none")) {
+	if got, footer := items(g); !slices.Equal(got, []string{l.T("link.enter_address"), l.T("link.back")}) || !strings.Contains(footer, l.T("link.none")) {
 		t.Errorf("nothing found: %q, %q", got, footer)
 	}
 
 	// The games come as they are heard.
 	browser.games = []link.Found{mac, pc}
-	want := []string{"mac - TETRIS", "pc - " + l.T("link.no_game"), l.T("link.back")}
+	want := []string{"mac - TETRIS", "pc - " + l.T("link.no_game"), l.T("link.enter_address"), l.T("link.back")}
 	if got, _ := items(g); !slices.Equal(got, want) {
 		t.Errorf("found: %q, want %q", got, want)
 	}
@@ -240,6 +240,7 @@ func TestLinkMenuDetails(t *testing.T) {
 		t.Errorf("long name: %q", got[0])
 	}
 	press(g, menuActions{down: true})
+	press(g, menuActions{down: true})
 	press(g, menuActions{ok: true})
 	if g.menu.page != pageLink || len(*made) != 0 {
 		t.Errorf("Back entry: page %d, %d cables", g.menu.page, len(*made))
@@ -254,5 +255,87 @@ func TestLinkMenuDetails(t *testing.T) {
 	g.runFrame()
 	if g.gb.Link() == nil {
 		t.Error("the frame ran without the cable")
+	}
+}
+
+func TestLinkMenuAddress(t *testing.T) {
+	g := newTestGame(t, newFakePads())
+	g.cfg.LinkAddress = "192.168.1.20"
+	made, browser := withCables(g, nil, link.Found{Name: "mac", Addr: "192.168.1.30:5555"})
+	l := g.tr()
+	g.menu.show()
+	g.menu.showLink(g)
+	g.menu.cursor = linkJoin
+	press(g, menuActions{ok: true})
+	press(g, menuActions{down: true}) // past the gbe found
+	press(g, menuActions{ok: true})
+	got, footer := items(g)
+	if g.menu.page != pageAddress || browser.closed {
+		t.Fatalf("page %d, still looking %v", g.menu.page, !browser.closed)
+	}
+	// The address typed last, the cursor on its last number.
+	if want := []string{"192.168.001.020", "            ^"}; !slices.Equal(got, want) || footer != l.T("link.address_help") {
+		t.Errorf("address %q, %q; want %q", got, footer, want)
+	}
+
+	// Back to the list, on the entry, and in again.
+	press(g, menuActions{back: true})
+	if g.menu.page != pageJoin || g.menu.cursor != 1 || browser.closed {
+		t.Errorf("back: page %d, cursor %d", g.menu.page, g.menu.cursor)
+	}
+	press(g, menuActions{ok: true})
+
+	// 192.168.1.20 -> 192.168.1.128: a digit typed, Up and Down, Left and
+	// Right, which stop at the ends.
+	for _, a := range []menuActions{
+		{letter: '1'}, {up: true}, {down: true}, {down: true}, {up: true}, {right: true}, {right: true},
+		{letter: '8'}, {letter: 'a'}, {right: true},
+	} {
+		press(g, a)
+	}
+	if got, _ := items(g); got[0] != "192.168.001.128" || got[1] != "              ^" {
+		t.Errorf("edited: %q", got)
+	}
+	for range addrDigits {
+		press(g, menuActions{left: true})
+	}
+	if g.menu.cursor != 0 {
+		t.Errorf("cursor %d at the left end", g.menu.cursor)
+	}
+
+	// Over 255: refused, until edited.
+	press(g, menuActions{letter: '3'})
+	press(g, menuActions{ok: true})
+	if _, footer := items(g); len(*made) != 0 || !strings.HasPrefix(footer, l.T("link.bad_address")) {
+		t.Errorf("392.168.1.128: %d cables, footer %q", len(*made), footer)
+	}
+	press(g, menuActions{left: true})
+	if _, footer := items(g); footer != l.T("link.address_help") {
+		t.Errorf("the notice stays once edited: %q", footer)
+	}
+
+	// Connected, the address remembered.
+	press(g, menuActions{letter: '1'})
+	press(g, menuActions{ok: true})
+	if len(*made) != 1 || (*made)[0].target != "192.168.1.128:5555" || g.cfg.LinkAddress != "192.168.1.128" || !browser.closed {
+		t.Fatalf("joined %+v, remembered %q", *made, g.cfg.LinkAddress)
+	}
+	if _, footer := items(g); g.menu.page != pageLink || !strings.HasPrefix(footer, l.T("link.joining", "192.168.1.128")) {
+		t.Errorf("joining: page %d, %q", g.menu.page, footer)
+	}
+}
+
+// Without an address typed yet, the page starts on one of this machine.
+func TestLinkMenuAddressDefault(t *testing.T) {
+	g := newTestGame(t, newFakePads())
+	g.cfg.LinkAddress = ""
+	g.menu.show()
+	g.menu.showAddress(g)
+	want := "000.000.000.000"
+	if addrs := link.LocalAddrs(); len(addrs) > 0 {
+		want = digitsText(addrToDigits(addrs[0]))
+	}
+	if got, _ := items(g); got[0] != want {
+		t.Errorf("address %q, want %q", got[0], want)
 	}
 }

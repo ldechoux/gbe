@@ -79,7 +79,7 @@ type page struct {
 
 // detailedReleases is how many releases, the newest, the page shows with
 // their notes: the others are only linked, to keep the page short.
-const detailedReleases = 3
+const detailedReleases = 1
 
 var platforms = []Platform{
 	{ID: "macos", Name: "macOS", Note: "Glisser gbe dans Applications. L'app n'est pas signée par Apple : au premier lancement, Réglages Système > Confidentialité et sécurité > Ouvrir quand même. Les archives x86_64 et arm64 contiennent le binaire seul, pour le terminal."},

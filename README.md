@@ -453,9 +453,9 @@ gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
 
 - **Sur la même machine** : héberger dans une fenêtre et rejoindre dans l'autre (la liste
   la montre), ou `-link-host :5555` d'un côté et `-link-connect 127.0.0.1:5555` de l'autre.
-  L'ordre de lancement n'importe pas : `-link-connect` réessaie chaque seconde. Donner à
-  chaque fenêtre sa copie de la ROM et sa config (`-config`), pour qu'elles n'écrivent pas
-  dans les mêmes `.sav`, `.state` et `config.json`.
+  L'ordre de lancement n'importe pas : `-link-connect` réessaie chaque seconde. Les deux
+  fenêtres peuvent ouvrir la même ROM : la seconde garde ses propres sauvegardes (voir
+  [Save states](#save-states)).
 - **Découverte** : l'hôte s'annonce chaque seconde en UDP (broadcast sur le port 5556) tant
   que personne ne l'a rejoint. Certains réseaux (Wi-Fi d'invités, isolation des clients) ne
   laissent pas passer ces annonces, ni les connexions entre machines.
@@ -485,6 +485,15 @@ gbe -link-connect 192.168.1.20:5555 tetris.gb    # …le second s'y connecte
   moment.
 - **Sécurité** : un état fait avec une autre ROM (ou une autre version), ou dans l'autre mode
   (DMG / Game Boy Color), est refusé. Les états des versions précédentes restent lisibles.
+- **Deux gbe sur le même jeu** (par exemple pour un câble link sur la même machine) : le
+  premier garde `<rom>.sav` et `<rom>.state`, le second écrit dans `<rom>.2.sav` et
+  `<rom>.2.state`, ce qu'une notification rappelle. Le second part de la sauvegarde du
+  premier tant qu'il n'a pas la sienne, puis garde la sienne d'une fois sur l'autre : c'est
+  la cartouche du « joueur 2 ». Chacun a aussi son journal (`gbe.log`, `gbe-2.log`). Les
+  verrous qui le permettent sont dans le dossier `locks` de la config ; le système les
+  libère si gbe s'arrête brutalement.
+- **Écriture** : `.sav` et `.state` sont écrits dans un fichier temporaire renommé ensuite,
+  si bien qu'un arrêt brutal ne laisse jamais une sauvegarde à moitié écrite.
 - **Changement de mode** : avec `-model auto`, une partie sauvegardée dans l'autre mode (par
   exemple une partie DMG faite avant d'activer la colorisation) se reprend dans son mode ;
   l'écran de reprise le signale sous la date, et « Recommencer » relance la console dans le
@@ -707,6 +716,8 @@ go test ./internal/gb -run '^$' -bench Frame -benchtime 3s -cpuprofile cmd/gbe/d
 - `internal/link` : le câble link en TCP (`-link-host`, `-link-connect`, page « Câble
   link » du menu) : connexion, vérification de la version du protocole, nom de chaque
   machine, reconnexion, et découverte des hôtes sur le réseau local (`discovery.go`).
+- `internal/filelock` : les verrous de fichiers du système (`flock`, `LockFileEx`), qui
+  donnent à chaque gbe ouvrant le même jeu ses propres sauvegardes (`internal/rom`).
 - `internal/i18n` : les traductions de l'interface (fichiers JSON embarqués).
 - `cmd/gbe` : le point d'entrée.
 

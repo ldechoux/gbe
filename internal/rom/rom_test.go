@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -276,5 +277,106 @@ func TestBootROMSearchDirs(t *testing.T) {
 	s.Dir = "chosen"
 	if got := s.Dirs(); strings.Join(got, ",") != "chosen,a,b" {
 		t.Errorf("folder chosen: %v", got)
+	}
+}
+
+// A game already open in another gbe opens in the next slot, with its own
+// files, starting from the battery save of the first slot.
+func TestOpenSlots(t *testing.T) {
+	dir, locks := t.TempDir(), filepath.Join(t.TempDir(), "locks")
+	path := writeFile(t, filepath.Join(dir, "Game.gb"), cartridge("TEST GAME", 0x03))
+	save := bytes.Repeat([]byte{0x42}, 0x2000)
+	writeFile(t, filepath.Join(dir, "Game.sav"), save)
+	opts := Options{BootROM: "none", LockDir: locks}
+
+	first, err := Open(path, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Open(path, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Slot != 1 || first.SavePath != filepath.Join(dir, "Game.sav") {
+		t.Errorf("first: slot %d, %s", first.Slot, first.SavePath)
+	}
+	if second.Slot != 2 || second.SavePath != filepath.Join(dir, "Game.2.sav") || second.StatePath != filepath.Join(dir, "Game.2.state") {
+		t.Errorf("second: slot %d, %s, %s", second.Slot, second.SavePath, second.StatePath)
+	}
+	if got := second.Console.Cart.SaveData(); !bytes.Equal(got[:len(save)], save) {
+		t.Error("the second slot does not start from the first one's save")
+	}
+
+	// Once it has its own, it keeps it.
+	own := bytes.Repeat([]byte{0x24}, 0x2000)
+	writeFile(t, second.SavePath, own)
+	second.Close()
+	second.Close() // twice is fine
+	again, err := Open(path, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := again.Console.Cart.SaveData(); again.Slot != 2 || !bytes.Equal(got[:len(own)], own) {
+		t.Errorf("slot %d given back: its save is not loaded", again.Slot)
+	}
+
+	// The first slot given back is taken first.
+	first.Close()
+	if g, err := Open(path, opts); err != nil || g.Slot != 1 {
+		t.Errorf("after the first closed: slot %d, %v", g.Slot, err)
+	}
+
+	// Another game has its own slots.
+	other := writeFile(t, filepath.Join(dir, "Other.gb"), cartridge("OTHER", 0x03))
+	if g, err := Open(other, opts); err != nil || g.Slot != 1 {
+		t.Errorf("another game: slot %d, %v", g.Slot, err)
+	}
+}
+
+// Without a place for the locks, every gbe opens the game in the first
+// slot, as before.
+func TestOpenSlotsWithoutLocks(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "Game.gb"), cartridge("TEST GAME", 0x03))
+	blocked := writeFile(t, filepath.Join(dir, "not-a-folder"), nil)
+	for _, opts := range []Options{{BootROM: "none"}, {BootROM: "none", LockDir: filepath.Join(blocked, "locks")}} {
+		a, errA := Open(path, opts)
+		b, errB := Open(path, opts)
+		if errA != nil || errB != nil || a.Slot != 1 || b.Slot != 1 {
+			t.Errorf("lock dir %q: slots %d and %d (%v, %v)", opts.LockDir, a.Slot, b.Slot, errA, errB)
+		}
+	}
+}
+
+// With every slot taken, or locks that cannot be made, the game still
+// opens, in the first slot.
+func TestOpenSlotsExhausted(t *testing.T) {
+	dir, locks := t.TempDir(), filepath.Join(t.TempDir(), "locks")
+	path := writeFile(t, filepath.Join(dir, "Game.gb"), cartridge("TEST GAME", 0x03))
+	opts := Options{BootROM: "none", LockDir: locks}
+	var open []*Game // kept: the garbage collector would close their locks
+	for want := 1; want <= maxSlots; want++ {
+		g, err := Open(path, opts)
+		if err != nil || g.Slot != want {
+			t.Fatalf("open %d: slot %d, %v", want, g.Slot, err)
+		}
+		open = append(open, g)
+	}
+	if g, err := Open(path, opts); err != nil || g.Slot != 1 {
+		t.Errorf("every slot taken: slot %d, %v", g.Slot, err)
+	}
+	for _, g := range open {
+		g.Close()
+	}
+
+	if runtime.GOOS == "windows" {
+		return // a read-only folder still takes new files there
+	}
+	readOnly := filepath.Join(t.TempDir(), "locks")
+	if err := os.Mkdir(readOnly, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	if g, err := Open(path, Options{BootROM: "none", LockDir: readOnly}); err != nil || g.Slot != 1 {
+		t.Errorf("read-only lock folder: slot %d, %v", g.Slot, err)
 	}
 }

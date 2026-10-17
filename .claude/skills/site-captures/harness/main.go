@@ -55,6 +55,7 @@ func main() {
 	flag.IntVar(&opts.Scale, "scale", 8, "window scale")
 	flag.StringVar(&opts.Filter, "filter", "lcd", "display filter")
 	flag.StringVar(&opts.Language, "lang", "fr", "user interface language")
+	flag.BoolVar(&opts.Link, "link", false, "capture the Join page of the link cable over the title screen instead (link_join.png)")
 	flag.Parse()
 
 	var err error

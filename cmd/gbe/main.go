@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/ldechoux/gbe/internal/audiofx"
+	"github.com/ldechoux/gbe/internal/filelock"
 	"github.com/ldechoux/gbe/internal/gb"
 	"github.com/ldechoux/gbe/internal/link"
 	"github.com/ldechoux/gbe/internal/rom"
@@ -103,7 +104,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	configDir := filepath.Dir(configPath)
 	if *frames == 0 {
-		logToFile(filepath.Join(configDir, "gbe.log"), stderr)
+		logToFile(configDir, stderr)
 	}
 	cfg, err := ui.LoadConfig(configPath)
 	if err != nil {
@@ -116,6 +117,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		BootROMs: bootROMs,
 		Colorize: cfg.ColorizeDMG,
 		Fresh:    *frames > 0,
+	}
+	if *frames == 0 { // the headless mode writes no save
+		// Each gbe playing the same game at once gets its own saves.
+		opts.LockDir = filepath.Join(configDir, "locks")
 	}
 
 	// Without a ROM, the window asks for one to be dropped on it. One that
@@ -186,20 +191,40 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// logToFile copies the log to path, from scratch at each launch: launched
-// from the Finder or the Explorer, gbe has no terminal, and the log is the
-// only trace of what went wrong.
-func logToFile(path string, stderr io.Writer) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+// logToFile copies the log to a file of configDir (see logPath), from
+// scratch at each launch: launched from the Finder or the Explorer, gbe has
+// no terminal, and the log is the only trace of what went wrong.
+func logToFile(configDir string, stderr io.Writer) {
+	if err := os.MkdirAll(filepath.Join(configDir, "locks"), 0o755); err != nil {
 		log.Printf("log file: %v", err)
 		return
 	}
-	f, err := os.Create(path)
+	f, err := os.Create(logPath(configDir))
 	if err != nil {
 		log.Printf("log file: %v", err)
 		return
 	}
 	log.SetOutput(io.MultiWriter(stderr, f))
+}
+
+// logLock holds the log of this gbe while it runs (see logPath).
+var logLock *os.File
+
+// logPath is the log of this gbe in configDir: gbe.log, or gbe-2.log... when
+// other gbe are running, for each to keep its own. The lock that tells it
+// lasts as long as gbe runs.
+func logPath(configDir string) string {
+	for n := 1; n <= 9; n++ {
+		f, ok, _ := filelock.TryLock(filepath.Join(configDir, "locks", fmt.Sprintf("log.%d.lock", n)))
+		if ok {
+			logLock = f // kept open, or the garbage collector would close it
+			if n > 1 {
+				return filepath.Join(configDir, fmt.Sprintf("gbe-%d.log", n))
+			}
+			break
+		}
+	}
+	return filepath.Join(configDir, "gbe.log")
 }
 
 // bootROMDirs are the folders searched for the default boot ROMs after the

@@ -17,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/ldechoux/gbe/internal/gb"
+	"github.com/ldechoux/gbe/internal/link"
 	"github.com/ldechoux/gbe/internal/rom"
 	"github.com/ldechoux/gbe/internal/ui/scaler"
 )
@@ -41,6 +42,9 @@ type CaptureOptions struct {
 	Scale    int    // window scale of the captures
 	Filter   string // display filter
 	Language string // user interface language
+	// Link captures the Join page of the link cable only, over the title
+	// screen: link_join.png.
+	Link bool
 }
 
 type captureGame struct {
@@ -65,17 +69,28 @@ func (c *captureGame) save(name string) {
 func (c *captureGame) Update() error {
 	switch {
 	case c.step == 0: // at launch, before the first frame: the resume prompt
-		c.started = false
-		c.stateTime = time.Now()
-		c.menu.showStart()
-		c.save("save_state_resume")
-		c.menu.open, c.started = false, true
+		if !c.opts.Link {
+			c.started = false
+			c.stateTime = time.Now()
+			c.menu.showStart()
+			c.save("save_state_resume")
+			c.menu.open, c.started = false, true
+		}
 		c.step++
 	case c.frame < c.opts.TitleAt:
 		start := c.opts.StartAt > 0 && c.frame >= c.opts.StartAt && c.frame < c.opts.StartAt+10
 		c.gb.SetButton(gb.ButtonStart, start)
 		c.gb.RunFrame()
 		c.frame++
+	case c.step == 1 && c.opts.Link:
+		// The Join page of the link cable, with two gbe found on the local
+		// network: one hosting this game, one without a game yet.
+		c.browser = captureBrowser{
+			{Name: "Mac-du-salon", Title: c.gb.Cart.Title, Addr: "192.168.1.20:5555"},
+			{Name: "PC-bureau", Addr: "192.168.1.21:5555"},
+		}
+		c.menu = menu{open: true, page: pageJoin}
+		c.step = 3
 	case c.step == 1:
 		c.save("game_title")
 		c.menu.show() // the pause menu, cursor on Resume
@@ -83,12 +98,21 @@ func (c *captureGame) Update() error {
 	case c.step == 2:
 		c.save("menu")
 		return ebiten.Termination
+	case c.step == 3:
+		c.save("link_join")
+		return ebiten.Termination
 	}
 	return nil
 }
 
+// captureBrowser lists the gbe of the Join page.
+type captureBrowser []link.Found
+
+func (b captureBrowser) Games() []link.Found { return b }
+func (captureBrowser) Close()                {}
+
 // Capture runs console and saves save_state_resume.png, game_title.png and
-// menu.png in opts.Dir.
+// menu.png in opts.Dir, or link_join.png only with opts.Link.
 func Capture(console *gb.GameBoy, opts CaptureOptions) error {
 	cfg := DefaultConfig() // default palette (DMG vert) and color correction
 	cfg.Scale = opts.Scale

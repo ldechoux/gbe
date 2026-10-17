@@ -391,6 +391,7 @@ nommés par leur nom de fichier, qui n'est pas traduit.
 | `toast.screenshot_failed` | `%s` erreur | La capture d'écran a échoué |
 | `toast.game_loaded` | `%s` titre du jeu | Un jeu déposé sur la fenêtre a démarré |
 | `toast.same_game` | | Le jeu déposé est celui en cours |
+| `toast.other_slot` | `%s` nom du fichier de sauvegarde | Le jeu lancé est déjà ouvert dans un autre gbe : celui-ci sauvegarde dans ses propres fichiers (`jeu.2.sav`…) |
 | `toast.restart_failed` | `%s` erreur | Le redémarrage dans le mode choisi a échoué |
 
 ### `title.*` — titre de la fenêtre

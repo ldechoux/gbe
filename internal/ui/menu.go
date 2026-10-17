@@ -286,6 +286,9 @@ func (m *menu) showSwitch() {
 // keepPlaying forgets the dropped game. The game in progress goes on, or, if
 // the player had not chosen yet, the resume prompt comes back.
 func (m *menu) keepPlaying(g *Game) {
+	if g.pending != nil {
+		g.pending.Close()
+	}
 	g.pending = nil
 	if !g.started {
 		m.showStart()

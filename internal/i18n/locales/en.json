@@ -166,6 +166,7 @@
     "games.saved_at": "Saved %s",
     "toast.game_loaded": "Game started: %s",
     "toast.same_game": "This game is already running",
+    "toast.other_slot": "Open in another gbe too: saves in %s",
     "error.not_rom_ext": "Unsupported file: %s (.gb, .gbc or .zip)",
     "error.folder": "Drop a file, not a folder",
     "error.zip_empty": "No .gb or .gbc ROM in the archive",

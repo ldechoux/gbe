@@ -188,6 +188,9 @@ type Game struct {
 	browser   gameBrowser
 	browseErr error
 	cables    cableMakers
+
+	// release gives back the slot of the game running (see rom.Game.Slot).
+	release func()
 }
 
 // playMode is how the emulation advances on this tick.
@@ -290,6 +293,7 @@ func Run(opts Options) error {
 
 	err = ebiten.RunGame(g)
 	g.closeGame() // so the next launch can resume
+	g.releaseGame()
 	g.stopBrowsing()
 	g.stopCable()
 	g.camera.closeWebcam()
@@ -336,8 +340,28 @@ func (g *Game) saveBattery() {
 	if g.gb == nil || !g.gb.Cart.Dirty() || g.savePath == "" {
 		return
 	}
-	if err := os.WriteFile(g.savePath, g.gb.Cart.SaveData(), 0o644); err != nil {
+	if err := writeAtomic(g.savePath, g.gb.Cart.SaveData()); err != nil {
 		log.Printf("saving %s: %v", g.savePath, err)
+	}
+}
+
+// writeAtomic writes data to path through a temporary file renamed over
+// it: whoever reads it, or a crash, never sees half of it.
+func writeAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	err := os.WriteFile(tmp, data, 0o644)
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	return err
+}
+
+// releaseGame gives back the slot of the game running, once its files are
+// written.
+func (g *Game) releaseGame() {
+	if g.release != nil {
+		g.release()
+		g.release = nil
 	}
 }
 
@@ -385,17 +409,12 @@ func (g *Game) cyclePalette(delta int) {
 	g.saveConfig()
 }
 
-// saveState writes the save state atomically (temp file + rename).
+// saveState writes the save state.
 func (g *Game) saveState() {
 	if g.statePath == "" {
 		return
 	}
-	tmp := g.statePath + ".tmp"
-	err := os.WriteFile(tmp, g.gb.SaveState(), 0o644)
-	if err == nil {
-		err = os.Rename(tmp, g.statePath)
-	}
-	if err != nil {
+	if err := writeAtomic(g.statePath, g.gb.SaveState()); err != nil {
 		log.Printf("saving state: %v", err)
 		g.notify(g.tr().T("toast.save_failed", err))
 		return

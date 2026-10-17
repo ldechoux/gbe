@@ -205,3 +205,20 @@ func TestRunLinkCable(t *testing.T) {
 		t.Fatalf("-link-host: exit %d, %q", code, errs)
 	}
 }
+
+// Each gbe running at once writes its own log.
+func TestLogPath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "locks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	defer func(f *os.File) { logLock = f }(logLock)
+	first := logPath(dir)
+	held := logLock
+	second := logPath(dir)
+	defer held.Close()
+	defer logLock.Close()
+	if first != filepath.Join(dir, "gbe.log") || second != filepath.Join(dir, "gbe-2.log") {
+		t.Errorf("logs %s and %s", first, second)
+	}
+}

@@ -77,6 +77,62 @@ func TestSerial(t *testing.T) {
 	}
 }
 
+// serialTicks starts a transfer with the internal clock and returns how many
+// M-cycles it takes to complete.
+func serialTicks(t *testing.T, g *GameBoy, sc byte) int {
+	t.Helper()
+	g.Bus.ifl = 0
+	g.Bus.write(0xFF02, sc)
+	for n := 1; n <= 8*512/4; n++ {
+		g.Serial.tick()
+		if g.Bus.ifl&IntSerial != 0 {
+			return n
+		}
+	}
+	t.Fatalf("SC %02X: transfer not completed", sc)
+	return 0
+}
+
+func TestSerialCGB(t *testing.T) {
+	// In CGB mode, bit 1 reads back as written and selects a clock 32 times
+	// faster.
+	g := newTestCGB(t)
+	for _, c := range []struct{ sc, read byte }{{0x00, 0x7C}, {0x02, 0x7E}, {0x80, 0xFC}, {0x83, 0xFF}} {
+		g.Bus.write(0xFF02, c.sc)
+		if got := g.Bus.read(0xFF02); got != c.read {
+			t.Errorf("CGB: SC written %02X reads %02X, want %02X", c.sc, got, c.read)
+		}
+		g.Serial.remaining = 0
+	}
+	if n := serialTicks(t, g, 0x83); n != 8*16/4 {
+		t.Errorf("CGB fast clock: %d M-cycles, want %d", n, 8*16/4)
+	}
+	if n := serialTicks(t, g, 0x81); n != 8*512/4 {
+		t.Errorf("CGB normal clock: %d M-cycles, want %d", n, 8*512/4)
+	}
+
+	// Neither in compatibility mode, nor on a DMG: bit 1 reads 1 and is
+	// ignored.
+	rom := make([]byte, 0x8000)
+	cart, err := NewCartridge(rom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range []Model{ModelCGB, ModelDMG} {
+		g, err := NewModel(cart, nil, m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		g.Bus.write(0xFF02, 0x00)
+		if got := g.Bus.read(0xFF02); got != 0x7E {
+			t.Errorf("model %v: SC written 00 reads %02X, want 7E", m, got)
+		}
+		if n := serialTicks(t, g, 0x83); n != 8*512/4 {
+			t.Errorf("model %v: fast clock bit honored, %d M-cycles", m, n)
+		}
+	}
+}
+
 func TestPPURegisters(t *testing.T) {
 	g := newTestGB(t)
 	g.Bus.write(0xFF40, 0x11) // LCD off, so nothing moves

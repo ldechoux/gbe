@@ -37,26 +37,36 @@ const (
 	touchSize   = 180 // what iOS asks for
 )
 
-// Colors of the site (site/style.css): the light theme, and the bezels of
-// the two consoles.
+// Colors of the site (site/style.css): the dark theme, its frames, and the
+// four colors of the Game Boy Color logo.
 var (
-	shareBg       = color.RGBA{0xe6, 0xe4, 0xdc, 0xff}
-	shareInk      = color.RGBA{0x1f, 0x2a, 0x1f, 0xff}
-	shareMuted    = color.RGBA{0x5a, 0x63, 0x56, 0xff}
-	shareShadow   = color.RGBA{0xb9, 0xb6, 0xa8, 0xff}
-	shareBezel    = color.RGBA{0x5b, 0x5d, 0x6b, 0xff}
-	shareBezelGBC = color.RGBA{0x4b, 0x3a, 0x78, 0xff}
-	touchBg       = shareBg
+	shareBg       = color.RGBA{0x14, 0x12, 0x1f, 0xff}
+	shareInk      = color.RGBA{0xec, 0xe9, 0xf6, 0xff}
+	shareMuted    = color.RGBA{0xc9, 0xc5, 0xdd, 0xff}
+	shareLine     = color.RGBA{0x3a, 0x33, 0x58, 0xff}
+	shareBezel    = color.RGBA{0x24, 0x1f, 0x38, 0xff}
+	shareBezelGBC = shareBezel
+	shareAccents  = []color.RGBA{
+		{0xff, 0x5d, 0x8f, 0xff}, // pink
+		{0xff, 0xd2, 0x3f, 0xff}, // yellow
+		{0x5e, 0xea, 0xd4, 0xff}, // teal
+		{0x8b, 0x7b, 0xff, 0xff}, // violet
+	}
+	touchBg = shareBg
 )
 
 // shareImage draws the image of a shared link, like the top of the site:
-// the name and what gbe is at the left, in the pixel font of its menus,
-// and at the right the title screens of the two consoles (screenshots/gb
-// and gbc) in their bezels, one over the other.
+// the four colored squares, the name and what gbe is at the left, in the
+// pixel font of its menus, and at the right the title screens of the two
+// consoles (screenshots/gb and gbc) in their frames, one over the other.
 func shareImage(shotsDir string) (*image.RGBA, error) {
 	img := image.NewRGBA(image.Rect(0, 0, shareWidth, shareHeight))
 	draw.Draw(img, img.Bounds(), &image.Uniform{shareBg}, image.Point{}, draw.Src)
 
+	for i, c := range shareAccents {
+		x := 70 + i*38
+		fill(img, image.Rect(x, 64, x+26, 90), c)
+	}
 	pixelText(img, "gbe", 16, 64, 92, shareInk)
 	for i, line := range []string{"Émulateur", "Game Boy et", "Game Boy Color"} {
 		pixelText(img, line, 4, 70, 338+i*52, shareInk)
@@ -79,8 +89,8 @@ func shareImage(shotsDir string) (*image.RGBA, error) {
 			return nil, err
 		}
 		x, y := 560+i*200, 50+i*170
-		fill(img, image.Rect(x+12, y+12, x+392, y+356), shareShadow)
-		fill(img, image.Rect(x, y, x+380, y+344), shot.bezel)
+		fill(img, image.Rect(x, y, x+380, y+344), shareLine)
+		fill(img, image.Rect(x+4, y+4, x+376, y+340), shot.bezel)
 		dst := image.Rect(x+30, y+28, x+30+160*scale, y+28+144*scale)
 		xdraw.NearestNeighbor.Scale(img, dst, screen, screen.Bounds(), draw.Src, nil)
 	}

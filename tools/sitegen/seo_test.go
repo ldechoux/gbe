@@ -108,13 +108,16 @@ func TestShareImage(t *testing.T) {
 	if b := img.Bounds(); b.Dx() != shareWidth || b.Dy() != shareHeight {
 		t.Fatalf("size %v", b)
 	}
-	// The background, then the bezels of the two consoles, at the right.
+	// The background, the first colored square, then the frames of the two
+	// consoles, at the right, and their border.
 	for _, c := range []struct {
 		x, y int
 		want color.RGBA
 	}{
 		{10, 10, shareBg},
+		{80, 70, shareAccents[0]},
 		{570, 60, shareBezel},
+		{561, 60, shareLine},
 		{1130, 550, shareBezelGBC},
 	} {
 		if got := img.RGBAAt(c.x, c.y); got != c.want {
@@ -125,7 +128,7 @@ func TestShareImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b := icon.Bounds(); b.Dx() != touchSize || icon.RGBAAt(0, 0) != (color.RGBA{0xe6, 0xe4, 0xdc, 0xff}) {
+	if b := icon.Bounds(); b.Dx() != touchSize || icon.RGBAAt(0, 0) != touchBg {
 		t.Errorf("touch icon %v, corner %v", b, icon.RGBAAt(0, 0))
 	}
 }

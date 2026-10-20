@@ -12,13 +12,13 @@ l'autre.
 
 | Groupe | Fichiers | Scène | Section du site |
 |---|---|---|---|
-| `hero` | `gb/screenshot`, `gbc/screenshot` (640×576) | Les écrans titres de Super Mario Land (palette DMG vert) et de Link's Awakening DX (couleurs corrigées), sans filtre | En-tête (la console) |
-| `palettes` | `gb/palette_{dmg,bgb,sepia,violet}` (640×576) | Le début du niveau 1-1 de Super Mario Land, dans les palettes DMG vert, BGB, Sepia et Violet | Game Boy : 10 palettes |
-| `colorized` | `gbc/colorized_{tetris,zelda,sml,tetris_leftb}` (640×576) | Jeux DMG colorisés par la Game Boy Color : Tetris, Link's Awakening, Super Mario Land avec la palette choisie par la console, et Tetris avec la combinaison Gauche + B | Les jeux Game Boy en couleurs |
-| `filters` | `{gb,gbc}/filter_lcd` (480×360), `gb/filter_{nearest,scale2x,scale3x,mmpx}` (480×432) | Des détails en taille réelle : le filtre LCD en ×15 (hauteur d'un écran 4K), les autres en ×8 | Grand écran |
-| `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}`, `gb/link_join` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement, et la page « Rejoindre » du câble link sur l'écran titre de Dr. Mario ; en ×8 avec le filtre LCD | Captures (`#captures`) ; `link_join` dans « Démarrage rapide » (`figure.drop-shot`) |
-| `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents et « Tous les jeux » | Télécharger, « Démarrage rapide » (`figure.drop-shot`) |
-| `camera` | `gb/camera_viewfinder` (640×576), `gb/camera_picture` (512×448) | Le viseur de la Game Boy Camera, qui voit la mascotte du skill (un poussin fan de chiptune), et la mascotte elle-même | Game Boy Camera (`#camera`) |
+| `hero` | `gb/screenshot`, `gbc/screenshot` (640×576) | Les écrans titres de Super Mario Land (palette DMG vert) et de Link's Awakening DX (couleurs corrigées), sans filtre | Plus sur la page : l'image de partage (`img/share.png`) et les données structurées (`tools/sitegen/seo.go`) |
+| `palettes` | `gb/palette_{dmg,bgb,sepia,violet}` (640×576) | Le début du niveau 1-1 de Super Mario Land, dans les palettes DMG vert, BGB, Sepia et Violet | Chapitre « Palettes » (`#palettes`) : `palette_dmg` est l'aperçu, les autres viennent du sélecteur |
+| `colorized` | `gbc/colorized_{tetris,zelda,sml,tetris_leftb}` (640×576) | Jeux DMG colorisés par la Game Boy Color : Tetris, Link's Awakening, Super Mario Land avec la palette choisie par la console, et Tetris avec la combinaison Gauche + B | Chapitre « Game Boy Color » (`#gbc`) |
+| `filters` | `{gb,gbc}/filter_lcd` (480×360), `gb/filter_{nearest,scale2x,scale3x,mmpx}` (480×432) | Des détails en taille réelle : le filtre LCD en ×15 (hauteur d'un écran 4K), les autres en ×8 | Chapitre « Grand écran » (`#ecran`) : `gbc/filter_lcd` et les quatre `gb/filter_*` |
+| `scenes` | `{gb,gbc}/{game_title,menu,save_state_resume}`, `gb/link_join` (1280×1152) | L'écran titre, le menu Pause par-dessus (en français, curseur sur Reprendre), l'écran de reprise au lancement, et la page « Rejoindre » du câble link sur l'écran titre de Dr. Mario ; en ×8 avec le filtre LCD | « En images » (`#images`) : `gbc/game_title`, `gb/game_title`, `gbc/menu` ; `gb/save_state_resume` dans le chapitre « Jouer » ; `link_join` dans le chapitre « À deux » (`#link`). `gb/menu` et `gbc/save_state_resume` ne sont plus sur la page |
+| `drop` | `gb/drop_screen` (1280×1152) | L'écran de dépôt des ROMs, gbe lancé sans ROM, avec 5 jeux récents et « Tous les jeux » | « En images » (`#images`), et « Démarrage rapide » (`figure.quick-shot`) |
+| `camera` | `gb/camera_viewfinder` (640×576), `gb/camera_picture` (512×448) | Le viseur de la Game Boy Camera, qui voit la mascotte du skill (un poussin fan de chiptune), et la mascotte elle-même | Chapitre « Game Boy Camera » (`#camera`) |
 
 Les fichiers sont des WebP sans perte : on peut comparer une nouvelle capture à l'ancienne
 pixel par pixel (`magick compare -metric AE`).
@@ -208,13 +208,12 @@ cp <out>/gb/drop_screen.webp screenshots/gb/drop_screen.webp   # par exemple
 changé.
 
 Si l'échelle des scènes n'est plus ×8, mettre à jour dans `site/index.html.tmpl` :
-- les attributs `width`/`height` des sept `<img>` concernées (160×échelle sur
-  144×échelle) : les six de `#captures` et celle de `figure.drop-shot`, dans « Démarrage
-  rapide » ;
-- la phrase sous le titre des Captures, qui annonce l'échelle, la taille et le filtre.
+- les attributs `width`/`height` des `<img>` des groupes `scenes` et `drop` (160×échelle
+  sur 144×échelle) : celles de `#images`, de `figure.quick-shot` et des chapitres « Jouer »
+  et « À deux » ;
+- la phrase sous le titre « En images », qui annonce l'échelle, la taille et le filtre.
 
-De même si le filtre change. La figure de l'écran de dépôt a la largeur d'une colonne des
-Captures (`.drop-shot` dans `site/style.css`), centrée : ne pas la changer sans en parler.
+De même si le filtre change.
 Si une recette change le sujet d'une image, mettre à jour son texte `alt` et sa légende.
 
 ### 5. Montrer l'aperçu du site

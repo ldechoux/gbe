@@ -5,6 +5,9 @@
 # rendering tests (see internal/rendertest). Raise a floor when tests are
 # added; never lower one to let a change through.
 #
+# internal/webcam is measured on Linux, as the CI does, without a camera:
+# its other systems have their own files, and the CI runs on Linux.
+#
 # package               floor
 assets/icon             80
 cmd/gbe                 90
@@ -14,9 +17,11 @@ internal/gb             94
 internal/i18n           85
 internal/link           87
 internal/menusound      95
+internal/rendertest     70
 internal/rom            92
 internal/ui             87
 internal/ui/scaler      87
+internal/webcam         67
 tools/benchreport       84
 tools/icongen           90
 tools/rumblelab         85

@@ -2,12 +2,17 @@ package webcam
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/jpeg"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // The structures have the sizes of linux/videodev2.h on 64-bit systems:
@@ -155,4 +160,136 @@ func TestDevicesWithoutCamera(t *testing.T) {
 	if !nodeLess("/dev/video2", "/dev/video10") || nodeLess("/dev/video10", "/dev/video9") {
 		t.Error("video10 sorted before video2")
 	}
+}
+
+// The names of the V4L2 structures end at their NUL, without the spaces
+// some drivers pad them with; the packed formats have two bytes a pixel.
+func TestCStringAndFormats(t *testing.T) {
+	if got := cString([]byte("USB Camera  \x00junk")); got != "USB Camera" {
+		t.Errorf("cString %q", got)
+	}
+	if got := cString([]byte("full")); got != "full" {
+		t.Errorf("cString without a NUL: %q", got)
+	}
+	for f, want := range map[uint32]uint32{fmtYUYV: 2, fmtYVYU: 2, fmtUYVY: 2, fmtGrey: 1, fmtNV12: 1, fmtMJPEG: 1} {
+		if got := bytesPerPixel(f); got != want {
+			t.Errorf("%#x: %d bytes a pixel, want %d", f, got, want)
+		}
+	}
+}
+
+// The links of /dev/v4l/by-id are followed, the first one by name kept for
+// a node; the nodes that are not cameras, or cannot be opened, are left
+// out.
+func TestDevicesByID(t *testing.T) {
+	old := devDir
+	defer func() { devDir = old }()
+	devDir = t.TempDir()
+	os.WriteFile(filepath.Join(devDir, "video0"), nil, 0o644)
+	os.Mkdir(filepath.Join(devDir, "video1"), 0o755)
+	byID := filepath.Join(devDir, "v4l", "by-id")
+	os.MkdirAll(byID, 0o755)
+	for _, name := range []string{"usb-b-video-index0", "usb-a-video-index0"} {
+		if err := os.Symlink(filepath.Join("..", "..", "video0"), filepath.Join(byID, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	os.Symlink("missing", filepath.Join(byID, "usb-gone"))
+	devices, err := Devices()
+	if err != nil || len(devices) != 0 {
+		t.Errorf("devices %v, %v", devices, err)
+	}
+}
+
+// Open says why a node cannot be a camera.
+func TestOpenErrors(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Open(dir); err == nil || errors.Is(err, ErrNoDevice) || !strings.HasPrefix(err.Error(), "webcam: "+dir) {
+		t.Errorf("a folder: %v", err)
+	}
+	file := filepath.Join(dir, "video0")
+	os.WriteFile(file, nil, 0o644)
+	if _, err := Open(file); err == nil || !strings.Contains(err.Error(), "no format gbe reads") {
+		t.Errorf("not a camera: %v", err)
+	}
+	if os.Geteuid() == 0 {
+		return // root opens it anyway
+	}
+	os.Chmod(file, 0)
+	if _, err := Open(file); !errors.Is(err, ErrDenied) || !strings.Contains(err.Error(), "video group") {
+		t.Errorf("not allowed: %v", err)
+	}
+}
+
+// pipe is a file descriptor to give the capture loop in place of a camera,
+// and the other end of it.
+func pipe(t *testing.T) (r, w int) {
+	t.Helper()
+	var p [2]int
+	if err := unix.Pipe2(p[:], unix.O_CLOEXEC|unix.O_NONBLOCK); err != nil {
+		t.Fatal(err)
+	}
+	return p[0], p[1]
+}
+
+// waitDone fails unless done closes within a second.
+func waitDone(t *testing.T, what string, done <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("%s: the capture goes on", what)
+	}
+}
+
+// The capture stops when asked, waiting for no picture, and when the
+// camera fails, as when it is unplugged.
+func TestRun(t *testing.T) {
+	r, w := pipe(t)
+	defer unix.Close(r)
+	defer unix.Close(w)
+	cam := &v4l2Camera{fd: r}
+	var s Stream
+
+	stop, done := make(chan struct{}), make(chan struct{})
+	close(stop)
+	go cam.run(&s, stop, done)
+	waitDone(t, "stopped at once", done)
+
+	// Nothing to read for a while, then stopped.
+	stop, done = make(chan struct{}), make(chan struct{})
+	go cam.run(&s, stop, done)
+	time.Sleep(150 * time.Millisecond) // more than one wait
+	close(stop)
+	waitDone(t, "stopped", done)
+
+	// Something to read that is not a picture: the camera is gone.
+	unix.Write(w, []byte{0})
+	stop, done = make(chan struct{}), make(chan struct{})
+	defer close(stop)
+	go cam.run(&s, stop, done)
+	waitDone(t, "camera failing", done)
+	if s.Frames() != 0 {
+		t.Errorf("%d pictures", s.Frames())
+	}
+}
+
+// release stops the capture, unmaps the buffers and closes the device,
+// once.
+func TestRelease(t *testing.T) {
+	r, w := pipe(t)
+	defer unix.Close(w)
+	mem, err := unix.Mmap(-1, 0, 4096, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_ANON|unix.MAP_PRIVATE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cam := &v4l2Camera{fd: r, buffers: [][]byte{mem}, streaming: true}
+	cam.release()
+	if cam.streaming || cam.buffers != nil || cam.fd != -1 {
+		t.Errorf("after release: %+v", cam)
+	}
+	if _, err := unix.Write(w, []byte{0}); !errors.Is(err, unix.EPIPE) {
+		t.Errorf("the device is still open: %v", err)
+	}
+	cam.release() // nothing left to free
 }

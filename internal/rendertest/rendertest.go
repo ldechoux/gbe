@@ -84,7 +84,12 @@ func Skip(t testing.TB) {
 // Check compares img with the reference testdata/render/<name>.png.
 func Check(t testing.TB, name string, img *ebiten.Image) {
 	t.Helper()
-	got := Pixels(img)
+	check(t, name, Pixels(img))
+}
+
+// check is Check on the pixels read: the part that needs no display.
+func check(t testing.TB, name string, got *image.RGBA) {
+	t.Helper()
 	path := filepath.Join("testdata", "render", name+".png")
 	if os.Getenv("GBE_RENDER_UPDATE") != "" {
 		if err := writePNG(path, got); err != nil {

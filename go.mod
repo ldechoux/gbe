@@ -3,8 +3,8 @@ module github.com/ldechoux/gbe
 go 1.27.2
 
 require (
-	github.com/ebitengine/purego v0.11.2
-	github.com/hajimehoshi/ebiten/v2 v2.10.5
+	github.com/ebitengine/purego v0.11.3
+	github.com/hajimehoshi/ebiten/v2 v2.10.6
 	github.com/ncruces/zenity v0.10.15
 	golang.org/x/image v0.47.0
 	golang.org/x/perf v0.0.0-20260929162123-406019bb8b68

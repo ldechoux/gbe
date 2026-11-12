@@ -100,18 +100,31 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Install a virtual camera
+        id: camera
         run: |
           sudo apt-get update
           # videodev, which v4l2loopback needs, is in the extra modules of
-          # the Azure kernel.
-          sudo apt-get install -y --no-install-recommends "linux-headers-$(uname -r)" \
-            "linux-modules-extra-$(uname -r)" v4l2loopback-dkms ffmpeg
+          # the Azure kernel. When the runner image moves to a new kernel,
+          # Ubuntu can take a while to publish them: the test is then
+          # skipped, with a warning, rather than failing every branch.
+          kernel="$(uname -r)"
+          for pkg in "linux-headers-$kernel" "linux-modules-extra-$kernel"; do
+            if ! apt-cache show "$pkg" >/dev/null 2>&1; then
+              echo "::warning title=webcam test skipped::$pkg is not published yet; the real camera is not tested on this runner"
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          sudo apt-get install -y --no-install-recommends "linux-headers-$kernel" \
+            "linux-modules-extra-$kernel" v4l2loopback-dkms ffmpeg
           sudo modprobe videodev
           sudo modprobe v4l2loopback devices=1 video_nr=9 card_label="gbe test camera" exclusive_caps=1 \
             || { sudo dmesg | tail -20; exit 1; }
           sudo udevadm settle # udev sets its own permissions on the node first
           sudo chmod 666 /dev/video9
+          echo "ready=true" >> "$GITHUB_OUTPUT"
       - name: Read it
+        if: steps.camera.outputs.ready == 'true'
         run: |
           ffmpeg -nostdin -loglevel error -re -f lavfi -i testsrc2=size=640x480:rate=30 \
             -pix_fmt yuyv422 -f v4l2 /dev/video9 &

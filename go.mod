@@ -6,9 +6,9 @@ require (
 	github.com/ebitengine/purego v0.11.3
 	github.com/hajimehoshi/ebiten/v2 v2.10.6
 	github.com/ncruces/zenity v0.10.15
-	golang.org/x/image v0.47.0
+	golang.org/x/image v0.48.0
 	golang.org/x/perf v0.0.0-20260929162123-406019bb8b68
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 )
 
 require (
@@ -23,6 +23,6 @@ require (
 	github.com/josephspurrier/goversioninfo v1.7.0 // indirect
 	github.com/randall77/makefat v0.0.0-20260406194835-1b91746796b7 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
-	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
